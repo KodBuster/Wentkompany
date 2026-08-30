@@ -2,7 +2,7 @@
 
 Хостинг: [cloud.amvera.ru](https://cloud.amvera.ru). Документация: [docs.amvera.ru](https://docs.amvera.ru/).
 
-Проект собирается через **Dockerfile** и слушает порт **3000** (`amvera.yml` → `run.containerPort`).
+Проект собирается через **Dockerfile** и слушает порт **80** (`amvera.yml` → `run.containerPort`) — это порт по умолчанию в Amvera.
 
 ---
 

@@ -1,6 +1,9 @@
 # Конфигурация для Amvera Cloud — https://docs.amvera.ru/applications/configuration/docker.html
 # Сборка идёт через Dockerfile в корне репозитория.
 # Переменные окружения (Telegram, CRM, HSTS) задаются в панели Amvera → Переменные.
+#
+# Важно: Amvera по умолчанию проксирует порт 80 и часто задаёт PORT=80.
+# Приложение должно слушать тот же порт, что указан в containerPort.
 
 run:
-  containerPort: 3000
+  containerPort: 80
