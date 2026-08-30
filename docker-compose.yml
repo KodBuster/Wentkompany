@@ -1,0 +1,18 @@
+# Запуск на сервере Timeweb Cloud.
+#   docker compose up -d --build
+# Секреты — в файле .env рядом с этим файлом (см. .env.example).
+services:
+  site:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_YM_ID: ${NEXT_PUBLIC_YM_ID}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      CRM_WEBHOOK_URL: ${CRM_WEBHOOK_URL}
+      ENABLE_HSTS: ${ENABLE_HSTS:-0}

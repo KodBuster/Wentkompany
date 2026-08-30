@@ -1,0 +1,142 @@
+[
+  {
+    "source": "/product/shhit-upravlenija-i-dispetcherizacii-dlja-zontov-s-gidrozatvorom-i-gidrofiltrov",
+    "destination": "/catalog/shhit-upravlenija-i-dispetcherizacii-dlja-zontov-s-gidrozatvorom-i-gidrofiltrov",
+    "permanent": true
+  },
+  {
+    "source": "/product/gidrofiltr",
+    "destination": "/catalog/gidrofiltr",
+    "permanent": true
+  },
+  {
+    "source": "/product/zonty-vytjazhnye-ostrovnye-s-gidrozatvorom-zvog",
+    "destination": "/catalog/zonty-vytjazhnye-ostrovnye-s-gidrozatvorom-zvog",
+    "permanent": true
+  },
+  {
+    "source": "/product/zont-vytjazhnoj-ostrovnoj-tip-1-zvo-1",
+    "destination": "/catalog/zont-vytjazhnoj-ostrovnoj-tip-1-zvo-1",
+    "permanent": true
+  },
+  {
+    "source": "/product/zont-vytjazhnoj-ostrovnoj-tip-2-zvo-2",
+    "destination": "/catalog/zont-vytjazhnoj-ostrovnoj-tip-2-zvo-2",
+    "permanent": true
+  },
+  {
+    "source": "/product/zont-vytjazhnoj-ostrovnoj-tip-3-zvo-3",
+    "destination": "/catalog/zont-vytjazhnoj-ostrovnoj-tip-3-zvo-3",
+    "permanent": true
+  },
+  {
+    "source": "/product/zonty-vytjazhnye-pristennye-s-gidrozatvorom-zvpg",
+    "destination": "/catalog/zonty-vytjazhnye-pristennye-s-gidrozatvorom-zvpg",
+    "permanent": true
+  },
+  {
+    "source": "/product/zont-vytjazhnoj-pristennyj-tip-1-zvp-1",
+    "destination": "/catalog/zont-vytjazhnoj-pristennyj-tip-1-zvp-1",
+    "permanent": true
+  },
+  {
+    "source": "/product/zont-vytjazhnoj-pristennyj-tip-2-zvp-2",
+    "destination": "/catalog/zont-vytjazhnoj-pristennyj-tip-2-zvp-2",
+    "permanent": true
+  },
+  {
+    "source": "/product/zont-vytjazhnoj-pristennyj-tip-3-zvp-3",
+    "destination": "/catalog/zont-vytjazhnoj-pristennyj-tip-3-zvp-3",
+    "permanent": true
+  },
+  {
+    "source": "/product/zont-pritochno-vytjazhnoj-ostrovnoj-tip-1-zpvo-1",
+    "destination": "/catalog/zont-pritochno-vytjazhnoj-ostrovnoj-tip-1-zpvo-1",
+    "permanent": true
+  },
+  {
+    "source": "/product/zont-pritochno-vytjazhnoj-ostrovnoj-tip-2-zpvo-2",
+    "destination": "/catalog/zont-pritochno-vytjazhnoj-ostrovnoj-tip-2-zpvo-2",
+    "permanent": true
+  },
+  {
+    "source": "/product/zont-pritochno-vytjazhnoj-ostrovnoj-tip-3-zpvo-3",
+    "destination": "/catalog/zont-pritochno-vytjazhnoj-ostrovnoj-tip-3-zpvo-3",
+    "permanent": true
+  },
+  {
+    "source": "/product/zont-pritochno-vytjazhnoj-pristennyj-tip-1-zpvp-1",
+    "destination": "/catalog/zont-pritochno-vytjazhnoj-pristennyj-tip-1-zpvp-1",
+    "permanent": true
+  },
+  {
+    "source": "/product/zont-pritochno-vytjazhnoj-pristennyj-tip-2-zpvp-2",
+    "destination": "/catalog/zont-pritochno-vytjazhnoj-pristennyj-tip-2-zpvp-2",
+    "permanent": true
+  },
+  {
+    "source": "/product/zont-pritochno-vytjazhnoj-pristennyj-tip-3-zpvp-3",
+    "destination": "/catalog/zont-pritochno-vytjazhnoj-pristennyj-tip-3-zpvp-3",
+    "permanent": true
+  },
+  {
+    "source": "/product/zonty-vytjazhnye-kupolnye-piramida",
+    "destination": "/catalog/zonty-vytjazhnye-kupolnye-piramida",
+    "permanent": true
+  },
+  {
+    "source": "/product-category/zonty-vytjazhnye-pristennye-zvp",
+    "destination": "/catalog/zvp",
+    "permanent": true
+  },
+  {
+    "source": "/product-category/zonty-vytjazhnye-ostrovnye-zvo",
+    "destination": "/catalog/zvo",
+    "permanent": true
+  },
+  {
+    "source": "/product-category/zonty-pritochno-vytjazhnye-pristennye",
+    "destination": "/catalog/zpvp",
+    "permanent": true
+  },
+  {
+    "source": "/product-category/zonty-pritochno-vytjazhnye-ostrovnye-zpvo",
+    "destination": "/catalog/zpvo",
+    "permanent": true
+  },
+  {
+    "source": "/product-category/zonty-vytjazhnye-pristennye-s-gidrozatvorom-zvpg",
+    "destination": "/catalog/zvpg",
+    "permanent": true
+  },
+  {
+    "source": "/product-category/zonty-vytjazhnye-ostrovnye-s-gidrozatvorom-zvog",
+    "destination": "/catalog/zvog",
+    "permanent": true
+  },
+  {
+    "source": "/product-category/zonty-vytjazhnye-kupolnye-piramida",
+    "destination": "/catalog/pir",
+    "permanent": true
+  },
+  {
+    "source": "/product-category/gidrofiltr",
+    "destination": "/catalog/gf",
+    "permanent": true
+  },
+  {
+    "source": "/product-category/avtomatika-dlja-gidrofiltrov",
+    "destination": "/catalog/avt",
+    "permanent": true
+  },
+  {
+    "source": "/shop",
+    "destination": "/catalog",
+    "permanent": true
+  },
+  {
+    "source": "/product-category/nejtralnoe-oborudovanie",
+    "destination": "/catalog",
+    "permanent": true
+  }
+]
