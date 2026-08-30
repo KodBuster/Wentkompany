@@ -15,14 +15,21 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Публичные переменные вшиваются в бандл на этапе сборки, а не в рантайме.
-# Их значения не секретны: адрес сайта и номер счётчика.
+# Timeweb: передаются build-args из docker-compose.
+# Amvera: переменные панели на сборке недоступны — читаем amvera.build.env из git.
 ARG NEXT_PUBLIC_SITE_URL=https://wentkompany.ru
 ARG NEXT_PUBLIC_YM_ID=
+ARG ENABLE_HSTS=0
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_YM_ID=$NEXT_PUBLIC_YM_ID
+ENV ENABLE_HSTS=$ENABLE_HSTS
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN npm run build
+COPY amvera.build.env* ./
+RUN set -a \
+  && { [ -f amvera.build.env ] && . ./amvera.build.env; true; } \
+  && set +a \
+  && npm run build
 
 # ---------- рантайм ----------
 FROM node:22-alpine AS runner

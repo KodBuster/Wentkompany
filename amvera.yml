@@ -1,0 +1,6 @@
+# Конфигурация для Amvera Cloud — https://docs.amvera.ru/applications/configuration/docker.html
+# Сборка идёт через Dockerfile в корне репозитория.
+# Переменные окружения (Telegram, CRM, HSTS) задаются в панели Amvera → Переменные.
+
+run:
+  containerPort: 3000

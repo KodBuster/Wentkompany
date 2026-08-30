@@ -288,5 +288,11 @@ Lighthouse (десктоп) после этапа 8:
 
 ## Деплой
 
-Хостинг — Timeweb Cloud (152-ФЗ, данные в РФ). Нужны переменные из `.env.example`.
-Картинки пока отдаёт старый домен (`next.config.ts` → `images.remotePatterns`), на этапе 8 переносим в `public/`.
+| Платформа | Инструкция |
+| --- | --- |
+| **Amvera Cloud** | [`docs/deploy-amvera.md`](docs/deploy-amvera.md) — Dockerfile + `amvera.yml`, ветка `main` |
+| **Timeweb Cloud** (152-ФЗ) | [`docs/deploy.md`](docs/deploy.md) — VPS, docker compose, nginx |
+
+Переменные: `.env.example` (Timeweb), `amvera.build.env` (публичные на сборке) + панель Amvera (секреты).
+
+Картинки пока отдаёт старый домен (`next.config.ts` → `images.remotePatterns`), перед переключением домена — `npm run images`.
