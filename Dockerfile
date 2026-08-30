@@ -36,9 +36,9 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-# Amvera по умолчанию ждёт порт 80 и может переопределить PORT.
-# Timeweb/docker-compose: переопределите PORT=3000 в environment при необходимости.
-ENV PORT=80
+# Порт ≥1024: процесс идёт не от root (USER nextjs), иначе EACCES на :80.
+# В amvera.yaml должен быть тот же containerPort.
+ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
 # не от root
@@ -49,6 +49,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
-EXPOSE 80
+EXPOSE 3000
 
 CMD ["node", "server.js"]

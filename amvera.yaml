@@ -11,5 +11,6 @@ build:
   dockerfile: Dockerfile
 
 run:
-  # Amvera по умолчанию проксирует 80; Dockerfile тоже слушает PORT=80
-  containerPort: 80
+  # Не 80: в образе USER nextjs → EACCES на привилегированных портах.
+  # Amvera проксирует containerPort наружу сам.
+  containerPort: 3000
