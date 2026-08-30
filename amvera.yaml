@@ -1,0 +1,15 @@
+# Конфигурация Amvera Cloud
+# https://docs.amvera.ru/applications/configuration/docker.html
+# Секреты (Telegram, CRM) — в панели Amvera → Переменные.
+
+meta:
+  environment: docker
+  toolchain:
+    name: docker
+
+build:
+  dockerfile: Dockerfile
+
+run:
+  # Amvera по умолчанию проксирует 80; Dockerfile тоже слушает PORT=80
+  containerPort: 80

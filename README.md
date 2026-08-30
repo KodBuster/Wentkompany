@@ -290,7 +290,7 @@ Lighthouse (десктоп) после этапа 8:
 
 | Платформа | Инструкция |
 | --- | --- |
-| **Amvera Cloud** | [`docs/deploy-amvera.md`](docs/deploy-amvera.md) — Dockerfile + `amvera.yml`, ветка `main` |
+| **Amvera Cloud** | [`docs/deploy-amvera.md`](docs/deploy-amvera.md) — Dockerfile + `amvera.yaml`, ветка `main` |
 | **Timeweb Cloud** (152-ФЗ) | [`docs/deploy.md`](docs/deploy.md) — VPS, docker compose, nginx |
 
 Переменные: `.env.example` (Timeweb), `amvera.build.env` (публичные на сборке) + панель Amvera (секреты).
