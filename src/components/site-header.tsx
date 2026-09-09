@@ -8,6 +8,7 @@ const links = [
   { href: '/dlya-obshchepita', label: 'Общепит' },
   { href: '/chastnyy-dom', label: 'Частный дом' },
   { href: '/catalog', label: 'Каталог' },
+  { href: '/nestandartnyy-zont', label: 'Нестандарт' },
   { href: '/configurator', label: 'Конфигуратор' },
   { href: '/contacts', label: 'Контакты' },
 ];

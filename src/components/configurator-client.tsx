@@ -199,6 +199,16 @@ export function Configurator({ models, families }: Props) {
             ? 'Эталонный типоразмер линейки — цена из прайса.'
             : 'Нестандарт: срок изготовления увеличивается, цену считает производство.'}
         </p>
+        {!isBase && (
+          <p className="hint mt-2">
+            Нужна не только другая величина, а другая форма — вырез под колонну, скошенная
+            стена, вывод патрубка вбок?{' '}
+            <Link href="/nestandartnyy-zont" style={{ color: 'var(--color-supply)' }}>
+              Делаем по вашему чертежу
+            </Link>
+            .
+          </p>
+        )}
 
         <div className="cfg-group">
           <div className="flex items-baseline justify-between gap-3">

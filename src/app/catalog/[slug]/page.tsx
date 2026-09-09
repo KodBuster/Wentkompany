@@ -5,6 +5,19 @@ import {
   families, products, familyBySlug, productBySlug, productsOf, traitsOf, shortName,
 } from '@/lib/catalog';
 import { calculate, rub, ru, dec } from '@/lib/calc';
+import { HoodDiagram } from '@/components/hood-diagram';
+
+/** Линейки коробчатой формы, к которым подходит схема с выносками.
+ *  «Пирамида» имеет другую геометрию, гидрофильтр и щит — не зонты. */
+const BOX_HOODS = ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'ЗВОГ'];
+
+/** Всё, что является зонтом: к нему применимы габарит, жироуловители и расчёт. */
+const HOODS = [...BOX_HOODS, 'ПИР'];
+/** Линейки, которые собираются в конфигураторе. */
+const CONFIGURABLE = BOX_HOODS;
+import { ProductGallery } from '@/components/product-gallery';
+import { HydroChoice } from '@/components/hydro-choice';
+import { AutomationModes } from '@/components/automation-modes';
 import { HoodDrawing } from '@/components/hood-drawing';
 import { ExportButtons } from '@/components/export-buttons';
 import { site } from '@/lib/site';
@@ -99,6 +112,22 @@ function FamilyView({ slug }: { slug: string }) {
           })}
         </div>
 
+        {BOX_HOODS.includes(family.code) && (
+          <>
+            <div className="head mt-14">
+              <p className="lbl">Устройство</p>
+              <h2>Как называются узлы</h2>
+              <p>
+                Термины из этой схемы используются в спецификации, в чертеже и в разговоре
+                с монтажником.
+              </p>
+            </div>
+            <div className="border p-6" style={{ borderColor: 'var(--hair)', background: 'var(--color-steel-900)' }}>
+              <HoodDiagram island={traits.island} supply={traits.supply} />
+            </div>
+          </>
+        )}
+
         <div className="mt-10 flex flex-wrap gap-3">
           <Link href="/configurator" className="btn">Собрать по своим размерам</Link>
           <Link href="/catalog" className="btn btn-ghost">Весь каталог</Link>
@@ -144,7 +173,11 @@ function ProductView({ slug }: { slug: string }) {
           <Link href="/" className="no-underline">Главная</Link><span>/</span>
           <Link href="/catalog" className="no-underline">Каталог</Link><span>/</span>
           {family && (<><Link href={`/catalog/${family.slug}`} className="no-underline">{family.code}</Link><span>/</span></>)}
-          <span>{p.type ?? (p.base ? `${p.base.h}/${p.base.w}/${p.base.d}` : p.article)}</span>
+          <span>
+            {p.type
+              ?? (p.base ? `${p.base.h}/${p.base.w}/${p.base.d}` : null)
+              ?? (p.article === family?.code ? p.name : p.article)}
+          </span>
         </nav>
 
         <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
@@ -155,32 +188,68 @@ function ProductView({ slug }: { slug: string }) {
             <h1 className="mt-3">{p.name.replace(/\s*\([^)]*\)\s*$/, '')}</h1>
             <p className="muted mt-5 max-w-[60ch]">{p.short}</p>
             {p.description && <p className="muted mt-4 max-w-[60ch] text-sm">{p.description}</p>}
+            {p.features.length > 0 && (
+              <ul className="muted mt-4 flex max-w-[60ch] list-disc flex-col gap-1.5 pl-4 text-sm">
+                {p.features.map((f) => <li key={f}>{f}</li>)}
+              </ul>
+            )}
 
             <div className="mt-8 flex flex-wrap items-baseline gap-4">
               <span className="num text-4xl">{p.price ? rub(p.price) : 'по запросу'}</span>
               {p.price && <span className="badge">цена за эталонный типоразмер</span>}
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/configurator" className="btn">Открыть в конфигураторе</Link>
-              <Link href="/contacts" className="btn btn-ghost">Запросить расчёт</Link>
+              {CONFIGURABLE.includes(p.family) ? (
+                <>
+                  <Link href="/configurator" className="btn">Открыть в конфигураторе</Link>
+                  <Link href="/contacts" className="btn btn-ghost">Запросить расчёт</Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/contacts" className="btn">Запросить расчёт</Link>
+                  <Link href="/normy-mchs" className="btn btn-ghost">Требования МЧС</Link>
+                </>
+              )}
             </div>
-            <p className="lbl mt-6 max-w-[60ch] leading-relaxed">
-              Скидка 10 % на первый заказ по промокоду {site.promo}. Стоимость носит информационный
-              характер и не является публичной офертой.
-            </p>
+            {p.price !== null && (
+              <p className="lbl mt-6 max-w-[60ch] leading-relaxed">
+                Скидка 10 % на первый заказ по промокоду {site.promo}. Стоимость носит информационный
+                характер и не является публичной офертой.
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-4">
+            {p.images.length > 0 && <ProductGallery images={p.images} alt={p.name} />}
             <div className="scroll-x border" style={{ borderColor: 'var(--hair)', background: 'var(--color-steel-900)' }}>
               <table className="spec">
                 <tbody>
                   <tr><th>Артикул</th><td>{p.article}</td></tr>
                   <tr><th>Тип</th><td>{family?.title.toLowerCase()}</td></tr>
-                  <tr><th>Габарит H/W/D</th><td>{p.base ? `${p.base.h} / ${p.base.w} / ${p.base.d} мм` : '—'}</td></tr>
-                  <tr><th>Материал</th><td>{p.materials.join(' · ')}</td></tr>
-                  <tr><th>Жироуловители</th><td>{p.greaseTraps ? 'лабиринтные, съёмные' : 'не устанавливаются'}</td></tr>
-                  <tr><th>Сварка</th><td>инверторная аргонодуговая</td></tr>
-                  <tr><th>Толщина стали</th><td style={{ color: 'var(--color-warn)' }}>уточняется по чертежу</td></tr>
+                  {p.base && (
+                    <tr><th>Габарит H/W/D</th><td>{`${p.base.h} / ${p.base.w} / ${p.base.d} мм`}</td></tr>
+                  )}
+                  {p.family !== 'АВТ' && (
+                    <>
+                      <tr><th>Материал</th><td>{p.materials.join(' · ')}</td></tr>
+                      {HOODS.includes(p.family) && (
+                        <tr>
+                          <th>Жироуловители</th>
+                          <td>{p.greaseTraps ? 'лабиринтные, съёмные' : 'не устанавливаются'}</td>
+                        </tr>
+                      )}
+                      <tr><th>Сварка</th><td>инверторная аргонодуговая</td></tr>
+                      <tr><th>Толщина стали</th><td style={{ color: 'var(--color-warn)' }}>уточняется по чертежу</td></tr>
+                    </>
+                  )}
+                  {p.family === 'АВТ' && (
+                    <>
+                      <tr><th>Назначение</th><td>зонты с гидрозатвором и гидрофильтры</td></tr>
+                      <tr><th>Контроль</th><td>давление воды, температура продуктов горения</td></tr>
+                      <tr><th>Сигнализация</th><td>световая и звуковая</td></tr>
+                      <tr><th>Электроснабжение</th><td style={{ color: 'var(--color-warn)' }}>1-я категория, по проекту объекта</td></tr>
+                    </>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -199,9 +268,24 @@ function ProductView({ slug }: { slug: string }) {
                 </table>
               </div>
             )}
-            <p className="lbl">Синим — расчётные величины конфигуратора, методика сверяется с производством.</p>
+            {c && (
+              <p className="lbl">Синим — расчётные величины конфигуратора, методика сверяется с производством.</p>
+            )}
           </div>
         </div>
+
+        {BOX_HOODS.includes(p.family) && p.images.length === 0 && p.base && (
+          <>
+            <div className="head mt-14">
+              <p className="lbl">Устройство</p>
+              <h2>Как называются узлы</h2>
+              <p>Термины из этой схемы используются в спецификации, в чертеже и в разговоре с монтажником.</p>
+            </div>
+            <div className="border p-6" style={{ borderColor: 'var(--hair)', background: 'var(--color-steel-900)' }}>
+              <HoodDiagram island={traits.island} supply={traits.supply} />
+            </div>
+          </>
+        )}
 
         {c && p.base && (
           <>
@@ -228,7 +312,7 @@ function ProductView({ slug }: { slug: string }) {
           </>
         )}
 
-        {p.options.length > 0 && (
+        {HOODS.includes(p.family) && p.options.length > 0 && (
           <>
             <div className="head mt-14"><p className="lbl">Комплектация</p><h2>Дополнительное оборудование</h2></div>
             <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
@@ -242,7 +326,7 @@ function ProductView({ slug }: { slug: string }) {
           </>
         )}
 
-        {traits.hydro && (
+        {traits.hydro && p.family !== 'АВТ' && (
           <>
             <div className="head mt-14"><p className="lbl">Нормы</p><h2>Требования к этому изделию</h2></div>
             <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
@@ -259,6 +343,28 @@ function ProductView({ slug }: { slug: string }) {
               ))}
             </div>
             <Link href="/normy-mchs" className="btn mt-6">Полный разбор пп. 5.28–5.33</Link>
+
+            <div className="head mt-14">
+              <p className="lbl">Выбор решения</p>
+              <h2>Гидрозонт или гидрофильтр</h2>
+              <p>Оба закрывают п. 5.30. Разница — в том, сколько аппаратов на линии и есть ли место над очагом.</p>
+            </div>
+            <HydroChoice />
+          </>
+        )}
+
+        {p.family === 'АВТ' && (
+          <>
+            <div className="head mt-14">
+              <p className="lbl">Как это работает</p>
+              <h2>Три сценария защиты</h2>
+              <p>
+                Пункт 5.30 требует датчиков температуры и сигнализаторов давления воды. Щит — это
+                то, чем требование закрывается физически.
+              </p>
+            </div>
+            <AutomationModes />
+            <Link href="/normy-mchs" className="btn mt-6">Разбор требований МЧС</Link>
           </>
         )}
 

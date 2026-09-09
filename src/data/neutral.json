@@ -1,0 +1,37 @@
+{
+  "comment": "Нейтральное оборудование из нержавеющей стали. Это не типоразмеры с артикулами и прайсом, а примеры работ по размерам заказчика — поэтому одна страница-галерея, а не карточки товаров. Фото временные: вырезаны из карточек старого сайта.",
+  "groups": [
+    {
+      "slug": "barnye-stancii",
+      "title": "Барные станции",
+      "lead": "Мойка, отсеки под лёд и бутылки, перфорированная вставка, ополаскиватель. Делаются под конкретную стойку: встраиваемые в столешницу, на открытой раме или с закрытой тумбой.",
+      "photos": [
+        "/nejtralnoe/barnaya-stanciya-1-1.webp",
+        "/nejtralnoe/barnaya-stanciya-1-2.webp",
+        "/nejtralnoe/barnaya-stanciya-3-1.webp",
+        "/nejtralnoe/barnaya-stanciya-4-1.webp",
+        "/nejtralnoe/barnaya-stanciya-4-3.webp",
+        "/nejtralnoe/barnaya-stanciya-4-4.webp",
+        "/nejtralnoe/barnaya-stanciya-5-1.webp",
+        "/nejtralnoe/barnaya-stanciya-5-2.webp",
+        "/nejtralnoe/barnaya-stanciya-5-3.webp"
+      ]
+    },
+    {
+      "slug": "shkafy-dlya-musora",
+      "title": "Шкафы для мусора",
+      "lead": "Закрытый корпус под бак, откидная крышка, при необходимости — колёса. Ставятся в зоне мойки и на линии раздачи, где открытый бак не годится по санитарным требованиям.",
+      "photos": [
+        "/nejtralnoe/shkaf-dlya-musora-1.webp",
+        "/nejtralnoe/shkaf-dlya-musora-2.webp",
+        "/nejtralnoe/shkaf-dlya-musora-3.webp"
+      ]
+    },
+    {
+      "slug": "urny",
+      "title": "Урны",
+      "lead": "Для зала, входной группы и летней веранды: с крышкой и открытые, под размер помещения и под нужный объём вкладыша.",
+      "photos": ["/nejtralnoe/urna-1.webp"]
+    }
+  ]
+}

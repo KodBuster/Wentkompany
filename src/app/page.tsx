@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { HoodDiagram } from '@/components/hood-diagram';
 import { hoodFamilies, complianceProducts, priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { norms } from '@/lib/site';
@@ -170,6 +171,32 @@ export default function HomePage() {
               «Оптимизация систем вентиляции горячих цехов предприятий общественного питания», КиберЛенинка
             </a>
           </p>
+        </div>
+      </section>
+
+      <section className="band band-shop">
+        <div className="wrap">
+          <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+            <div>
+              <p className="lbl">Производство по чертежам заказчика</p>
+              <h2 className="mt-4">Зонт под место,<br />а не место под зонт</h2>
+              <p className="muted mt-5 max-w-[52ch]">
+                Ниша нетиповой ширины, скошенная стена, колонна посреди зоны, вывод тракта вбок.
+                Изделие варится под конкретное место, а чертёж вы согласуете до запуска
+                в производство.
+              </p>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <Link href="/nestandartnyy-zont" className="btn">Зонт по вашему чертежу</Link>
+                <Link href="/configurator" className="btn btn-ghost">Посчитать габарит</Link>
+              </div>
+            </div>
+            <div
+              className="border p-5"
+              style={{ borderColor: 'var(--hair)', background: 'var(--color-steel-900)' }}
+            >
+              <HoodDiagram />
+            </div>
+          </div>
         </div>
       </section>
 

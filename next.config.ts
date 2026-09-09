@@ -18,10 +18,6 @@ const nextConfig: NextConfig = {
       statusCode: 301 as const,
     }));
   },
-  images: {
-    // на время миграции картинки отдаёт старый домен
-    remotePatterns: [{ protocol: 'https', hostname: 'wentkompany.ru' }],
-  },
   async headers() {
     return [
       {

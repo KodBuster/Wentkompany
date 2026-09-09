@@ -33,6 +33,12 @@ export function SiteFooter() {
             <Link href="/chastnyy-dom" className="mb-1.5 block text-sm no-underline text-steel-400 hover:text-steel-100">
               Для частного дома
             </Link>
+            <Link href="/nestandartnyy-zont" className="mb-1.5 block text-sm no-underline text-steel-400 hover:text-steel-100">
+              Зонт по вашему чертежу
+            </Link>
+            <Link href="/eshchyo-delaem" className="mb-1.5 block text-sm no-underline text-steel-400 hover:text-steel-100">
+              Нейтральное оборудование
+            </Link>
             <Link href="/normy-mchs" className="mb-1.5 block text-sm no-underline text-steel-400 hover:text-steel-100">
               Требования СП 7.13130 · Изм. № 3
             </Link>

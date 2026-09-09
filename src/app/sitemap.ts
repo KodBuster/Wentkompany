@@ -11,7 +11,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: url('/normy-mchs'), lastModified: now, changeFrequency: 'monthly', priority: 0.95 },
     { url: url('/dlya-obshchepita'), lastModified: now, changeFrequency: 'monthly', priority: 0.9 },
     { url: url('/chastnyy-dom'), lastModified: now, changeFrequency: 'monthly', priority: 0.85 },
+    { url: url('/nestandartnyy-zont'), lastModified: now, changeFrequency: 'monthly', priority: 0.88 },
     { url: url('/catalog'), lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
+    { url: url('/eshchyo-delaem'), lastModified: now, changeFrequency: 'monthly', priority: 0.45 },
     { url: url('/contacts'), lastModified: now, changeFrequency: 'yearly', priority: 0.5 },
     ...families.map((f) => ({
       url: url(`/catalog/${f.slug}`),

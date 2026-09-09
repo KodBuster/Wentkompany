@@ -22,6 +22,8 @@ export interface Product {
   materials: string[];
   options: string[];
   short: string;
+  /** короткий список свойств; выводится маркированным списком на карточке */
+  features: string[];
   description: string;
   images: string[];
   legacyUrl: string;

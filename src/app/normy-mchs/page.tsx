@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ComplianceCheck } from '@/components/compliance-check';
 import { TractScheme } from '@/components/tract-scheme';
+import { HydroChoice } from '@/components/hydro-choice';
+import { AutomationModes } from '@/components/automation-modes';
 import { complianceProducts } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { norms, site } from '@/lib/site';
@@ -198,6 +200,41 @@ export default function NormyPage() {
           <div className="border p-6" style={{ borderColor: 'var(--hair)', background: 'var(--color-steel-900)' }}>
             <TractScheme />
           </div>
+        </div>
+      </section>
+
+      <section className="band band-deep" id="vybor">
+        <div className="wrap">
+          <div className="head">
+            <p className="lbl">Выбор решения</p>
+            <h2>Гидрозонт или гидрофильтр</h2>
+            <p className="muted">
+              Пункт 5.30 закрывают оба. Выбор определяется не качеством очистки, а тем, сколько
+              аппаратов на горячей линии и есть ли над очагом место под зонт с гидроконтуром.
+            </p>
+          </div>
+          <HydroChoice />
+        </div>
+      </section>
+
+      <section className="band band-shop" id="avtomatika">
+        <div className="wrap">
+          <div className="head">
+            <p className="lbl">Пункт 5.30 · автоматика</p>
+            <h2>Датчики и сигнализация — чем это закрывается</h2>
+            <p className="muted">
+              Норма требует датчиков температуры на входах в фильтр, сигнализаторов срабатывания
+              при 95 % от максимальной рабочей температуры и при падении давления воды, сигнала
+              не менее 85 дБ на расстоянии 1 м и питания по 1-й категории надёжности. Наш щит
+              управления и диспетчеризации делает это тремя сценариями.
+            </p>
+          </div>
+          <AutomationModes />
+          <p className="hint mt-4 max-w-[76ch]">
+            Электроснабжение по 1-й категории надёжности закладывается в проект электроснабжения
+            объекта — это зона проектировщика, а не поставщика оборудования.
+          </p>
+          <Link href="/catalog/avt" className="btn mt-6">Щит управления и диспетчеризации</Link>
         </div>
       </section>
 
