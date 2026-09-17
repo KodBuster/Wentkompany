@@ -116,27 +116,29 @@ const faqJsonLd = {
 export default function ObshchepitPage() {
   return (
     <>
-      <section className="band band-shop">
+      <section className="band band-shop page-hero">
         <div className="wrap">
-          <p className="lbl">Ресторан · кафе · столовая · тёмная кухня</p>
-          <h1 className="mt-5">
-            Кухня работает,<br />
-            <span style={{ color: 'var(--color-extract)' }}>канал чистый,</span><br />
-            приёмка проходит.
-          </h1>
-          <p className="muted mt-6 max-w-[58ch] text-lg">
-            Зонты, гидрозонты и гидрофильтры собственного производства. Считаем комплект под вашу
-            линию оборудования, отдаём чертежи в проект и делаем монтаж.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/contacts" className="btn">Запросить расчёт комплекта</Link>
-            <Link href="/configurator" className="btn btn-ghost">Собрать зонт и увидеть цену</Link>
+          <div className="max-w-[58ch]">
+            <p className="lbl">Ресторан · кафе · столовая · тёмная кухня</p>
+            <h1>
+              Кухня работает.<br />
+              <span style={{ color: 'var(--color-extract)' }}>Канал чистый.</span><br />
+              Приёмка проходит.
+            </h1>
+            <p className="muted mt-6 text-lg leading-relaxed">
+              Зонты, гидрозонты и гидрофильтры собственного производства. Считаем комплект под вашу
+              линию, отдаём чертежи в проект и выполняем монтаж.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/contacts" className="btn">Запросить расчёт комплекта</Link>
+              <Link href="/configurator" className="btn btn-ghost">Собрать зонт и увидеть цену</Link>
+            </div>
+            <p className="hint mt-5">
+              Открытый огонь на линии — сначала{' '}
+              <Link href="/normy-mchs" style={{ color: 'var(--color-supply)' }}>требования МЧС</Link>,
+              затем оборудование.
+            </p>
           </div>
-          <p className="hint mt-5">
-            Открытый огонь на линии — сначала{' '}
-            <Link href="/normy-mchs" style={{ color: 'var(--color-supply)' }}>требования МЧС</Link>,
-            потом оборудование.
-          </p>
         </div>
       </section>
 
@@ -171,7 +173,7 @@ export default function ObshchepitPage() {
             <p className="lbl">Комплект</p>
             <h2>Что ставим на объект общепита</h2>
             <p>
-              Цены — из действующего прайса за базовый типоразмер. Нестандарт считается от площади
+              Цены — из действующего прайса для базового типоразмера. Нестандарт считается от площади
               изделия, итог подтверждаем расчётом.
             </p>
           </div>

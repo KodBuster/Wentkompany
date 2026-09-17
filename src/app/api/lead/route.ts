@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     phone: clean(body.phone, 30),
     object: clean(body.object, 120),
     task: clean(body.task, 1200),
-    configuration: clean(body.configuration, 400),
+    configuration: clean(body.configuration, 1200),
     page: clean(body.page, 200),
     at: new Date().toISOString(),
   };

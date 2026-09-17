@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, ContactShadows, Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -25,16 +25,17 @@ function StudioEnvironment() {
     canvas.height = 256;
     const ctx = canvas.getContext('2d')!;
 
+    /* Тёплый «цех» под палитру сайта — металл читается бронзово, не холодно-серо */
     const sky = ctx.createLinearGradient(0, 0, 0, 256);
-    sky.addColorStop(0, '#e8f0f5');
-    sky.addColorStop(0.45, '#8fa3b0');
-    sky.addColorStop(0.52, '#2b3a44');
-    sky.addColorStop(1, '#0d151a');
+    sky.addColorStop(0, '#f3ebe3');
+    sky.addColorStop(0.42, '#c4a890');
+    sky.addColorStop(0.52, '#3d322c');
+    sky.addColorStop(1, '#1a1612');
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, 512, 256);
 
     // световые панели цеха — дают металлу продольные блики
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#fff6ea';
     ctx.globalAlpha = 0.9;
     ctx.fillRect(40, 26, 190, 26);
     ctx.fillRect(300, 40, 150, 18);
@@ -68,16 +69,19 @@ function useMaterials(mode: ViewMode, material: '430' | '304') {
   return useMemo(() => {
     const xray = mode === 'xray';
     const steel = new THREE.MeshStandardMaterial({
-      color: material === '304' ? '#9FB0BC' : '#8B9CA8',
-      metalness: 0.88,
-      roughness: material === '304' ? 0.2 : 0.3,
+      color: material === '304' ? '#B9AFA3' : '#A89888',
+      metalness: 0.86,
+      roughness: material === '304' ? 0.22 : 0.32,
       side: THREE.DoubleSide,
       transparent: xray,
       opacity: xray ? 0.18 : 1,
       depthWrite: !xray,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
     });
     const dark = new THREE.MeshStandardMaterial({
-      color: '#33454F',
+      color: '#3A322C',
       metalness: 0.7,
       roughness: 0.5,
       transparent: xray,
@@ -85,10 +89,13 @@ function useMaterials(mode: ViewMode, material: '430' | '304') {
       depthWrite: !xray,
     });
     const filter = new THREE.MeshStandardMaterial({
-      color: '#93A5B0',
-      metalness: 0.8,
-      roughness: 0.45,
+      color: '#A89A8C',
+      metalness: 0.78,
+      roughness: 0.48,
       side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     });
     const water = new THREE.MeshStandardMaterial({
       color: '#58B4DC',
@@ -107,13 +114,16 @@ function useMaterials(mode: ViewMode, material: '430' | '304') {
     });
     const ghost = mode !== 'solid';
     const corpus = new THREE.MeshStandardMaterial({
-      color: material === '304' ? '#9FB0BC' : '#8B9CA8',
-      metalness: 0.88,
-      roughness: material === '304' ? 0.2 : 0.3,
+      color: material === '304' ? '#B9AFA3' : '#A89888',
+      metalness: 0.86,
+      roughness: material === '304' ? 0.22 : 0.32,
       side: THREE.DoubleSide,
       transparent: ghost,
       opacity: xray ? 0.16 : ghost ? 0.32 : 1,
       depthWrite: !ghost,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
     });
     return { steel, dark, filter, water, lamp, corpus };
   }, [mode, material]);
@@ -123,14 +133,9 @@ function useMaterials(mode: ViewMode, material: '430' | '304') {
 /* Узлы изделия                                                        */
 /* ------------------------------------------------------------------ */
 
-/** Корпус: усечённая пирамида. CylinderGeometry с 4 сегментами даёт ровно её. */
+/** Корпус: усечённая пирамида. Нижняя кромка — над жёлобом, без пересечения mesh. */
 function Corpus({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
-  const { dims, top } = layout;
-  const geometry = useMemo(() => {
-    const g = new THREE.CylinderGeometry(Math.SQRT1_2, Math.SQRT1_2, 1, 4, 1, true);
-    g.rotateY(Math.PI / 4);
-    return g;
-  }, []);
+  const { dims, top, gutterHeight } = layout;
 
   // масштаб: верх уже низа, поэтому конусность задаём через два масштаба
   const scaleTop = top.w / dims.w;
@@ -140,14 +145,17 @@ function Corpus({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
     return g;
   }, [scaleTop]);
 
-  useEffect(() => () => { geometry.dispose(); geo.dispose(); }, [geometry, geo]);
+  useEffect(() => () => { geo.dispose(); }, [geo]);
+
+  const bodyH = Math.max(dims.h - gutterHeight, 40);
+  const bodyY = gutterHeight + bodyH / 2;
 
   return (
     <mesh
       geometry={geo}
       material={mat}
-      scale={[dims.w * MM, dims.h * MM, dims.d * MM]}
-      position={[0, (dims.h / 2) * MM, 0]}
+      scale={[dims.w * MM, bodyH * MM, dims.d * MM]}
+      position={[0, bodyY * MM, 0]}
       castShadow
     />
   );
@@ -178,10 +186,12 @@ function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; 
 /** Жиросборный жёлоб и отбортовка по нижней кромке. */
 function Gutter({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
   const { dims, gutterHeight, lip } = layout;
-  const w = dims.w * MM;
-  const d = dims.d * MM;
+  /* Чуть внутрь габарита — грани не торчат сквозь обшивку корпуса */
+  const inset = 2 * MM;
+  const w = dims.w * MM - inset * 2;
+  const d = dims.d * MM - inset * 2;
   const h = gutterHeight * MM;
-  const t = 40 * MM;
+  const t = 36 * MM;
   return (
     <group position={[0, h / 2, 0]}>
       {[
@@ -194,20 +204,25 @@ function Gutter({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
           <boxGeometry args={p.size as [number, number, number]} />
         </mesh>
       ))}
-      <mesh material={mat} position={[0, -h / 2, 0]}>
-        <boxGeometry args={[w + lip * 2 * MM, 4 * MM, d + lip * 2 * MM]} />
+      <mesh material={mat} position={[0, -h / 2 + 1 * MM, 0]}>
+        <boxGeometry args={[w + lip * 2 * MM, 3 * MM, d + lip * 2 * MM]} />
       </mesh>
     </group>
   );
 }
 
-/** Лабиринтные кассеты по открытым сторонам. */
+/** Лабиринтные кассеты по открытым сторонам — внутри проёма, без прокола обшивки. */
 function Filters({ layout, mat, offset }: { layout: Layout; mat: THREE.Material; offset: number }) {
-  const { dims, filters, gutterHeight } = layout;
-  const y = (gutterHeight + BUILD.filter.h / 2 + 40) * MM;
+  const { dims, filters, gutterHeight, top } = layout;
+  const maxFh = Math.max(80, dims.h - gutterHeight - 100);
+  const fhMm = Math.min(BUILD.filter.h, maxFh);
+  const y = (gutterHeight + fhMm / 2 + 24) * MM;
   const fw = BUILD.filter.w * MM;
-  const fh = BUILD.filter.h * MM;
+  const fh = fhMm * MM;
   const ft = BUILD.filter.t * MM;
+  /* Учитываем завал стенок на высоте кассет */
+  const taperFrac = Math.min(1, (gutterHeight + fhMm / 2) / Math.max(dims.h, 1));
+  const wallPull = Math.min(BUILD.taperMax, Math.max(dims.w, dims.d) * BUILD.taper) * taperFrac * 0.55;
 
   return (
     <group>
@@ -215,9 +230,14 @@ function Filters({ layout, mat, offset }: { layout: Layout; mat: THREE.Material;
         Array.from({ length: row.count }, (_, i) => {
           const along = -row.span / 2 + row.step * (i + 0.5);
           const half = (row.side === 'front' || row.side === 'back' ? dims.d : dims.w) / 2;
-          const inset = (half - 90) * MM + offset;
+          const inset = (half - 130 - wallPull) * MM + offset;
           const key = `${row.side}-${i}`;
-          const scale: [number, number, number] = [Math.min(fw, row.step * MM * 0.92), fh, ft];
+          const alongLimit =
+            row.side === 'front' || row.side === 'back'
+              ? (top.w / 2 - 40) * MM
+              : (top.d / 2 - 40) * MM;
+          const alongClamped = Math.max(-alongLimit, Math.min(alongLimit, along * MM));
+          const scale: [number, number, number] = [Math.min(fw, row.step * MM * 0.88), fh, ft];
 
           if (row.side === 'front' || row.side === 'back') {
             const dir = row.side === 'front' ? 1 : -1;
@@ -225,7 +245,7 @@ function Filters({ layout, mat, offset }: { layout: Layout; mat: THREE.Material;
               <mesh
                 key={key}
                 material={mat}
-                position={[along * MM, y, dir * inset]}
+                position={[alongClamped, y, dir * inset]}
                 rotation={[dir * BUILD.filterTilt * DEG, 0, 0]}
                 scale={scale}
               >
@@ -238,7 +258,7 @@ function Filters({ layout, mat, offset }: { layout: Layout; mat: THREE.Material;
             <mesh
               key={key}
               material={mat}
-              position={[dir * inset, y, along * MM]}
+              position={[dir * inset, y, alongClamped]}
               rotation={[0, Math.PI / 2, -dir * BUILD.filterTilt * DEG]}
               scale={scale}
             >
@@ -260,18 +280,18 @@ function HydroLoop({ layout, mat, water }: { layout: Layout; mat: THREE.Material
   return (
     <group>
       <mesh material={mat} position={[0, y, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[16 * MM, 16 * MM, dims.w * 0.92 * MM, 12]} />
+        <cylinderGeometry args={[14 * MM, 14 * MM, dims.w * 0.82 * MM, 12]} />
       </mesh>
       {Array.from({ length: nozzles }, (_, i) => {
         const x = (nozzles === 1 ? 0 : -usable / 2 + (usable * i) / (nozzles - 1)) * MM;
-        const curtainH = y - gutterHeight * MM;
+        const curtainH = Math.max(y - gutterHeight * MM - 20 * MM, 40 * MM);
         return (
           <group key={i} position={[x, y, 0]}>
-            <mesh material={mat} position={[0, -24 * MM, 0]}>
-              <coneGeometry args={[18 * MM, 40 * MM, 10]} />
+            <mesh material={mat} position={[0, -20 * MM, 0]}>
+              <coneGeometry args={[14 * MM, 32 * MM, 10]} />
             </mesh>
-            <mesh material={water} position={[0, -curtainH / 2 - 40 * MM, 0]}>
-              <coneGeometry args={[dims.d * 0.3 * MM, curtainH, 14, 1, true]} />
+            <mesh material={water} position={[0, -curtainH / 2 - 28 * MM, 0]}>
+              <coneGeometry args={[dims.d * 0.22 * MM, curtainH, 14, 1, true]} />
             </mesh>
           </group>
         );
@@ -328,20 +348,126 @@ function SupplySlot({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
   );
 }
 
-/** Автоподгонка дистанции камеры под габарит: ракурс сохраняется. */
-function CameraRig({ dims }: { dims: Dims }) {
-  const { camera } = useThree();
+/** Габарит изделия в мировой СК (низ жёлоба → верх патрубка/подвесов). */
+function hoodExtents(dims: Dims, hasHangers: boolean) {
+  const topMm = dims.h + Math.max(BUILD.spigot, hasHangers ? BUILD.hanger.len : 0);
+  return {
+    yMin: -4 * MM,
+    yMax: topMm * MM,
+    halfW: (dims.w / 2 + BUILD.lip) * MM,
+    halfD: (dims.d / 2 + BUILD.lip) * MM,
+    span: Math.max(dims.w, dims.d, topMm) * MM,
+  };
+}
+
+const VIEW_DIR = new THREE.Vector3(0.52, 0.48, 0.72).normalize();
+
+/**
+ * Кадр от верхней точки модели: верх детали с зазором от верха viewport,
+ * низ не вылезает вниз. После ручного orbit — только масштаб дистанции.
+ */
+function CameraRig({
+  dims,
+  hasHangers,
+  userMoved,
+}: {
+  dims: Dims;
+  hasHangers: boolean;
+  userMoved: MutableRefObject<boolean>;
+}) {
+  const { camera, controls, size } = useThree();
+  const lastSpan = useRef(0);
+
   useEffect(() => {
     const perspective = camera as THREE.PerspectiveCamera;
-    const maxDim = Math.max(dims.w, dims.d, dims.h + BUILD.spigot) * MM;
-    const dist = (maxDim / 2 / Math.tan((perspective.fov * DEG) / 2)) * 2.1 + 0.6;
-    const dir = perspective.position.clone().normalize();
-    if (dir.lengthSq() === 0) dir.set(0.62, 0.5, 0.75).normalize();
-    perspective.position.copy(dir.multiplyScalar(dist));
-    perspective.near = 0.05;
-    perspective.far = dist * 8;
+    const ext = hoodExtents(dims, hasHangers);
+    const orbit = controls as {
+      target: THREE.Vector3;
+      update: () => void;
+      minDistance: number;
+      maxDistance: number;
+    } | null;
+
+    perspective.aspect = size.width / Math.max(size.height, 1);
     perspective.updateProjectionMatrix();
-  }, [camera, dims.w, dims.d, dims.h]);
+
+    const vFov = perspective.fov * DEG;
+    const tanV = Math.tan(vFov / 2);
+    const hFov = 2 * Math.atan(tanV * perspective.aspect);
+    const tanH = Math.tan(hFov / 2);
+
+    /* Доли viewport: отступ сверху от верхней точки, снизу и с боков */
+    const topInset = 0.08;
+    const bottomInset = 0.1;
+    const sideInset = 0.08;
+
+    const boxH = ext.yMax - ext.yMin;
+    const boxHoriz = Math.max(ext.halfW, ext.halfD) * 2 * 1.2;
+
+    let dist = boxH / ((1 - topInset - bottomInset) * 2 * tanV);
+    dist = Math.max(dist, boxHoriz / ((1 - 2 * sideInset) * 2 * tanH));
+    dist *= 1.06;
+
+    const applyTopFit = () => {
+      for (let i = 0; i < 4; i++) {
+        const halfV = tanV * dist;
+        /* yMax → ndcY = 1 − 2·topInset */
+        const targetY = ext.yMax - (1 - 2 * topInset) * halfV;
+        const ndcBottom = (ext.yMin - targetY) / halfV;
+        const minNdc = -1 + 2 * bottomInset;
+        if (ndcBottom >= minNdc - 0.02) {
+          if (orbit) {
+            orbit.target.set(0, targetY, 0);
+            perspective.position.copy(orbit.target).addScaledVector(VIEW_DIR, dist);
+            orbit.update();
+          } else {
+            const target = new THREE.Vector3(0, targetY, 0);
+            perspective.position.copy(target).addScaledVector(VIEW_DIR, dist);
+            perspective.lookAt(target);
+          }
+          return dist;
+        }
+        /* Низ вылезает — отодвигаем, сохраняя привязку верха */
+        const usable = (1 - 2 * topInset) - minNdc;
+        dist = Math.max(dist * 1.04, boxH / (usable * 2 * tanV));
+      }
+      const halfV = tanV * dist;
+      const targetY = ext.yMax - (1 - 2 * topInset) * halfV;
+      if (orbit) {
+        orbit.target.set(0, targetY, 0);
+        perspective.position.copy(orbit.target).addScaledVector(VIEW_DIR, dist);
+        orbit.update();
+      }
+      return dist;
+    };
+
+    let usedDist = dist;
+    if (!userMoved.current || lastSpan.current === 0) {
+      usedDist = applyTopFit();
+    } else if (orbit && lastSpan.current > 0) {
+      const ratio = ext.span / lastSpan.current;
+      if (Number.isFinite(ratio) && Math.abs(ratio - 1) > 0.002) {
+        const t = orbit.target;
+        const offset = perspective.position.clone().sub(t).multiplyScalar(ratio);
+        perspective.position.copy(t.clone().add(offset));
+        usedDist = offset.length();
+        orbit.update();
+      } else {
+        usedDist = perspective.position.distanceTo(orbit.target);
+      }
+    }
+
+    lastSpan.current = ext.span;
+    perspective.near = 0.05;
+    perspective.far = Math.max(usedDist * 12, ext.span * 20);
+    perspective.updateProjectionMatrix();
+
+    if (orbit) {
+      orbit.minDistance = ext.span * 0.45 + 0.4;
+      orbit.maxDistance = ext.span * 12 + 6;
+    }
+  }, [camera, controls, size.width, size.height, dims.w, dims.d, dims.h, hasHangers, userMoved]);
+
   return null;
 }
 
@@ -438,9 +564,13 @@ export function HoodScene({ dims, traits, ducts, mode, material, lamps }: HoodSc
     [dims, traits, ducts, lamps],
   );
 
+  /* Пользователь сдвинул/приблизил сцену — не затираем ракурс при смене мм */
+  const userMoved = useRef(false);
+  const hasHangers = layout.hangers.length > 0;
+
   const radius = Math.max(dims.w, dims.d) * MM;
   const camera = useMemo(
-    () => ({ position: [2.2, 1.8, 2.7] as [number, number, number], fov: 34 }),
+    () => ({ position: [2.2, 2.0, 2.9] as [number, number, number], fov: 32 }),
     [],
   );
 
@@ -452,12 +582,13 @@ export function HoodScene({ dims, traits, ducts, mode, material, lamps }: HoodSc
       style={{ background: 'transparent' }}
     >
       <StudioEnvironment />
-      <CameraRig dims={dims} />
-      <hemisphereLight args={['#dce6ec', '#0b1116', 0.7]} />
-      <directionalLight position={[3, 5, 2]} intensity={1.15} />
-      <directionalLight position={[-4, 2, -3]} intensity={0.5} color="#8fb6cc" />
+      <CameraRig dims={dims} hasHangers={hasHangers} userMoved={userMoved} />
+      <hemisphereLight args={['#efe6dc', '#1a1612', 0.72]} />
+      <directionalLight position={[3, 5, 2]} intensity={1.12} color="#fff4e8" />
+      <directionalLight position={[-4, 2, -3]} intensity={0.48} color="#c4a890" />
 
-      <group position={[0, -dims.h * MM * 0.5, 0]}>
+      {/* Низ модели у y≈0 — вертикаль кадра считает CameraRig от верхней точки */}
+      <group position={[0, 0, 0]}>
         <Hood layout={layout} mode={mode} material={material} showLabels={mode === 'explode'} />
         <ContactShadows
           position={[0, -0.02, 0]}
@@ -470,13 +601,19 @@ export function HoodScene({ dims, traits, ducts, mode, material, lamps }: HoodSc
       </group>
 
       <OrbitControls
-        enablePan={false}
-        minPolarAngle={0.2}
-        maxPolarAngle={Math.PI / 2.05}
-        minDistance={radius * 0.9 + 0.4}
-        maxDistance={radius * 8 + 4}
+        makeDefault
+        enablePan
+        screenSpacePanning
+        panSpeed={0.85}
+        minPolarAngle={0.12}
+        maxPolarAngle={Math.PI / 2.02}
+        minDistance={radius * 0.7 + 0.5}
+        maxDistance={radius * 10 + 5}
         enableDamping
         dampingFactor={0.08}
+        onStart={() => {
+          userMoved.current = true;
+        }}
       />
     </Canvas>
   );

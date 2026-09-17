@@ -148,12 +148,25 @@ const EDITORIAL = {
 };
 
 /** Локальные фото в public/. Внешние адреса старого сайта на новом не используем. */
+/** Локальные фото в public/catalog — порт с wentkompany.ru, порядок как на карточках. */
 const LOCAL_IMAGES = {
-  'ЗВПГ': ['/catalog/zvpg-1.webp', '/catalog/zvpg-4.webp', '/catalog/zvpg-2.webp', '/catalog/zvpg-3.webp'],
-  'ЗВОГ': ['/catalog/zvog-1.webp', '/catalog/zvog-3.webp', '/catalog/zvog-2.webp'],
-  'ГФ':   ['/catalog/gf-1.webp', '/catalog/gf-2.webp', '/catalog/gf-3.webp'],
-  'АВТ':  ['/catalog/avt-1.webp', '/catalog/avt-2.webp'],
-  'ПИР':  ['/catalog/pir-1.webp'],
+  'АВТ': ['/catalog/avt-1.webp', '/catalog/avt-2.webp'],
+  'ГФ': ['/catalog/gf-1.jpg', '/catalog/gf-2.jpg', '/catalog/gf-3.jpg'],
+  'ЗВОГ': ['/catalog/zvog-1.jpg', '/catalog/zvog-2.jpg', '/catalog/zvog-3.jpg'],
+  'ЗВО-1': ['/catalog/zvo-1.webp'],
+  'ЗВО-2': ['/catalog/zvo-2.webp'],
+  'ЗВО-3': ['/catalog/zvo-3.jpg'],
+  'ЗВПГ': ['/catalog/zvpg-1.jpg', '/catalog/zvpg-2.jpg', '/catalog/zvpg-3.jpg'],
+  'ЗВП-1': ['/catalog/zvp-1.webp'],
+  'ЗВП-2': ['/catalog/zvp-2.webp'],
+  'ЗВП-3': ['/catalog/zvp-3.webp'],
+  'ЗПВО-1': ['/catalog/zpvo-1.webp'],
+  'ЗПВО-2': ['/catalog/zpvo-2.webp'],
+  'ЗПВО-3': ['/catalog/zpvo-3.webp'],
+  'ЗПВП-1': ['/catalog/zpvp-1.jpg'],
+  'ЗПВП-2': ['/catalog/zpvp-2.webp'],
+  'ЗПВП-3': ['/catalog/zpvp-3.webp'],
+  'ПИР': ['/catalog/pir.webp'],
 };
 
 const products = [];

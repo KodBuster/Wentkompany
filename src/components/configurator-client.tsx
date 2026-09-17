@@ -1,6 +1,12 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import {
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { calculate, ru, rub, dec, type Dims, type FamilyTraits } from '@/lib/calc';
@@ -35,13 +41,17 @@ export interface ConfiguratorFamily extends FamilyTraits {
 interface Props {
   models: ConfiguratorModel[];
   families: ConfiguratorFamily[];
+  /** Deep-link из каталога: slug модели */
+  initialSlug?: string;
+  /** Deep-link: габариты h/w/d, если переданы */
+  initialDims?: Partial<Dims>;
 }
 
 const LIMITS = {
-  w: { min: 600, max: 3000, step: 50 },
-  d: { min: 600, max: 1600, step: 50 },
-  h: { min: 300, max: 700, step: 50 },
-  mount: { min: 1600, max: 2600, step: 50 },
+  w: { min: 600, max: 3000, step: 1 },
+  d: { min: 600, max: 1600, step: 1 },
+  h: { min: 300, max: 700, step: 1 },
+  mount: { min: 1600, max: 2600, step: 1 },
 };
 
 const OPTIONS = [
@@ -50,6 +60,8 @@ const OPTIONS = [
   'Кран для слива жира и конденсата',
   'Точечные светодиодные светильники',
 ];
+
+const DEFAULT_MOUNT = 2000;
 
 function SceneStub({ text }: { text: string }) {
   return (
@@ -68,13 +80,171 @@ function hasWebGL() {
   }
 }
 
-export function Configurator({ models, families }: Props) {
-  const [modelSlug, setModelSlug] = useState(() => models.find((m) => m.family === 'ЗВОГ')?.slug ?? models[0].slug);
-  const model = models.find((m) => m.slug === modelSlug)!;
+function clampDim(n: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+/** Разумный дефолт без гидро — первый ЗВП, иначе первая не-гидро модель. */
+function defaultModelSlug(models: ConfiguratorModel[], families: ConfiguratorFamily[]) {
+  const zvp = models.find((m) => m.family === 'ЗВП');
+  if (zvp) return zvp.slug;
+  const nonHydro = models.find((m) => {
+    const f = families.find((x) => x.code === m.family);
+    return f && !f.hydro;
+  });
+  return nonHydro?.slug ?? models[0].slug;
+}
+
+function resolveInitialSlug(
+  models: ConfiguratorModel[],
+  families: ConfiguratorFamily[],
+  initialSlug?: string,
+) {
+  if (initialSlug && models.some((m) => m.slug === initialSlug)) return initialSlug;
+  return defaultModelSlug(models, families);
+}
+
+function resolveInitialDims(model: ConfiguratorModel, initialDims?: Partial<Dims>): Dims {
+  const pick = (key: keyof Dims, lim: { min: number; max: number }) => {
+    const raw = initialDims?.[key];
+    if (typeof raw === 'number' && Number.isFinite(raw)) return clampDim(raw, lim.min, lim.max);
+    return model[key];
+  };
+  return {
+    h: pick('h', LIMITS.h),
+    w: pick('w', LIMITS.w),
+    d: pick('d', LIMITS.d),
+  };
+}
+
+/** Полная строка конфигурации для заявки (заказ / точная цена). */
+function buildCfgText(input: {
+  family: ConfiguratorFamily;
+  model: ConfiguratorModel;
+  dims: Dims;
+  mount: number;
+  material: string;
+  options: string[];
+  airflow: number;
+  ducts: { count: number; diameter: number };
+  price: { value: number; estimate: boolean } | null;
+}) {
+  const { family, model, dims, mount, material, options, airflow, ducts, price } = input;
+  const bits = [
+    `${family.code} · ${model.article}`,
+    `H/W/D ${dims.h}/${dims.w}/${dims.d} мм`,
+    `кромка от пола ${mount} мм`,
+    `AISI ${material}`,
+    options.length ? `опции: ${options.join(', ')}` : 'опции: нет',
+    `расход ${ru(airflow)} м³/ч`,
+    `патрубки ${ducts.count}×Ø${ducts.diameter}`,
+    price
+      ? `оценка ${price.estimate ? '≈ ' : ''}${rub(price.value)}`
+      : 'цена по запросу',
+  ];
+  return bits.join(' · ');
+}
+
+/**
+ * Поле габарита: подпись + мм, − / трек / +, колесо ±1 мм на активном поле.
+ */
+function DimSlider({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  onChange,
+  ariaLabel,
+  hint,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (v: number) => void;
+  ariaLabel: string;
+  hint?: ReactNode;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const [active, setActive] = useState(false);
+
+  const set = (n: number) => onChange(clampDim(n, min, max));
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || !active) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const dir = e.deltaY > 0 ? -step : step;
+      onChange(clampDim(valueRef.current + dir, min, max));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [active, min, max, step, onChange]);
+
+  return (
+    <div
+      ref={rootRef}
+      className={`cfg-dim${active ? ' is-active' : ''}`}
+      onMouseEnter={() => setActive(true)}
+      onMouseLeave={() => setActive(false)}
+      onFocusCapture={() => setActive(true)}
+      onBlurCapture={(e) => {
+        if (!rootRef.current?.contains(e.relatedTarget as Node | null)) setActive(false);
+      }}
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="lbl">{label}</span>
+        <span className="num">{value} мм</span>
+      </div>
+      <div className="cfg-dim-row">
+        <button
+          type="button"
+          className="cfg-dim-btn"
+          aria-label={`${ariaLabel}: минус 1 мм`}
+          disabled={value <= min}
+          onClick={() => set(value - step)}
+        >
+          −
+        </button>
+        <input
+          type="range"
+          className="cfg-range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          aria-label={ariaLabel}
+          onChange={(e) => set(+e.target.value)}
+        />
+        <button
+          type="button"
+          className="cfg-dim-btn"
+          aria-label={`${ariaLabel}: плюс 1 мм`}
+          disabled={value >= max}
+          onClick={() => set(value + step)}
+        >
+          +
+        </button>
+      </div>
+      {hint}
+    </div>
+  );
+}
+
+export function Configurator({ models, families, initialSlug, initialDims }: Props) {
+  const [modelSlug, setModelSlug] = useState(() =>
+    resolveInitialSlug(models, families, initialSlug),
+  );
+  const model = models.find((m) => m.slug === modelSlug) ?? models[0];
   const family = families.find((f) => f.code === model.family)!;
 
-  const [dims, setDims] = useState<Dims>({ h: model.h, w: model.w, d: model.d });
-  const [mount, setMount] = useState(2000);
+  const [dims, setDims] = useState<Dims>(() => resolveInitialDims(model, initialDims));
+  const [mount, setMount] = useState(DEFAULT_MOUNT);
   const [material, setMaterial] = useState<'430' | '304'>('430');
   const [options, setOptions] = useState<string[]>([]);
   const [mode, setMode] = useState<ViewMode>('solid');
@@ -105,6 +275,7 @@ export function Configurator({ models, families }: Props) {
 
   function reset() {
     setDims(base);
+    setMount(DEFAULT_MOUNT);
     setMaterial('430');
     setOptions([]);
     setMode('solid');
@@ -114,6 +285,21 @@ export function Configurator({ models, families }: Props) {
   const isBase = dims.h === base.h && dims.w === base.w && dims.d === base.d;
   const title = `${model.article} · ${dims.h}/${dims.w}/${dims.d}`;
   const familyModels = models.filter((m) => m.family === model.family);
+
+  const cfgText = buildCfgText({
+    family,
+    model,
+    dims,
+    mount,
+    material,
+    options,
+    airflow: calc.airflow,
+    ducts: calc.ducts,
+    price: calc.price,
+  });
+
+  const orderHref = `/contacts?mode=order&cfg=${encodeURIComponent(cfgText)}`;
+  const quoteHref = `/contacts?mode=quote&cfg=${encodeURIComponent(cfgText)}`;
 
   const spec: [string, string][] = [
     [`${model.article} · ${dims.h}/${dims.w}/${dims.d}`, '1 шт'],
@@ -174,59 +360,44 @@ export function Configurator({ models, families }: Props) {
         <div className="cfg-sep" />
 
         {(['w', 'd', 'h'] as const).map((key) => (
-          <div className="cfg-group" key={key}>
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="lbl">
-                {key === 'w' ? 'Ширина W' : key === 'd' ? 'Глубина D' : 'Высота короба H'}
-              </span>
-              <span className="num">{dims[key]} мм</span>
-            </div>
-            <input
-              type="range"
-              className="cfg-range"
-              min={LIMITS[key].min}
-              max={LIMITS[key].max}
-              step={LIMITS[key].step}
-              value={dims[key]}
-              aria-label={key === 'w' ? 'Ширина, мм' : key === 'd' ? 'Глубина, мм' : 'Высота короба, мм'}
-              onChange={(e) => setDims((s) => ({ ...s, [key]: +e.target.value }))}
-            />
-          </div>
+          <DimSlider
+            key={key}
+            label={key === 'w' ? 'Ширина W' : key === 'd' ? 'Глубина D' : 'Высота короба H'}
+            value={dims[key]}
+            min={LIMITS[key].min}
+            max={LIMITS[key].max}
+            step={LIMITS[key].step}
+            ariaLabel={key === 'w' ? 'Ширина, мм' : key === 'd' ? 'Глубина, мм' : 'Высота короба, мм'}
+            onChange={(v) => setDims((s) => ({ ...s, [key]: v }))}
+          />
         ))}
 
-        <p className={isBase ? 'hint' : 'hint hint-warn'}>
-          {isBase
-            ? 'Эталонный типоразмер линейки — цена из прайса.'
-            : 'Нестандарт: срок изготовления увеличивается, цену считает производство.'}
-        </p>
-        {!isBase && (
-          <p className="hint mt-2">
-            Нужна не только другая величина, а другая форма — вырез под колонну, скошенная
-            стена, вывод патрубка вбок?{' '}
+        {isBase ? (
+          <p className="hint">Эталонный типоразмер линейки — цена из прайса.</p>
+        ) : (
+          <p className="hint">
+            Нужна другая форма — вырез, скос, патрубок вбок?{' '}
             <Link href="/nestandartnyy-zont" style={{ color: 'var(--color-supply)' }}>
-              Делаем по вашему чертежу
+              По вашему чертежу
             </Link>
             .
           </p>
         )}
 
-        <div className="cfg-group">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="lbl">Нижняя кромка от пола</span>
-            <span className="num">{mount} мм</span>
-          </div>
-          <input
-            type="range"
-            className="cfg-range"
-            min={LIMITS.mount.min}
-            max={LIMITS.mount.max}
-            step={LIMITS.mount.step}
-            value={mount}
-            aria-label="Высота нижней кромки от пола, мм"
-            onChange={(e) => setMount(+e.target.value)}
-          />
-          <p className="hint">Свес над оборудованием: {ru(mount - 850)} мм при высоте линии 850 мм.</p>
-        </div>
+        <DimSlider
+          label="Нижняя кромка от пола"
+          value={mount}
+          min={LIMITS.mount.min}
+          max={LIMITS.mount.max}
+          step={LIMITS.mount.step}
+          ariaLabel="Высота нижней кромки от пола, мм"
+          onChange={setMount}
+          hint={
+            <p className="hint">
+              Свес над оборудованием: {ru(mount - 850)} мм при высоте линии 850 мм.
+            </p>
+          }
+        />
 
         <div className="cfg-sep" />
 
@@ -245,7 +416,9 @@ export function Configurator({ models, families }: Props) {
               </button>
             ))}
           </div>
-          <p className="hint">AISI 304 — для влажных зон и гидроконтура. Надбавка оценочная, уточняется у производства.</p>
+          <p className="hint">
+            AISI 304 — для влажных зон и гидроконтура. Надбавка оценочная, уточняется у производства.
+          </p>
         </div>
 
         <div className="cfg-group">
@@ -268,22 +441,37 @@ export function Configurator({ models, families }: Props) {
         <button type="button" className="btn btn-ghost w-full" onClick={reset}>
           Сбросить конфигурацию
         </button>
+
+        <div className="cfg-cta-block">
+          <Link href={orderHref} className="btn w-full">
+            Отправить заказ
+          </Link>
+          <p className="hint mt-2">
+            Берём сборку как на экране: чертёж, КП и спецификация уйдут в заявку.
+          </p>
+        </div>
       </aside>
 
       {/* ---------------- сцена ---------------- */}
       <div className="cfg-stage">
         <div className="cfg-toolbar">
           <div className="cfg-seg">
-            <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}>3D</button>
-            <button type="button" aria-pressed={view === 'draft'} onClick={() => setView('draft')}>Чертёж</button>
+            <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}>
+              3D
+            </button>
+            <button type="button" aria-pressed={view === 'draft'} onClick={() => setView('draft')}>
+              Чертёж
+            </button>
           </div>
           {view === '3d' && (
             <div className="cfg-seg">
-              {([
-                ['solid', 'Реализм'],
-                ['xray', 'Рентген'],
-                ['explode', 'Разнос'],
-              ] as [ViewMode, string][]).map(([m, label]) => (
+              {(
+                [
+                  ['solid', 'Реализм'],
+                  ['xray', 'Рентген'],
+                  ['explode', 'Разнос'],
+                ] as [ViewMode, string][]
+              ).map(([m, label]) => (
                 <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>
                   {label}
                 </button>
@@ -328,11 +516,32 @@ export function Configurator({ models, families }: Props) {
           )}
         </div>
         <div className="cfg-status">
-          <span>МОДЕЛЬ <b>{model.article}</b></span>
-          <span>ГАБАРИТ H/W/D <b>{dims.h}/{dims.w}/{dims.d}</b></span>
-          <span>МАТЕРИАЛ <b>AISI {material}</b></span>
-          <span>РЕЖИМ <b>{view === 'draft' ? 'ЧЕРТЁЖ' : mode === 'solid' ? 'РЕАЛИЗМ' : mode === 'xray' ? 'РЕНТГЕН' : 'РАЗНОС'}</b></span>
-          <span>ЕДИНИЦЫ <b>мм</b></span>
+          <span>
+            МОДЕЛЬ <b>{model.article}</b>
+          </span>
+          <span>
+            ГАБАРИТ H/W/D <b>
+              {dims.h}/{dims.w}/{dims.d}
+            </b>
+          </span>
+          <span>
+            МАТЕРИАЛ <b>AISI {material}</b>
+          </span>
+          <span>
+            РЕЖИМ{' '}
+            <b>
+              {view === 'draft'
+                ? 'ЧЕРТЁЖ'
+                : mode === 'solid'
+                  ? 'РЕАЛИЗМ'
+                  : mode === 'xray'
+                    ? 'РЕНТГЕН'
+                    : 'РАЗНОС'}
+            </b>
+          </span>
+          <span>
+            ЕДИНИЦЫ <b>мм</b>
+          </span>
         </div>
       </div>
 
@@ -349,6 +558,24 @@ export function Configurator({ models, families }: Props) {
             </span>
           )}
         </div>
+
+        {calc.warnings.length > 0 && (
+          <div className="cfg-group cfg-alerts">
+            <span className="lbl">Внимание</span>
+            {calc.warnings.map((w) => (
+              <span
+                key={w}
+                className={
+                  w.startsWith('п. 5.30') || w.startsWith('Нестандарт')
+                    ? 'badge badge-crit'
+                    : 'badge badge-warn'
+                }
+              >
+                {w}
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="cfg-group">
           <span className="lbl">Расчёт</span>
@@ -374,17 +601,6 @@ export function Configurator({ models, families }: Props) {
           </dl>
         </div>
 
-        {calc.warnings.length > 0 && (
-          <div className="cfg-group">
-            <span className="lbl">Внимание</span>
-            {calc.warnings.map((w) => (
-              <span key={w} className={w.startsWith('п. 5.30') ? 'badge badge-crit' : 'badge badge-warn'}>
-                {w}
-              </span>
-            ))}
-          </div>
-        )}
-
         <div className="cfg-group">
           <span className="lbl">Выгрузка</span>
           <ExportButtons slug={model.slug} dims={dims} material={material} options={options} />
@@ -396,13 +612,18 @@ export function Configurator({ models, families }: Props) {
           </p>
         </div>
 
-        <Link href={`/contacts?cfg=${encodeURIComponent(title)}`} className="btn w-full">
-          Получить точную цену
-        </Link>
-        <p className="hint mt-3">
-          Цена нестандартного габарита — оценка по площади материала от эталонного типоразмера.
-          Точный расчёт делает производство.
-        </p>
+        <div className="cfg-cta-block">
+          <Link href={quoteHref} className="btn w-full">
+            Получить точную цену
+          </Link>
+          <p className="hint mt-2">
+            Производство пересчитает по вашим вводным: приложите эскизы и пояснения в заявке.
+          </p>
+          <p className="hint mt-3">
+            Цена нестандартного габарита — оценка по площади материала от эталонного типоразмера.
+            Точный расчёт делает производство.
+          </p>
+        </div>
       </aside>
     </div>
   );

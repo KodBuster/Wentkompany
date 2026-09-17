@@ -99,23 +99,25 @@ const faqJsonLd = {
 export default function NormyPage() {
   return (
     <>
-      <section className="band band-shop">
+      <section className="band band-shop page-hero">
         <div className="wrap">
-          <p className="lbl">
-            {norms.change} к {norms.sp} · {norms.order} · в силе с {norms.inForce}
-          </p>
-          <h1 className="mt-5">
-            Мангал и тандыр<br />
-            теперь <span style={{ color: 'var(--color-extract)' }}>по правилам МЧС</span>
-          </h1>
-          <p className="muted mt-6 max-w-[58ch] text-lg">
-            Раздел 5 свода правил дополнен пунктами {norms.clauses}: впервые прямо урегулировано удаление
-            продуктов горения от мангалов, тандыров и других теплогенерирующих аппаратов на твёрдом топливе.
-            Ниже — что именно требуется и чем это закрывается.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="#check" className="btn">Проверить объект по чек-листу</Link>
-            <Link href="/configurator" className="btn btn-ghost">Собрать зонт в конфигураторе</Link>
+          <div className="max-w-[62ch]">
+            <p className="lbl">
+              {norms.change} к {norms.sp} · {norms.order} · в силе с {norms.inForce}
+            </p>
+            <h1>
+              Мангал и тандыр<br />
+              теперь <span style={{ color: 'var(--color-extract)' }}>по правилам МЧС</span>
+            </h1>
+            <p className="muted mt-6 text-lg leading-relaxed">
+              Раздел 5 свода правил дополнен пунктами {norms.clauses}: впервые прямо урегулировано удаление
+              продуктов горения от мангалов, тандыров и других аппаратов на твёрдом топливе.
+              Ниже — что требуется и чем это закрывается.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="#check" className="btn">Проверить объект по чек-листу</Link>
+              <Link href="/configurator" className="btn btn-ghost">Собрать зонт в конфигураторе</Link>
+            </div>
           </div>
           <div className="tiles mt-12" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))' }}>
             {[
@@ -257,7 +259,7 @@ export default function NormyPage() {
           <div className="head">
             <p className="lbl">Комплект соответствия</p>
             <h2>Что производим под это требование</h2>
-            <p>Цены — за эталонный типоразмер в формате «высота / ширина / глубина». Нестандарт считаем по объекту.</p>
+            <p>Цены — для эталонного типоразмера в формате «высота / ширина / глубина». Нестандарт считаем по объекту.</p>
           </div>
           <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
             {complianceProducts.map((p) => (
@@ -270,7 +272,7 @@ export default function NormyPage() {
                 <p className="muted line-clamp-4 text-sm">{p.short || p.description}</p>
                 <span
                   className="num mt-auto border-t pt-3 text-xl"
-                  style={{ borderColor: 'var(--hair-l)', color: 'var(--color-steel-900)' }}
+                  style={{ borderColor: 'var(--hair-l)', color: 'var(--color-steel-100)' }}
                 >
                   {p.price ? `от ${rub(p.price)}` : 'по запросу'}
                 </span>

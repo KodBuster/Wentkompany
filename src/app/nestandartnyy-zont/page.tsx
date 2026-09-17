@@ -133,10 +133,10 @@ const faqJsonLd = {
 export default function CustomHoodPage() {
   return (
     <>
-      <section className="band band-shop">
+      <section className="band band-shop page-hero">
         <div className="wrap">
           <p className="lbl">Производство по чертежам и эскизам заказчика</p>
-          <h1 className="mt-5">
+          <h1>
             Зонт под место,<br />
             <span style={{ color: 'var(--color-extract)' }}>а не место под зонт</span>
           </h1>

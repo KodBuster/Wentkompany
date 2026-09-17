@@ -80,7 +80,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Изделие не найдено в каталоге' }, { status: 404 });
   }
 
-  const dims = validateDims(body.dims) ?? product.base;
+  const dims = validateDims(body.dims);
+  if (!dims) {
+    return NextResponse.json(
+      { error: 'Некорректные габариты: укажите H/W/D в допустимых пределах' },
+      { status: 400 },
+    );
+  }
   const material = body.material === '304' ? '304' : '430';
   const options = Array.isArray(body.options)
     ? body.options.filter((o): o is string => typeof o === 'string' && OPTIONS.includes(o))

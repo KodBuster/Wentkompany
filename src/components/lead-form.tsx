@@ -24,12 +24,46 @@ const fileSize = (bytes: number) =>
     ? `${Math.max(1, Math.round(bytes / 1024))} КБ`
     : `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} МБ`;
 
-export function LeadForm({ configuration }: { configuration?: string }) {
+export function LeadForm({
+  configuration,
+  mode,
+}: {
+  configuration?: string;
+  /** order — заказ по сборке; quote — ручной пересчёт с файлами */
+  mode?: 'order' | 'quote';
+}) {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
   const [drawing, setDrawing] = useState<File | null>(null);
   const [drawingSent, setDrawingSent] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const isOrder = mode === 'order';
+  const isQuote = mode === 'quote';
+
+  const cfgLabel = isOrder
+    ? 'Заказ по конфигурации'
+    : isQuote
+      ? 'Запрос точной цены'
+      : 'Конфигурация прикреплена';
+
+  const taskPlaceholder = isOrder
+    ? 'Адрес объекта, желаемый срок, комментарии к пакету документов'
+    : isQuote
+      ? 'Что пересчитать: вырезы, нестандарт, материалы, особые требования — и что на эскизах'
+      : 'Например: тандыр и мангал во встроенном помещении, потолок 3,2 м, приёмка в ноябре';
+
+  const fileHint = isQuote
+    ? `Приложите эскизы, чертежи или фото узла — PDF, DXF или фото до ${MAX_MB} МБ. Файл уходит менеджеру вместе с заявкой и на сервере не сохраняется.`
+    : isOrder
+      ? `По желанию — план кухни или фото места монтажа (до ${MAX_MB} МБ). Конфигурация уже в заявке; файл на сервере не сохраняется.`
+      : `Фото, PDF или DXF до ${MAX_MB} МБ. Подойдёт эскиз от руки с размерами — файл уходит менеджеру вместе с заявкой и на сервере не сохраняется.`;
+
+  const submitLabel = isOrder
+    ? 'Отправить заказ'
+    : isQuote
+      ? 'Запросить точную цену'
+      : 'Отправить заявку';
 
   function pickFile(f: File | null) {
     if (f && f.size > MAX_MB * 1024 * 1024) {
@@ -52,12 +86,20 @@ export function LeadForm({ configuration }: { configuration?: string }) {
     try {
       // Заголовок Content-Type не ставим: браузер сам добавит границу multipart
       fd.set('page', window.location.pathname);
-      if (configuration) fd.set('configuration', configuration);
+      if (configuration) {
+        const prefix = isOrder
+          ? '[Заказ · пакет документов] '
+          : isQuote
+            ? '[Точная цена · ручной расчёт] '
+            : '';
+        fd.set('configuration', `${prefix}${configuration}`);
+      }
+      if (mode) fd.set('leadMode', mode);
       if (!drawing) fd.delete('drawing');
       const res = await fetch('/api/lead', { method: 'POST', body: fd });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Не удалось отправить заявку');
       setStatus('ok');
-      track(GOALS.leadSent, { withConfiguration: Boolean(configuration), withDrawing: Boolean(drawing) });
+      track(GOALS.leadSent, { withConfiguration: Boolean(configuration), withDrawing: Boolean(drawing), mode: mode ?? 'plain' });
       setDrawingSent(Boolean(drawing));
       form.reset();
       setDrawing(null);
@@ -91,9 +133,22 @@ export function LeadForm({ configuration }: { configuration?: string }) {
       style={{ borderColor: 'var(--hair)', background: 'var(--color-steel-900)' }}
     >
       {configuration && (
-        <div className="border p-3" style={{ borderColor: 'var(--color-supply)', background: 'rgba(88,180,220,.1)' }}>
-          <span className="lbl" style={{ color: 'var(--color-supply)' }}>Конфигурация прикреплена</span>
-          <p className="num mt-1 text-sm">{configuration}</p>
+        <div
+          className="border p-3"
+          style={{
+            borderColor: isQuote ? 'var(--color-extract)' : 'var(--color-supply)',
+            background: isQuote ? 'rgba(184,92,56,.1)' : 'rgba(88,180,220,.1)',
+          }}
+        >
+          <span
+            className="lbl"
+            style={{ color: isQuote ? 'var(--color-extract)' : 'var(--color-supply)' }}
+          >
+            {cfgLabel}
+          </span>
+          <p className="num mt-1 text-sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {configuration}
+          </p>
         </div>
       )}
       <label className="field">
@@ -111,17 +166,31 @@ export function LeadForm({ configuration }: { configuration?: string }) {
         </select>
       </label>
       <label className="field">
-        <span className="lbl">Задача</span>
+        <span className="lbl">{isQuote ? 'Пояснения и хотелки' : 'Задача'}</span>
         <textarea
           className="input"
           name="task"
           maxLength={1200}
-          placeholder="Например: тандыр и мангал во встроенном помещении, потолок 3,2 м, приёмка в ноябре"
+          placeholder={taskPlaceholder}
         />
       </label>
 
-      <div className="field">
-        <span className="lbl">Чертёж или эскиз</span>
+      <div
+        className="field"
+        style={
+          isQuote
+            ? {
+                border: '1px solid rgba(184,92,56,.35)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0.75rem',
+                background: 'rgba(184,92,56,.06)',
+              }
+            : undefined
+        }
+      >
+        <span className="lbl">
+          {isQuote ? 'Эскизы и чертежи для пересчёта' : 'Чертёж или эскиз'}
+        </span>
         {/* Нативную кнопку прячем: её надпись зависит от языка системы
             и на русской странице легко оказывается «Choose File». */}
         <input
@@ -135,7 +204,7 @@ export function LeadForm({ configuration }: { configuration?: string }) {
         />
         <div className="flex flex-wrap items-center gap-3">
           <label htmlFor="lead-drawing" className="btn btn-ghost cursor-pointer">
-            {drawing ? 'Выбрать другой' : 'Выбрать файл'}
+            {drawing ? 'Выбрать другой' : isQuote ? 'Приложить файл' : 'Выбрать файл'}
           </label>
           {drawing && (
             <>
@@ -156,10 +225,7 @@ export function LeadForm({ configuration }: { configuration?: string }) {
             </>
           )}
         </div>
-        <span className="hint">
-          Фото, PDF или DXF до {MAX_MB} МБ. Подойдёт эскиз от руки с размерами — файл уходит
-          менеджеру вместе с заявкой и на сервере не сохраняется.
-        </span>
+        <span className="hint">{fileHint}</span>
       </div>
 
       {/* honeypot для ботов — скрыт от людей и скринридеров */}
@@ -179,7 +245,7 @@ export function LeadForm({ configuration }: { configuration?: string }) {
       )}
 
       <button className="btn" type="submit" disabled={status === 'sending'}>
-        {status === 'sending' ? 'Отправляем…' : 'Отправить заявку'}
+        {status === 'sending' ? 'Отправляем…' : submitLabel}
       </button>
     </form>
   );

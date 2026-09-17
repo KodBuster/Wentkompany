@@ -5,8 +5,9 @@ import {
   buildSheet, toSheet, STAMP_BOX,
   type DrawingInput, type Point, type Polyline, type View, type Dimension,
 } from '@/lib/drawing';
+import { HoverZoom } from './hover-zoom';
 
-const PAPER = '#F7F9FA';
+const PAPER = '#F3EEE6';
 const INK = '#14202A';
 const THIN = '#6B7A85';
 const DIM = '#1E6E93';
@@ -96,14 +97,16 @@ export function HoodDrawing({ input }: { input: DrawingInput }) {
 
   return (
     <div className="drawing-wrap">
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${sheet.width} ${sheet.height}`}
-        xmlns="http://www.w3.org/2000/svg"
-        role="img"
-        aria-label={`Чертёж ${sheet.designation}, три проекции, масштаб ${sheet.scaleLabel}`}
-        className="drawing-sheet"
-      >
+      <HoverZoom className="drawing-zoom" scale={1.55} maxScale={2.5}>
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${sheet.width} ${sheet.height}`}
+          preserveAspectRatio="xMidYMin meet"
+          xmlns="http://www.w3.org/2000/svg"
+          role="img"
+          aria-label={`Чертёж ${sheet.designation}, три проекции, масштаб ${sheet.scaleLabel}`}
+          className="drawing-sheet"
+        >
         <rect x={0} y={0} width={sheet.width} height={sheet.height} fill={PAPER} />
         <rect
           x={sheet.margin.left}
@@ -209,12 +212,18 @@ export function HoodDrawing({ input }: { input: DrawingInput }) {
           })}
         </g>
       </svg>
+      </HoverZoom>
 
       <div className="drawing-actions">
         <span className="lbl">
           Лист {sheet.format} · масштаб {sheet.scaleLabel} · {sheet.designation}
         </span>
-        <button type="button" className="btn btn-ghost" onClick={downloadSvg}>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={downloadSvg}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           Скачать SVG
         </button>
       </div>

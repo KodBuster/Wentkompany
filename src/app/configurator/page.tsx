@@ -14,7 +14,13 @@ export const metadata: Metadata = {
 /** В клиент уходит только то, что нужно сцене и расчёту — описания и картинки остаются на сервере. */
 const CONFIGURABLE = ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'ЗВОГ'];
 
-export default function ConfiguratorPage() {
+export default async function ConfiguratorPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ slug?: string; h?: string; w?: string; d?: string }>;
+}) {
+  const sp = await searchParams;
+
   const models: ConfiguratorModel[] = products
     .filter((p) => CONFIGURABLE.includes(p.family) && p.base)
     .map((p) => ({
@@ -39,19 +45,30 @@ export default function ConfiguratorPage() {
       hydro: f.hydro,
     }));
 
+  const num = (v?: string) => {
+    if (v == null || v === '') return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
   return (
-    <section className="band band-shop" style={{ paddingBlock: '2.5rem' }}>
+    <section className="band band-shop page-hero">
       <div className="wrap">
-        <div className="head" style={{ marginBottom: '1.4rem' }}>
+        <div className="head" style={{ marginBottom: '1rem' }}>
           <p className="lbl">Конфигуратор</p>
-          <h1 style={{ fontSize: 'clamp(1.8rem,4vw,3rem)' }}>Соберите изделие по своим размерам</h1>
-          <p className="muted">
+          <h1>Соберите изделие по своим размерам</h1>
+          <p className="muted mt-2 max-w-[58ch] leading-relaxed">
             Габариты задаёте вы — корпус, жёлоб, кассеты, гидроконтур, патрубки и подвесы
             пересчитываются вместе с ними, как и расход воздуха, спецификация и цена.
           </p>
         </div>
 
-        <Configurator models={models} families={list} />
+        <Configurator
+          models={models}
+          families={list}
+          initialSlug={sp.slug}
+          initialDims={{ h: num(sp.h), w: num(sp.w), d: num(sp.d) }}
+        />
 
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <span className="lbl">Если размер нестандартный</span>

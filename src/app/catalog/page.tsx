@@ -13,15 +13,19 @@ export const metadata: Metadata = {
 
 export default function CatalogPage() {
   return (
-    <section className="band band-shop">
+    <section className="band band-shop page-hero">
       <div className="wrap">
-        <div className="head">
+        <div className="head" style={{ marginBottom: '1.25rem' }}>
           <p className="lbl">Каталог · {products.length} позиций</p>
           <h1>Изделия и типоразмеры</h1>
-          <p className="muted">
-            Цены указаны за эталонный типоразмер в формате «высота / ширина / глубина» с жироуловителями.
-            Изготовление по размерам объекта — расчётом производства.
+          <p className="muted mt-2 leading-relaxed">
+            Цены — для эталонного типоразмера в формате «высота / ширина / глубина» с жироуловителями.
+            Изготовление по размерам объекта считаем отдельно.
           </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link href="/configurator" className="btn">Собрать зонт в конфигураторе</Link>
+            <Link href="/contacts" className="btn btn-ghost">Запросить расчёт</Link>
+          </div>
         </div>
 
         <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>

@@ -13,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: url('/chastnyy-dom'), lastModified: now, changeFrequency: 'monthly', priority: 0.85 },
     { url: url('/nestandartnyy-zont'), lastModified: now, changeFrequency: 'monthly', priority: 0.88 },
     { url: url('/catalog'), lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
+    { url: url('/configurator'), lastModified: now, changeFrequency: 'weekly', priority: 0.85 },
     { url: url('/eshchyo-delaem'), lastModified: now, changeFrequency: 'monthly', priority: 0.45 },
     { url: url('/contacts'), lastModified: now, changeFrequency: 'yearly', priority: 0.5 },
     ...families.map((f) => ({

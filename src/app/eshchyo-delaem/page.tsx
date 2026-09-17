@@ -35,10 +35,10 @@ const groups = data.groups;
 export default function NeutralPage() {
   return (
     <>
-      <section className="band band-shop">
+      <section className="band band-shop page-hero">
         <div className="wrap">
           <p className="lbl">Нейтральное оборудование</p>
-          <h1 className="mt-5">Ещё делаем<br />из нержавейки</h1>
+          <h1>Ещё делаем<br />из нержавейки</h1>
           <p className="muted mt-6 max-w-[62ch] text-lg">
             Основное производство — вентиляция: зонты, гидрозонты и гидрофильтры. Но тот же цех,
             та же сталь и та же аргонодуговая сварка позволяют делать и нейтральное оборудование

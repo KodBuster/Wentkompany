@@ -67,7 +67,7 @@ function FamilyView({ slug }: { slug: string }) {
   return (
     <section className="band band-shop">
       <div className="wrap">
-        <nav className="lbl mb-6 flex flex-wrap gap-2">
+        <nav className="lbl mb-3 flex flex-wrap gap-2">
           <Link href="/" className="no-underline">Главная</Link><span>/</span>
           <Link href="/catalog" className="no-underline">Каталог</Link><span>/</span>
           <span>{family.code}</span>
@@ -129,7 +129,20 @@ function FamilyView({ slug }: { slug: string }) {
         )}
 
         <div className="mt-10 flex flex-wrap gap-3">
-          <Link href="/configurator" className="btn">Собрать по своим размерам</Link>
+          <Link
+            href={
+              items[0]
+                ? `/configurator?slug=${encodeURIComponent(items[0].slug)}${
+                    items[0].base
+                      ? `&h=${items[0].base.h}&w=${items[0].base.w}&d=${items[0].base.d}`
+                      : ''
+                  }`
+                : '/configurator'
+            }
+            className="btn"
+          >
+            Собрать по своим размерам
+          </Link>
           <Link href="/catalog" className="btn btn-ghost">Весь каталог</Link>
         </div>
       </div>
@@ -169,7 +182,7 @@ function ProductView({ slug }: { slug: string }) {
   return (
     <section className="band band-shop">
       <div className="wrap">
-        <nav className="lbl mb-6 flex flex-wrap gap-2">
+        <nav className="lbl mb-3 flex flex-wrap gap-2">
           <Link href="/" className="no-underline">Главная</Link><span>/</span>
           <Link href="/catalog" className="no-underline">Каталог</Link><span>/</span>
           {family && (<><Link href={`/catalog/${family.slug}`} className="no-underline">{family.code}</Link><span>/</span></>)}
@@ -196,12 +209,19 @@ function ProductView({ slug }: { slug: string }) {
 
             <div className="mt-8 flex flex-wrap items-baseline gap-4">
               <span className="num text-4xl">{p.price ? rub(p.price) : 'по запросу'}</span>
-              {p.price && <span className="badge">цена за эталонный типоразмер</span>}
+              {p.price && <span className="badge">цена для эталонного типоразмера</span>}
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
               {CONFIGURABLE.includes(p.family) ? (
                 <>
-                  <Link href="/configurator" className="btn">Открыть в конфигураторе</Link>
+                  <Link
+                    href={`/configurator?slug=${encodeURIComponent(p.slug)}${
+                      p.base ? `&h=${p.base.h}&w=${p.base.w}&d=${p.base.d}` : ''
+                    }`}
+                    className="btn"
+                  >
+                    Открыть в конфигураторе
+                  </Link>
                   <Link href="/contacts" className="btn btn-ghost">Запросить расчёт</Link>
                 </>
               ) : (

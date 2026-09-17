@@ -2,14 +2,12 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { HoverZoom } from '@/components/hover-zoom';
 
 /**
  * Галерея фотографий изделия.
- *
- * Снимки временные: вырезаны из карточек старого сайта, поэтому на них
- * остался водяной знак и разрешение экранное. Заменяются подстановкой новых
- * файлов в public/catalog и правкой images в src/data/catalog.json —
- * трогать компонент не нужно.
+ * Пути — из catalog.json (файлы в public/catalog/).
+ * Главный кадр — с лупой как на главной (только мышь).
  */
 
 export function ProductGallery({ images, alt }: { images: string[]; alt: string }) {
@@ -19,17 +17,21 @@ export function ProductGallery({ images, alt }: { images: string[]; alt: string 
   return (
     <div className="flex flex-col gap-3">
       <div
-        className="relative aspect-[4/3] w-full overflow-hidden border"
+        className="gallery-zoom relative aspect-[4/3] w-full overflow-hidden border"
         style={{ borderColor: 'var(--hair)', background: 'var(--color-steel-850)' }}
       >
-        <Image
-          src={images[active]}
-          alt={alt}
-          fill
-          priority
-          sizes="(max-width: 900px) 100vw, 620px"
-          style={{ objectFit: 'contain' }}
-        />
+        <HoverZoom className="absolute inset-0 block h-full w-full">
+          <div className="relative h-full w-full">
+            <Image
+              src={images[active]}
+              alt={alt}
+              fill
+              priority
+              sizes="(max-width: 900px) 100vw, 620px"
+              style={{ objectFit: 'contain' }}
+            />
+          </div>
+        </HoverZoom>
       </div>
 
       {images.length > 1 && (

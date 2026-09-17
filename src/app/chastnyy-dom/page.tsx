@@ -102,21 +102,23 @@ const faqJsonLd = {
 export default function ChastnyyDomPage() {
   return (
     <>
-      <section className="band band-shop">
+      <section className="band band-shop page-hero">
         <div className="wrap">
-          <p className="lbl">Частный дом · беседка · летняя кухня</p>
-          <h1 className="mt-5">
-            Мангал в доме —<br />
-            <span style={{ color: 'var(--color-extract)' }}>без дыма</span><br />
-            в гостиной.
-          </h1>
-          <p className="muted mt-6 max-w-[58ch] text-lg">
-            Вытяжные зонты и зонты с гидрозатвором из нержавеющей стали, изготовленные по вашему
-            месту. Габариты с точностью до миллиметра, чертёж — до начала работ.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/configurator" className="btn">Подобрать размер и увидеть цену</Link>
-            <Link href="/contacts" className="btn btn-ghost">Вызвать на замер</Link>
+          <div className="max-w-[52ch]">
+            <p className="lbl">Частный дом · беседка · летняя кухня</p>
+            <h1>
+              Мангал в доме —<br />
+              <span style={{ color: 'var(--color-extract)' }}>без дыма</span><br />
+              в гостиной.
+            </h1>
+            <p className="muted mt-6 text-lg leading-relaxed">
+              Вытяжные зонты и зонты с гидрозатвором из нержавеющей стали — по вашему месту.
+              Габариты с точностью до миллиметра. Чертёж согласуем до начала работ.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/configurator" className="btn">Подобрать размер и увидеть цену</Link>
+              <Link href="/contacts" className="btn btn-ghost">Вызвать на замер</Link>
+            </div>
           </div>
         </div>
       </section>
