@@ -233,19 +233,20 @@ function makeWeldedSupplyShell(layout: Layout) {
   const zTopF = zF - chamfer;
 
   /*
-   * Шов (синяя линия): // скосу, от крыши до низа.
-   * Стрелки: от красной кромки фронта — внутрь, под приточный патрубок.
+   * Шов (синяя линия): // скосу, от низа до подкрышечного зазора.
+   * Не доводить до y=H — иначе тёмная полоса на крышке между патрубками.
    */
+  const ySeamTop = H - 8 * MM;
   const slope = type2 ? (zTopF - zF) / Math.max(H - ySplit, 0.02) : 0;
-  const seamGap = type2 ? Math.min(plenum * 0.72, 0.1) : 0; /* ~100 мм внутрь */
+  const seamGap = type2 ? Math.min(plenum * 0.72, 0.1) : 0;
   let zSeamTop = type2 ? zTopF - seamGap : 0;
-  let zSeamBot = type2 ? zSeamTop - slope * H : 0;
+  let zSeamBot = type2 ? zSeamTop - slope * ySeamTop : 0;
   if (type2 && zSeamBot > zF - 10 * MM) {
     zSeamBot = zF - 10 * MM;
-    zSeamTop = zSeamBot + slope * H;
+    zSeamTop = zSeamBot + slope * ySeamTop;
   }
 
-  /* ТИП 1/3: шов у перегородки */
+  /* ТИП 1/3: шов у перегородки, тоже не до крышки */
   let ySeam0 = yP;
   let zSeamBot1 = zP;
   let zSeamTop1 = zP;
@@ -282,14 +283,14 @@ function makeWeldedSupplyShell(layout: Layout) {
     }
     pushQuad(pos, idx, [-hw, H, zB], [hw, H, zB], [hw, H, zTopF], [-hw, H, zTopF]);
 
-    /* Одна плоскость: // скосу, от y=0 до H */
+    /* Одна плоскость: // скосу, от y=0 до под крышкой */
     pushQuad(
       pos,
       idx,
       [-hw, 0, zSeamBot],
       [hw, 0, zSeamBot],
-      [hw, H, zSeamTop],
-      [-hw, H, zSeamTop],
+      [hw, ySeamTop, zSeamTop],
+      [-hw, ySeamTop, zSeamTop],
     );
   } else if (rect) {
     pushQuad(pos, idx, [hw, 0, zF], [-hw, 0, zF], [-hw, H, zF], [hw, H, zF]);
@@ -301,8 +302,8 @@ function makeWeldedSupplyShell(layout: Layout) {
       idx,
       [-hw, ySeam0, zSeamBot1],
       [hw, ySeam0, zSeamBot1],
-      [hw, H, zSeamTop1],
-      [-hw, H, zSeamTop1],
+      [hw, ySeamTop, zSeamTop1],
+      [-hw, ySeamTop, zSeamTop1],
     );
   } else {
     pushQuad(pos, idx, [hw, yFront, zF], [-hw, yFront, zF], [-hw, H, zF], [hw, H, zF]);
@@ -324,8 +325,8 @@ function makeWeldedSupplyShell(layout: Layout) {
       idx,
       [-hw, ySeam0, zSeamBot1],
       [hw, ySeam0, zSeamBot1],
-      [hw, H, zSeamTop1],
-      [-hw, H, zSeamTop1],
+      [hw, ySeamTop, zSeamTop1],
+      [-hw, ySeamTop, zSeamTop1],
     );
   }
 
@@ -470,7 +471,7 @@ function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; 
   const { top, dims, spigots, supplyPlenum, profile } = layout;
 
   if (supplyPlenum) {
-    /* ТИП 2: скос // фильтру — крышка короче на chamferZ */
+    /* ТИП 2: скос режет плоскую крышу — патрубки в системе укороченной грани */
     const chamfer =
       profile === 'trapezoid'
         ? supplyType2Chamfer(dims.h, dims.d, supplyPlenum.depth).chamferZ
@@ -479,9 +480,6 @@ function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; 
     const topZ = -chamfer / 2;
     return (
       <group position={[0, dims.h * MM, topZ * MM]}>
-        <mesh material={mat} position={[0, 4 * MM, 0]}>
-          <boxGeometry args={[top.w * MM, 8 * MM, topD * MM]} />
-        </mesh>
         {spigots.map((s, i) => {
           const body = s.role === 'supply' ? mat : dark;
           const localZ = s.z + (top.z - topZ);
@@ -664,7 +662,8 @@ function supplyWallFilterCore(layout: Layout) {
   const trayH = Math.min(BUILD.core.trayH, 20);
   const wallGap = 22;
   const floorGap = 2;
-  const yTopClear = 8;
+  /* Зазор под крышей с учётом толщины кассеты после наклона — иначе верх пробивает крышу */
+  const tHalf = BUILD.core.filterT * 0.5;
 
   const trayZ = zBack + wallGap + trayD / 2;
   const floorY = yAt(trayZ);
@@ -673,19 +672,23 @@ function supplyWallFilterCore(layout: Layout) {
   const yB = floorY + floorGap + trayH + 1;
   const zB = trayZ;
 
-  const yC = dims.h - yTopClear;
-  const dy = Math.max(yC - yB, 50);
   const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
   const pipeZ = top.z + (exhaust?.z ?? 0);
   const pipeR = (exhaust?.diameter ?? 160) / 2;
-  /* Верх у врезки вытяжки, не заходить в приточную камеру */
   const outMax = Math.max(50, (zP - zBack) * 0.42);
   let zC = pipeZ + Math.min(pipeR + 28, outMax);
   zC = Math.min(zC, zP - 36);
   zC = Math.max(zC, zB + 48);
 
-  const dz = zC - zB;
-  const tilt = Math.atan2(Math.abs(dz), dy);
+  /* Сначала оценка наклона, затем опускаем верх C≡D под крышку */
+  let yC = dims.h - 8;
+  let dy = Math.max(yC - yB, 50);
+  let dz = zC - zB;
+  let tilt = Math.atan2(Math.abs(dz), dy);
+  yC = dims.h - (10 + tHalf * Math.sin(tilt) + 8);
+  dy = Math.max(yC - yB, 50);
+  dz = zC - zB;
+  tilt = Math.atan2(Math.abs(dz), dy);
   const fh = Math.hypot(Math.abs(dz), dy);
   const y = (yB + yC) / 2;
   const z = (zB + zC) / 2;
@@ -1059,29 +1062,33 @@ function SupplyChamber({
 
   const yR = supplyPlenum.frontRise;
   const zF = dims.d / 2;
-  const zP = zF - supplyPlenum.depth;
 
   const slitN = Math.max(1, supplySlot.frontCount);
   const gapMm = BUILD.supplySlot.gap;
-  const slitW = Math.min(
-    BUILD.supplySlot.panelW,
-    (dims.w - 80 - Math.max(0, slitN - 1) * gapMm) / slitN,
-  ) * MM;
-  const slitD = Math.min(supplyPlenum.depth * 0.5, 58) * MM;
+  const slitW =
+    Math.min(
+      BUILD.supplySlot.panelW,
+      (dims.w - 80 - Math.max(0, slitN - 1) * gapMm) / slitN,
+    ) * MM;
+  const slitD = Math.min(supplyPlenum.depth * 0.45, 48) * MM;
   const slitT = 5 * MM;
   const gap = gapMm * MM;
   const span = slitN <= 1 ? 0 : (slitN - 1) * (slitW + gap);
-  /* Щели у переднего фронта (как у ТИП 1): на внутренней стороне стенки */
+
+  /*
+   * Щели на переднем фронте (изнутри), не на крышке:
+   * ТИП 2 — короткая вертикаль; ТИП 1 — над скосом низа; ТИП 3 — у низа фронта.
+   */
   const type2 = layout.profile === 'trapezoid';
+  const type1 = layout.profile === 'triangle';
   const ch = type2 ? supplyType2Chamfer(dims.h, dims.d, supplyPlenum.depth) : null;
-  const zSlit = type2
-    ? zF - slitD / (2 * MM) - 6
-    : zP + supplyPlenum.depth * 0.55;
-  const yFloor = type2
-    ? 8
-    : yR * ((zSlit + dims.d / 2) / Math.max(dims.d, 1));
-  /* У ТИП 2 щели на короткой вертикали снизу */
-  const ySlit = type2 && ch ? Math.min(yFloor + 4, ch.vertDy * 0.45) : yFloor + 4;
+  const zSlit = zF - slitD / (2 * MM) - 6;
+  const ySlit =
+    type2 && ch
+      ? Math.max(10, Math.min(ch.vertDy * 0.4, ch.vertDy - 8))
+      : type1
+        ? yR + 12
+        : 12;
 
   const faces = supplySlot.faces === 'both' ? ([1, -1] as const) : ([1] as const);
 

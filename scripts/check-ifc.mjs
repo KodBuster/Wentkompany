@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { calculate } from '../src/lib/calc.ts';
 import { buildSheet } from '../src/lib/drawing.ts';
+import { buildLayout } from '../src/lib/geometry.ts';
 import { buildIfc, ifcGuid } from '../src/lib/ifc.ts';
 import * as WebIFC from 'web-ifc';
 
@@ -21,13 +22,17 @@ const CASES = [
   { code: 'ЗВОГ', dims: { h: 450, w: 1200, d: 600 }, material: '430' },
   { code: 'ЗПВО', dims: { h: 600, w: 2800, d: 1400 }, material: '304' },
   { code: 'ЗВП', dims: { h: 300, w: 600, d: 600 }, material: '430' },
+  { code: 'ЗПВП', dims: { h: 350, w: 800, d: 600 }, material: '430', typeLabel: 'ТИП 2' },
 ];
 
 const api = new WebIFC.IfcAPI();
 await api.Init();
 
+const M = 0.001;
+const near = (a, b) => Math.abs(a - b) < 1e-6;
+
 let checked = 0;
-for (const { code, dims, material } of CASES) {
+for (const { code, dims, material, typeLabel } of CASES) {
   const traits = traitsOf(code);
   const calc = calculate(dims, traits, dims, 20000, material);
   const input = {
@@ -36,8 +41,10 @@ for (const { code, dims, material } of CASES) {
     productName: `Зонт ${code}`,
     designation: buildSheet({ dims, traits, calc, article: code, productName: `Зонт ${code}`, material }).designation,
     material,
+    typeLabel,
   };
   const ifc = buildIfc(input);
+  const layout = buildLayout(dims, traits, calc.ducts, { typeLabel });
 
   /* --- структура STEP --- */
   assert.ok(ifc.startsWith('ISO-10303-21;'), `${code}: нет заголовка STEP`);
@@ -71,6 +78,23 @@ for (const { code, dims, material } of CASES) {
 
   const quantities = api.GetLineIDsWithType(model, WebIFC.IFCELEMENTQUANTITY);
   assert.ok(quantities.size() >= 1, `${code}: нет базовых количеств`);
+
+  /* --- патрубки стоят с локальным смещением по глубине, как на чертеже --- */
+  const points = [...ifc.matchAll(/IFCCARTESIANPOINT\(\(([^)]+)\)\)/g)].map((m) =>
+    m[1].split(',').map(Number),
+  );
+  const hM = dims.h * M;
+  for (const s of layout.spigots) {
+    const expected = [s.x * M, (layout.top.z + s.z) * M, hM];
+    const found = points.some(
+      (p) => near(p[0], expected[0]) && near(p[1], expected[1]) && near(p[2], expected[2]),
+    );
+    assert.ok(found, `${code}: патрубок ${s.role} (${s.x}, ${s.z}) не попал в IFC`);
+  }
+  if (traits.supply) {
+    const zs = layout.spigots.map((s) => s.z);
+    assert.ok(Math.max(...zs) - Math.min(...zs) > 20, `${code}: вытяжка и приток должны быть разнесены по глубине`);
+  }
 
   /* --- геометрия действительно читается --- */
   let meshes = 0;

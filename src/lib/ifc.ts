@@ -167,7 +167,9 @@ export function buildIfc(input: IfcInput): string {
     const profileDir = s.add('IFCDIRECTION((1.,0.))');
     const profilePlacement = s.add(`IFCAXIS2PLACEMENT2D(${profilePos},${profileDir})`);
     const profile = s.add(`IFCCIRCLEPROFILEDEF(.AREA.,${str('Патрубок')},${profilePlacement},${num(r)})`);
-    const base = s.add(`IFCCARTESIANPOINT((${num(spigot.x * M)},${num(layout.top.z * M)},${num(h)}))`);
+    /* Y как на чертеже: центр крышки + локальный сдвиг патрубка по глубине */
+    const y = (layout.top.z + spigot.z) * M;
+    const base = s.add(`IFCCARTESIANPOINT((${num(spigot.x * M)},${num(y)},${num(h)}))`);
     const pos = s.add(`IFCAXIS2PLACEMENT3D(${base},${axisZ},${axisX})`);
     solids.push(s.add(`IFCEXTRUDEDAREASOLID(${profile},${pos},${axisZ},${num(BUILD.spigot * M)})`));
   }
