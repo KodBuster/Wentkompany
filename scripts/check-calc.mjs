@@ -72,23 +72,92 @@ for (const code of ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'З�
     const c = calculate(dims, tr, dims, 10000);
     const l = buildLayout(dims, tr, c.ducts, { lamps: true });
 
-    assert.ok(l.top.w > 200 && l.top.d > 200, `${code} ${dims.w}: крышка выродилась`);
-    assert.ok(l.top.w < dims.w && l.top.d <= dims.d, `${code}: крышка должна быть уже низа`);
-    assert.ok(l.taper * 2 < Math.min(dims.w, dims.d), `${code}: завал стенок больше габарита`);
+    assert.ok(l.top.w > 200 && l.top.d >= 200, `${code} ${dims.w}: крышка выродилась`);
+    assert.ok(l.top.w === dims.w, `${code}: торцы вертикальные — ширина крышки = W`);
+    assert.ok(l.top.d <= dims.d + 1e-6, `${code}: крышка шире габарита по D`);
+    if (!tr.supply) {
+      assert.ok(l.bottom.d >= 200, `${code}: нижний проём выродился`);
+      /* По умолчанию (без typeLabel) — ТИП 2: скос сверху */
+      assert.ok(l.top.d < dims.d, `${code}: крышка короче по глубине (скос сверху)`);
+      assert.ok(Math.abs(l.bottom.d - dims.d) < 1e-6, `${code}: низ на весь вылет`);
+    } else {
+      assert.equal(l.taper, 0, `${code}: приточный — фронт вертикальный, без завала`);
+    }
+    assert.ok(l.taper < dims.d, `${code}: завал больше глубины`);
+    if (tr.island) {
+      assert.ok(Math.abs(l.top.z) < 1e-6, `${code}: остров — крышка по центру`);
+    } else {
+      assert.ok(
+        Math.abs(l.top.z - l.top.d / 2 + dims.d / 2) < 1e-6,
+        `${code}: пристенный — зад крышки должен лежать на задней стенке`,
+      );
+    }
 
     for (const s of l.spigots) {
       assert.ok(
-        Math.abs(s.x) + s.diameter / 2 <= l.top.w / 2,
-        `${code} ${dims.w}×${dims.d}: патрубок вылезает за крышку`,
+        Math.abs(s.x) + s.diameter / 2 <= l.top.w / 2 + 1e-6,
+        `${code} ${dims.w}×${dims.d}: патрубок вылезает за крышку по W`,
       );
+      assert.ok(
+        Math.abs(s.z) + s.diameter / 2 <= l.top.d / 2 + 1e-6,
+        `${code} ${dims.w}×${dims.d}: патрубок вылезает за крышку по D`,
+      );
+      assert.ok(
+        s.diameter <= l.top.d - 40 + 1e-6,
+        `${code} ${dims.w}×${dims.d}: Ø патрубка больше глубины крышки (Φ > L)`,
+      );
+      /* Пристенная вытяжка — патрубок в задней половине крышки (за фильтрами) */
+      if (!tr.island && s.role === 'exhaust') {
+        assert.ok(
+          s.z <= 1e-6,
+          `${code}: вытяжной патрубок должен быть у тыла, z=${s.z}`,
+        );
+      }
     }
-    assert.equal(l.spigots.length, Math.min(c.ducts.count, 4), `${code}: число патрубков разошлось с расчётом`);
+    /* Патрубки не пересекаются между собой (с учётом разноса по Z) */
+    for (let i = 0; i < l.spigots.length; i++) {
+      for (let j = i + 1; j < l.spigots.length; j++) {
+        const a = l.spigots[i];
+        const b = l.spigots[j];
+        const need = (a.diameter + b.diameter) / 2 + 20;
+        assert.ok(
+          Math.hypot(a.x - b.x, a.z - b.z) >= need - 1e-6,
+          `${code} ${dims.w}: патрубки пересекаются (${a.role}/${b.role})`,
+        );
+      }
+    }
+    const expectSpigots = Math.min(c.ducts.count, 4) + (tr.supply ? 1 : 0);
+    assert.equal(l.spigots.length, expectSpigots, `${code}: число патрубков разошлось с расчётом`);
+    if (tr.supply) {
+      assert.ok(l.spigots.some((s) => s.role === 'supply'), `${code}: нет врезки притока`);
+      assert.ok(l.supplySlot?.faces === (tr.island ? 'both' : 'front'), `${code}: стороны щелей притока`);
+      assert.ok(l.supplyPlenum && l.supplyPlenum.depth > 40, `${code}: нет приточной камеры`);
+      assert.ok(
+        (l.supplySlot?.frontCount ?? 0) >= 3,
+        `${code}: мало щелей притока (${l.supplySlot?.frontCount})`,
+      );
+    } else {
+      assert.equal(l.supplyPlenum, null, `${code}: приточная камера только у supply`);
+    }
 
-    const sides = l.filters.length;
-    assert.equal(sides, tr.island ? 4 : 3, `${code}: не то число сторон с кассетами`);
+    const banks = l.filters.length;
+    assert.equal(banks, tr.island ? 2 : 1, `${code}: не то число рядов кассет (стена 1 / остров V=2)`);
     assert.ok(l.filters.every((r) => r.count >= 1 && r.step > 0), `${code}: пустой ряд кассет`);
+    assert.ok(
+      l.filters.every((r) => ['rear', 'front', 'back'].includes(r.kind)),
+      `${code}: неизвестный тип ряда кассет`,
+    );
 
     assert.equal(l.hangers.length, tr.island ? 4 : 0, `${code}: подвесы только у островных`);
+    for (const h of l.hangers) {
+      for (const s of l.spigots) {
+        const dist = Math.hypot(h.x - s.x, h.z - (l.top.z + s.z));
+        assert.ok(
+          dist >= s.diameter / 2 + 40,
+          `${code} ${dims.w}×${dims.d}: шпилька в патрубке (dist=${dist.toFixed(0)}, Ø${s.diameter})`,
+        );
+      }
+    }
     assert.ok(tr.hydro ? l.nozzles >= 2 : l.nozzles === 0, `${code}: форсунки только у гидро-изделий`);
     assert.ok(tr.supply ? !!l.supplySlot : l.supplySlot === null, `${code}: приточная щель не по типу`);
     assert.ok(l.gutterHeight > 0 && l.gutterHeight <= dims.h * 0.25 + 1e-9, `${code}: жёлоб вне габарита`);
@@ -97,6 +166,40 @@ for (const code of ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'З�
       assert.ok(Math.abs(lamp.x) < dims.w / 2, `${code}: светильник за габаритом`);
     }
   }
+}
+
+/* Профили ТИП 1/2/3 — разный завал у вытяжных; у приточных фронт вертикальный */
+{
+  const tr = traitsOf('ЗВП');
+  const dims = { h: 450, w: 1200, d: 900 };
+  const c = calculate(dims, tr, dims, 10000);
+  const t1 = buildLayout(dims, tr, c.ducts, { typeLabel: 'ТИП 1' });
+  const t2 = buildLayout(dims, tr, c.ducts, { typeLabel: 'ТИП 2' });
+  const t3 = buildLayout(dims, tr, c.ducts, { typeLabel: 'ТИП 3' });
+  assert.equal(t1.profile, 'triangle');
+  assert.equal(t2.profile, 'trapezoid');
+  assert.equal(t3.profile, 'rect');
+  assert.ok(t1.bottomRise > 40, 'ТИП 1: есть подъём скошенного низа');
+  assert.ok(t2.taper > 80, 'ТИП 2: есть скос сверху');
+  assert.equal(t3.taper, 0, 'ТИП 3: без скоса');
+  assert.equal(t2.bottomRise, 0, 'ТИП 2: без подъёма низа');
+  assert.equal(t3.bottomRise, 0, 'ТИП 3: без подъёма низа');
+  assert.ok(Math.abs(t1.top.d - dims.d) < 1e-6, 'ТИП 1: верх на весь вылет');
+  assert.ok(Math.abs(t1.bottom.d - dims.d) < 1e-6, 'ТИП 1: план низа полный (скос по высоте)');
+  assert.ok(Math.abs(t2.bottom.d - dims.d) < 1e-6, 'ТИП 2: низ на весь вылет');
+  assert.ok(t2.top.d < dims.d - 40, 'ТИП 2: верх короче (скос сверху)');
+  assert.ok(Math.abs(t3.top.d - dims.d) < 1e-6 && Math.abs(t3.bottom.d - dims.d) < 1e-6, 'ТИП 3: прямоугольник');
+}
+{
+  const tr = traitsOf('ЗПВП');
+  const dims = { h: 450, w: 1200, d: 900 };
+  const c = calculate(dims, tr, dims, 10000);
+  const t1 = buildLayout(dims, tr, c.ducts, { typeLabel: 'ТИП 1' });
+  assert.equal(t1.taper, 0, 'ЗПВП: фронт вертикальный');
+  assert.ok(t1.supplyPlenum && t1.supplyPlenum.depth > 40, 'ЗПВП: есть приточная камера');
+  assert.ok(t1.supplyPlenum.frontRise > 40, 'ЗПВП: скос снизу вверх (правая камера ниже)');
+  assert.ok(t1.supplyPlenum.frontRise < dims.h - 40, 'ЗПВП: правая стенка не нулевая');
+  assert.ok(Math.abs(t1.top.d - dims.d) < 1e-6, 'ЗПВП: крышка на весь вылет');
 }
 
 /* ---------- чертёж (этап 5) ---------- */

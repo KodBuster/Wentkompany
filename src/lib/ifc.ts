@@ -72,11 +72,12 @@ export interface IfcInput {
   designation: string;
   material: '430' | '304';
   lamps?: boolean;
+  typeLabel?: string | null;
 }
 
 export function buildIfc(input: IfcInput): string {
   const { dims, traits, calc, article, productName, designation, material } = input;
-  const layout = buildLayout(dims, traits, calc.ducts, { lamps: input.lamps });
+  const layout = buildLayout(dims, traits, calc.ducts, { lamps: input.lamps, typeLabel: input.typeLabel });
   const s = new Step();
   const guid = (part: string) => ifcGuid(`${designation}|${material}|${part}`);
 
@@ -132,11 +133,12 @@ export function buildIfc(input: IfcInput): string {
   const hd = (dims.d / 2) * M;
   const tw = (layout.top.w / 2) * M;
   const td = (layout.top.d / 2) * M;
+  const tz = layout.top.z * M;
   const h = dims.h * M;
 
   const vertices: [number, number, number][] = [
     [-hw, -hd, 0], [hw, -hd, 0], [hw, hd, 0], [-hw, hd, 0],
-    [-tw, -td, h], [tw, -td, h], [tw, td, h], [-tw, td, h],
+    [-tw, tz - td, h], [tw, tz - td, h], [tw, tz + td, h], [-tw, tz + td, h],
   ];
   const vertexIds = vertices.map((v) => s.add(`IFCCARTESIANPOINT((${v.map(num).join(',')}))`));
 
@@ -165,7 +167,7 @@ export function buildIfc(input: IfcInput): string {
     const profileDir = s.add('IFCDIRECTION((1.,0.))');
     const profilePlacement = s.add(`IFCAXIS2PLACEMENT2D(${profilePos},${profileDir})`);
     const profile = s.add(`IFCCIRCLEPROFILEDEF(.AREA.,${str('Патрубок')},${profilePlacement},${num(r)})`);
-    const base = s.add(`IFCCARTESIANPOINT((${num(spigot.x * M)},0.,${num(h)}))`);
+    const base = s.add(`IFCCARTESIANPOINT((${num(spigot.x * M)},${num(layout.top.z * M)},${num(h)}))`);
     const pos = s.add(`IFCAXIS2PLACEMENT3D(${base},${axisZ},${axisX})`);
     solids.push(s.add(`IFCEXTRUDEDAREASOLID(${profile},${pos},${axisZ},${num(BUILD.spigot * M)})`));
   }

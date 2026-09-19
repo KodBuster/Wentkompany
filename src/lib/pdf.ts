@@ -200,7 +200,10 @@ export interface QuoteInput extends DrawingInput {
 
 export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
   const sheet = buildSheet(input);
-  const layout = buildLayout(input.dims, input.traits, input.calc.ducts, { lamps: input.lamps });
+  const layout = buildLayout(input.dims, input.traits, input.calc.ducts, {
+    lamps: input.lamps,
+    typeLabel: input.typeLabel,
+  });
   const { calc, dims, material, company } = input;
 
   const doc = await PDFDocument.create();

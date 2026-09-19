@@ -669,12 +669,6 @@
   .band-paper .hint { color: var(--color-steel-600); }
   .hint-warn { color: var(--color-warn); }
 
-  .scene-label {
-    font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--color-supply); background: rgba(255, 252, 248, 0.92); border: 1px solid rgba(61, 122, 140, 0.45);
-    padding: 0.25rem 0.45rem; white-space: nowrap; pointer-events: none; border-radius: var(--radius-sm);
-  }
-
   .field { display: flex; flex-direction: column; gap: 0.3rem; }
   .input {
     font-family: var(--font-mono); font-size: 0.95rem; background: var(--color-sheet);

@@ -262,9 +262,9 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     [dims, model.slug, material],
   );
   const layout = useMemo(
-    () => buildLayout(dims, traits, calc.ducts, { lamps: options.includes(OPTIONS[3]) }),
+    () => buildLayout(dims, traits, calc.ducts, { lamps: options.includes(OPTIONS[3]), typeLabel: model.type }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dims, model.slug, calc.ducts.count, calc.ducts.diameter, options],
+    [dims, model.slug, model.type, calc.ducts.count, calc.ducts.diameter, options],
   );
 
   function selectModel(slug: string) {
@@ -491,6 +491,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
                 productName: family.title,
                 material,
                 lamps: options.includes(OPTIONS[3]),
+                typeLabel: model.type,
               }}
             />
           )}
@@ -512,6 +513,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
               mode={mode}
               material={material}
               lamps={options.includes(OPTIONS[3])}
+              typeLabel={model.type}
             />
           )}
         </div>

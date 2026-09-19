@@ -11,7 +11,7 @@
 
 import type { Dims, FamilyTraits, Calculation } from './calc.ts';
 import { ru, dec } from './calc.ts';
-import { buildLayout, BUILD, type Layout } from './geometry.ts';
+import { buildLayout, BUILD, supplyType2Chamfer, type Layout } from './geometry.ts';
 
 export type Point = [number, number];
 
@@ -93,15 +93,14 @@ const FIELDS = {
   plan: { x: 25, y: 145, w: 190, h: 72 },
 };
 
-/** Контур корпуса спереди: трапеция с отбортовкой и жёлобом. */
+/** Контур корпуса спереди: торцы вертикальные — прямоугольник по W. */
 function frontOutline(layout: Layout): Polyline[] {
-  const { dims, top, gutterHeight, lip } = layout;
+  const { dims, gutterHeight, lip } = layout;
   const hw = dims.w / 2;
-  const tw = top.w / 2;
   const h = dims.h;
 
   return [
-    { pts: [[-hw, 0], [hw, 0], [tw, h], [-tw, h]], closed: true, style: 'solid' },
+    { pts: [[-hw, 0], [hw, 0], [hw, h], [-hw, h]], closed: true, style: 'solid' },
     // отбортовка по нижней кромке
     { pts: [[-hw - lip, 0], [hw + lip, 0]], style: 'solid' },
     { pts: [[-hw - lip, 0], [-hw - lip, 12]], style: 'solid' },
@@ -109,21 +108,174 @@ function frontOutline(layout: Layout): Polyline[] {
     // верхняя кромка жёлоба — невидимая линия
     { pts: [[-hw + 40, gutterHeight], [hw - 40, gutterHeight]], style: 'dashed' },
     // крышка-фланец
-    { pts: [[-tw - 20, h], [tw + 20, h], [tw + 20, h + 8], [-tw - 20, h + 8]], closed: true, style: 'solid' },
+    { pts: [[-hw, h], [hw, h], [hw, h + 8], [-hw, h + 8]], closed: true, style: 'solid' },
   ];
 }
 
-/** Контур сбоку: та же трапеция по глубине. */
+/**
+ * Контур сбоку по типу:
+ * ТИП 1 — верх полный, скос низа вверх; ТИП 2 — низ полный, скос сверху; ТИП 3 — прямоугольник.
+ */
 function sideOutline(layout: Layout): Polyline[] {
-  const { dims, top, gutterHeight } = layout;
+  const { dims, top, bottom, gutterHeight, supplyPlenum, bottomRise, profile } = layout;
   const hd = dims.d / 2;
-  const td = top.d / 2;
   const h = dims.h;
 
+  if (supplyPlenum) {
+    const yR = supplyPlenum.frontRise;
+    const zP = hd - supplyPlenum.depth;
+    const type2 = profile === 'trapezoid';
+    const ch = type2 ? supplyType2Chamfer(dims.h, dims.d, supplyPlenum.depth) : null;
+    const chamferMm = ch?.chamferZ ?? 0;
+    let outline: [number, number][];
+    if (type2 && ch) {
+      /* Зелёный профиль: низ прямой, вертикаль + скос // фильтру */
+      outline = [
+        [-hd, 0],
+        [hd, 0],
+        [hd, ch.vertDy],
+        [hd - chamferMm, h],
+        [-hd, h],
+      ];
+    } else if (yR < 1) {
+      outline = [
+        [-hd, 0],
+        [hd, 0],
+        [hd, h],
+        [-hd, h],
+      ];
+    } else {
+      outline = [
+        [-hd, 0],
+        [hd, yR],
+        [hd, h],
+        [-hd, h],
+      ];
+    }
+
+    /* Шов: // скосу, от крыши до низа (как синяя линия) */
+    let seamPts: [number, number][];
+    if (type2 && ch) {
+      const slope = -chamferMm / Math.max(ch.slantDy, 1);
+      const gap = Math.min(supplyPlenum.depth * 0.72, 100);
+      let zTop = hd - chamferMm - gap;
+      let zBot = zTop - slope * h;
+      if (zBot > hd - 10) {
+        zBot = hd - 10;
+        zTop = zBot + slope * h;
+      }
+      seamPts = [
+        [zBot, 0],
+        [zTop, h],
+      ];
+    } else {
+      const seamDz = Math.min(supplyPlenum.depth * 0.45, 100);
+      const ySeam0 = yR < 1 ? 0 : (yR * (zP + hd)) / (2 * hd);
+      seamPts = [
+        [zP + seamDz * 0.45, ySeam0],
+        [zP - seamDz * 0.55, h],
+      ];
+    }
+
+    return [
+      { pts: outline, closed: true, style: 'solid' },
+      { pts: seamPts, style: 'dashed' },
+      { pts: [[-hd, h], [hd - chamferMm, h]], style: 'thin' },
+      {
+        pts: [
+          [-hd, h],
+          [hd - chamferMm, h],
+          [hd - chamferMm, h + 8],
+          [-hd, h + 8],
+        ],
+        closed: true,
+        style: 'solid',
+      },
+    ];
+  }
+
+  if (profile === 'triangle' && bottomRise > 0) {
+    const yR = bottomRise;
+    const island = layout.filters.some((f) => f.kind === 'front' || f.kind === 'back');
+    if (island) {
+      /* ЗВО ТИП 1: скос снизу к обоим торцам */
+      return [
+        {
+          pts: [
+            [-hd, yR],
+            [0, 0],
+            [hd, yR],
+            [hd, h],
+            [-hd, h],
+          ],
+          closed: true,
+          style: 'solid',
+        },
+        { pts: [[-40, gutterHeight], [40, gutterHeight]], style: 'dashed' },
+        {
+          pts: [
+            [-hd, h],
+            [hd, h],
+            [hd, h + 8],
+            [-hd, h + 8],
+          ],
+          closed: true,
+          style: 'solid',
+        },
+      ];
+    }
+    return [
+      {
+        pts: [
+          [-hd, 0],
+          [hd, yR],
+          [hd, h],
+          [-hd, h],
+        ],
+        closed: true,
+        style: 'solid',
+      },
+      { pts: [[-hd + 40, Math.min(gutterHeight, yR * 0.3)], [hd - 40, yR * 0.85]], style: 'dashed' },
+      {
+        pts: [
+          [-hd, h],
+          [hd, h],
+          [hd, h + 8],
+          [-hd, h + 8],
+        ],
+        closed: true,
+        style: 'solid',
+      },
+    ];
+  }
+
+  const zBotB = bottom.z - bottom.d / 2;
+  const zBotF = bottom.z + bottom.d / 2;
+  const zTopB = top.z - top.d / 2;
+  const zTopF = top.z + top.d / 2;
+
   return [
-    { pts: [[-hd, 0], [hd, 0], [td, h], [-td, h]], closed: true, style: 'solid' },
-    { pts: [[-hd + 40, gutterHeight], [hd - 40, gutterHeight]], style: 'dashed' },
-    { pts: [[-td - 20, h], [td + 20, h], [td + 20, h + 8], [-td - 20, h + 8]], closed: true, style: 'solid' },
+    {
+      pts: [
+        [zBotB, 0],
+        [zBotF, 0],
+        [zTopF, h],
+        [zTopB, h],
+      ],
+      closed: true,
+      style: 'solid',
+    },
+    { pts: [[zBotB + 40, gutterHeight], [zBotF - 40, gutterHeight]], style: 'dashed' },
+    {
+      pts: [
+        [zTopB, h],
+        [zTopF, h],
+        [zTopF, h + 8],
+        [zTopB, h + 8],
+      ],
+      closed: true,
+      style: 'solid',
+    },
   ];
 }
 
@@ -149,7 +301,16 @@ function planGeometry(layout: Layout, traits: FamilyTraits) {
 
   const polys: Polyline[] = [
     { pts: [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]], closed: true, style: 'solid' },
-    { pts: [[-top.w / 2, -top.d / 2], [top.w / 2, -top.d / 2], [top.w / 2, top.d / 2], [-top.w / 2, top.d / 2]], closed: true, style: 'dashed' },
+    {
+      pts: [
+        [-top.w / 2, top.z - top.d / 2],
+        [top.w / 2, top.z - top.d / 2],
+        [top.w / 2, top.z + top.d / 2],
+        [-top.w / 2, top.z + top.d / 2],
+      ],
+      closed: true,
+      style: 'dashed',
+    },
     // осевые линии
     { pts: [[-hw - 15, 0], [hw + 15, 0]], style: 'thin' },
     { pts: [[0, -hd - 15], [0, hd + 15]], style: 'thin' },
@@ -161,7 +322,7 @@ function planGeometry(layout: Layout, traits: FamilyTraits) {
     polys.push({ pts: [[-hw - 30, -hd - 10], [hw + 30, -hd - 10]], style: 'thin' });
   }
 
-  const circles: Circle[] = spigots.map((s) => ({ c: [s.x, 0] as Point, r: s.diameter / 2 }));
+  const circles: Circle[] = spigots.map((s) => ({ c: [s.x, top.z + s.z] as Point, r: s.diameter / 2 }));
   for (const h of hangers) {
     circles.push({ c: [h.x, h.z] as Point, r: 14, style: 'thin' });
   }
@@ -177,11 +338,13 @@ export interface DrawingInput {
   productName: string;
   material: '430' | '304';
   lamps?: boolean;
+  /** Подпись типа из каталога — профиль сечения на чертеже. */
+  typeLabel?: string | null;
 }
 
 export function buildSheet(input: DrawingInput): Sheet {
   const { dims, traits, calc, article, productName, material } = input;
-  const layout = buildLayout(dims, traits, calc.ducts, { lamps: input.lamps });
+  const layout = buildLayout(dims, traits, calc.ducts, { lamps: input.lamps, typeLabel: input.typeLabel });
 
   const totalFrontHeight = dims.h + BUILD.spigot + 8;
   const required = Math.min(
