@@ -126,16 +126,26 @@ for (const code of ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'З�
         );
       }
     }
-    const expectSpigots = Math.min(c.ducts.count, 4) + (tr.supply ? 1 : 0);
+    const expectSpigots = Math.min(c.ducts.count, 4) + (tr.supply ? (tr.island ? 2 : 1) : 0);
     assert.equal(l.spigots.length, expectSpigots, `${code}: число патрубков разошлось с расчётом`);
     if (tr.supply) {
       assert.ok(l.spigots.some((s) => s.role === 'supply'), `${code}: нет врезки притока`);
+      const supplyN = l.spigots.filter((s) => s.role === 'supply').length;
+      assert.equal(supplyN, tr.island ? 2 : 1, `${code}: число врезок притока`);
       assert.ok(l.supplySlot?.faces === (tr.island ? 'both' : 'front'), `${code}: стороны щелей притока`);
       assert.ok(l.supplyPlenum && l.supplyPlenum.depth > 40, `${code}: нет приточной камеры`);
       assert.ok(
         (l.supplySlot?.frontCount ?? 0) >= 3,
         `${code}: мало щелей притока (${l.supplySlot?.frontCount})`,
       );
+      if (tr.island) {
+        const zs = l.spigots.filter((s) => s.role === 'supply').map((s) => s.z);
+        assert.ok(zs.some((z) => z > 0) && zs.some((z) => z < 0), `${code}: приток должен быть с двух сторон`);
+        assert.ok(
+          l.spigots.filter((s) => s.role === 'exhaust').every((s) => Math.abs(s.z) < 1e-6),
+          `${code}: вытяжка ЗПВО по центру крышки`,
+        );
+      }
     } else {
       assert.equal(l.supplyPlenum, null, `${code}: приточная камера только у supply`);
     }

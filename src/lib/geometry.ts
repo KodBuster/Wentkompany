@@ -74,7 +74,70 @@ export const BUILD = {
   lamp: { d: 90, h: 40 },
   /** Шаг форсунок гидроконтура, мм. */
   nozzleStep: 260,
+  /**
+   * ЗПВО: фиксированные узлы (не от габарита заказа).
+   * Корыто (вылет) растёт в зоне «моста» между коробом и жироуловителем.
+   */
+  zpvo: {
+    /** Глубина приточного короба с каждой стороны, мм — константа. */
+    plenumDepth: 95,
+    /** Мин. зазор по D: внутренняя стенка короба → верх кассеты. */
+    minBridge: 55,
+    /**
+     * ТИП 1: высота приточного короба (крыша → нижняя горизонтальная плоскость), мм.
+     */
+    type1PlenumH: 100,
+    /**
+     * ТИП 2: угол скоса «абажура» к вертикали, ° — const (не от D).
+     */
+    type2AlphaDeg: 30,
+    /** ТИП 2: высота нижней вертикали (передний бортик), мм — const. */
+    type2VertDy: 84,
+    /**
+     * ТИП 2: глубина приточной полости (нормаль к обшивке), мм — const.
+     * Узкая полость: низ перегородки почти у внешней стенки, стенки // скосу.
+     */
+    type2PlenumDepth: 48,
+    /** ТИП 2: поле от ребра крыши до наружного края врезки притока, мм — const. */
+    type2EdgeConst: 16,
+    /**
+     * ТИП 2: мин. N — верх жироуловителя → внутренний край врезки, мм.
+     * На D=600 должно читаться глазом (не «всё в одной точке»).
+     */
+    type2NMin: 45,
+    /** ТИП 2: Ø вытяжки для отображения — const. */
+    type2DisplayExhaust: 120,
+    /** ТИП 2: Ø притока для отображения, мм (≤ полости − зазоры). */
+    type2DisplaySupply: 36,
+    /**
+     * ТИП 2: P — край вытяжки → верх жироуловителя, мм (склейка верхов).
+     */
+    type2PMin: 22,
+    /** ТИП 2: мост шов → верх кассеты, мм (меньше — читаемее N на мин. D). */
+    type2Bridge: 30,
+  },
 } as const;
+
+/** Низ приточного короба ТИП 1 (мм по Y): горизонтальная плоскость с решётками. */
+export function islandSupplyType1FloorY(h: number) {
+  return Math.max(h - BUILD.zpvo.type1PlenumH, Math.round(h * 0.62));
+}
+
+/**
+ * Шов А («фиолетовая точка» на макете): пересечение лица-скоса с перегородкой.
+ * Меняется с H/D — не жёсткая константа. Пол короба (К) и низ перегородки = ySeam.
+ */
+export function islandSupplyType1Seam(h: number, d: number, plenumDepth: number) {
+  const zSeam = d / 2 - plenumDepth;
+  const yFloorMax = islandSupplyType1FloorY(h);
+  const yB = 2 + Math.min(BUILD.core.trayH, 22) + 1;
+  const zBot = BUILD.core.vGap;
+  const tilt = (BUILD.core.tilt * Math.PI) / 180;
+  /* Y, где скос с углом кассеты от зоны ванночки пересекает плоскость перегородки */
+  const yFromTilt = yB + (zSeam - zBot) / Math.tan(tilt);
+  const ySeam = Math.max(yB + 50, Math.min(yFromTilt, yFloorMax, h - 36));
+  return { ySeam, zSeam, yB, zBot };
+}
 
 export interface Spigot {
   /** Смещение центра патрубка от центра крышки по длинной стороне, мм. */
@@ -178,6 +241,25 @@ export function supplyType2Chamfer(h: number, d: number, plenumDepth: number) {
 
   return { chamferZ, slantDy, vertDy };
 }
+
+/**
+ * ТИП 2 ЗПВО «абажур»: α const; полость const по нормали к обшивке (перегородка // скосу).
+ */
+export function islandSupplyType2Chamfer(h: number, d: number, plenumDepth: number) {
+  const frontH = Math.max(h, 80);
+  const vertDy = Math.min(BUILD.zpvo.type2VertDy, Math.round(frontH * 0.28));
+  const slantDy = frontH - vertDy;
+  const alpha = (BUILD.zpvo.type2AlphaDeg * Math.PI) / 180;
+  const byAlpha = Math.round(slantDy * Math.tan(alpha));
+  const ex = BUILD.zpvo.type2DisplayExhaust;
+  const pMin = BUILD.zpvo.type2PMin;
+  const bridge = BUILD.zpvo.type2Bridge;
+  /* Плоская крыша: 2×полость + вытяжная зона с P */
+  const minFlat = 2 * plenumDepth + ex + 2 * pMin + 2 * bridge;
+  const maxByRoof = Math.max(0, Math.floor((d - minFlat) / 2));
+  const chamferZ = Math.min(byAlpha, maxByRoof);
+  return { chamferZ, slantDy, vertDy };
+}
 /**
  * Завалы по глубине для типов ЗВП/ЗВО (не приток).
  * ТИП 1 — план полный, скос низа задаётся bottomRise в buildLayout;
@@ -227,7 +309,6 @@ export function layoutSpigots(
   const diameter = Math.min(
     pick.diameter,
     Math.max(120, topDepth - 2 * edge - 20),
-    Math.round(topDepth * 0.48),
   );
   const usable = Math.max(topWidth - diameter - 120, 0);
   /* Пристенный: у тыла крыши, чуть внутри. Остров: центр. */
@@ -243,7 +324,7 @@ export function layoutSpigots(
 }
 
 /**
- * Вытяжка + приток на крышке.
+ * Вытяжка + приток на крышке (ЗПВП).
  * Вытяжка — над фильтрами (назад); приток — по центру между швом и передним краем/скосом.
  */
 export function withSupplySpigot(
@@ -312,6 +393,107 @@ export function withSupplySpigot(
 }
 
 /**
+ * ЗПВО: вытяжка по центру, две врезки притока.
+ * ТИП 2 (схема): Ø вытяжки const для отображения; поле до ребра крыши const;
+ * мин. N при мин. D; рост D расширяет зону между трубой и швом (P).
+ */
+export function withIslandSupplySpigots(
+  spigots: Spigot[],
+  top: { w: number; d: number },
+  plenumDepth: number,
+  opts?: { profile?: Layout['profile']; h?: number },
+): Spigot[] {
+  const edge = 40;
+  const half = top.d / 2;
+  const type2 = opts?.profile === 'trapezoid';
+
+  let zFlat = half;
+  if (type2) {
+    const ch = islandSupplyType2Chamfer(opts.h ?? 350, top.d, plenumDepth);
+    zFlat = half - ch.chamferZ;
+  }
+
+  if (type2) {
+    const exD = BUILD.zpvo.type2DisplayExhaust;
+    const sDia = BUILD.zpvo.type2DisplaySupply;
+    const edgeC = BUILD.zpvo.type2EdgeConst;
+    const zP = zFlat - plenumDepth;
+    /*
+     * Шов на крыше = верх наклонной перегородки (zFlat − полость).
+     * Врезка на полке между швом и ребром скоса.
+     */
+    const edgeSeam = sDia / 2 + 14;
+    const edgeOut = sDia / 2 + edgeC;
+    let zSup = (zP + zFlat) / 2;
+    if (zP + edgeSeam <= zFlat - edgeOut) {
+      zSup = clamp(zSup, zP + edgeSeam, zFlat - edgeOut);
+    } else {
+      zSup = (zP + zFlat) / 2;
+    }
+    const n = spigots.length;
+    if (n === 1) {
+      return [
+        { x: 0, z: 0, diameter: exD, role: 'exhaust' },
+        { x: 0, z: zSup, diameter: sDia, role: 'supply' },
+        { x: 0, z: -zSup, diameter: sDia, role: 'supply' },
+      ];
+    }
+    const usable = Math.max(top.w - exD - 2 * edge, 0);
+    const exhaust = spigots.map((_, i) => ({
+      x: -usable / 2 + (usable * i) / (n - 1),
+      z: 0,
+      diameter: exD,
+      role: 'exhaust' as const,
+    }));
+    return [
+      ...exhaust,
+      { x: 0, z: zSup, diameter: sDia, role: 'supply' },
+      { x: 0, z: -zSup, diameter: sDia, role: 'supply' },
+    ];
+  }
+
+  /* Остальные профили: Ø из расчёта, камера = D − 2×полости */
+  const exhaustMax = Math.min(
+    Math.max(120, top.d - 2 * plenumDepth - 48),
+    Math.max(120, top.w - 2 * edge),
+  );
+  const supplyDia = Math.min(85, Math.max(70, plenumDepth - 15));
+  const zP = half - plenumDepth;
+  const zSup = clamp((zP + half) / 2, zP + supplyDia / 2 + 16, half - supplyDia / 2 - 20);
+  let dia = Math.min(Math.max(...spigots.map((s) => s.diameter)), exhaustMax);
+  dia = Math.min(dia, 2 * Math.abs(zSup) - supplyDia - 40);
+
+  const n = spigots.length;
+  if (n === 1) {
+    return [
+      { x: 0, z: 0, diameter: dia, role: 'exhaust' },
+      { x: 0, z: zSup, diameter: supplyDia, role: 'supply' },
+      { x: 0, z: -zSup, diameter: supplyDia, role: 'supply' },
+    ];
+  }
+  const usable = Math.max(top.w - dia - 2 * edge, 0);
+  const exhaust = spigots.map((_, i) => ({
+    x: -usable / 2 + (usable * i) / (n - 1),
+    z: 0,
+    diameter: Math.min(spigots[i].diameter, dia),
+    role: 'exhaust' as const,
+  }));
+  return [
+    ...exhaust,
+    { x: 0, z: zSup, diameter: supplyDia, role: 'supply' },
+    { x: 0, z: -zSup, diameter: supplyDia, role: 'supply' },
+  ];
+}
+
+/** Глубина приточной полости ЗПВО — const (не от D). ТИП 2 — type2PlenumDepth. */
+export function islandSupplyPlenumDepth(d: number, profile?: Layout['profile']) {
+  const fixed =
+    profile === 'trapezoid' ? BUILD.zpvo.type2PlenumDepth : BUILD.zpvo.plenumDepth;
+  const maxEach = Math.max(90, Math.floor((d - 200) / 2));
+  return Math.min(fixed, maxEach);
+}
+
+/**
  * Ряды жироулавливающих кассет.
  * Не по периметру обшивки, а внутри купола — как на схемах ЗВП/ЗВО.
  */
@@ -346,15 +528,19 @@ export function layoutSupplySlot(
   };
 }
 
-/** Точки подвеса: углы крышки, вне зоны патрубков. */
+/** Точки подвеса: углы плоской крыши, вне зоны патрубков. */
 export function layoutHangers(
   top: { w: number; d: number; z: number },
   traits: FamilyTraits,
   spigots: Spigot[] = [],
+  opts?: { roofInsetZ?: number },
 ) {
   if (!traits.island) return [];
+  /* На ТИП 2 крыша уже скоса — шпильки только на плоском верху */
+  const insetZ = Math.max(0, opts?.roofInsetZ ?? 0);
+  const roofD = Math.max(top.d - 2 * insetZ, 120);
   const ix = top.w / 2 - 50;
-  const iz = Math.max(top.d / 2 - 40, 28);
+  const iz = Math.max(roofD / 2 - 40, 28);
   const pts = [
     { x: -ix, z: top.z - iz },
     { x: ix, z: top.z - iz },
@@ -364,13 +550,12 @@ export function layoutHangers(
 
   const xMin = -top.w / 2 + 30;
   const xMax = top.w / 2 - 30;
-  const zMin = top.z - top.d / 2 + 25;
-  const zMax = top.z + top.d / 2 - 25;
+  const zMin = top.z - roofD / 2 + 25;
+  const zMax = top.z + roofD / 2 - 25;
 
   return pts.map((p) => {
     let { x, z } = p;
     for (const s of spigots) {
-      /* Мировая Z патрубка = центр крышки + локальный z */
       const sz = top.z + s.z;
       const need = s.diameter / 2 + 45;
       const dx = x - s.x;
@@ -378,7 +563,6 @@ export function layoutHangers(
       const dist = Math.hypot(dx, dz);
       if (dist < need) {
         if (dist < 1e-3) {
-          /* Центр совпал — уводим к ближнему углу крышки */
           x = x < 0 ? xMin : xMax;
           z = z < top.z ? zMin : zMax;
         } else {
@@ -432,16 +616,27 @@ export function buildLayout(
   const taper = insets.topFront + insets.bottomFront + bottomRise;
 
   const plenumDepth = traits.supply
-    ? Math.min(BUILD.supplyPlenumDepth, Math.max(100, dims.d * 0.28))
+    ? traits.island
+      ? islandSupplyPlenumDepth(dims.d, profile)
+      : Math.min(BUILD.supplyPlenumDepth, Math.max(100, dims.d * 0.28))
     : 0;
-  const frontRise = traits.supply
-    ? Math.min(supplyFrontRise(profile, dims.h), dims.h - BUILD.gutter - 80)
-    : 0;
+  /* У ЗПВО скос — наружные грани; frontRise только у пристенного ЗПВП */
+  const frontRise =
+    traits.supply && !traits.island
+      ? Math.min(supplyFrontRise(profile, dims.h), dims.h - BUILD.gutter - 80)
+      : 0;
 
   const spigots0 = layoutSpigots(top.w, top.d, pick, { island: traits.island });
   const spigots = traits.supply
-    ? withSupplySpigot(spigots0, top, plenumDepth, { profile, h: dims.h, frontRise })
+    ? traits.island
+      ? withIslandSupplySpigots(spigots0, top, plenumDepth, { profile, h: dims.h })
+      : withSupplySpigot(spigots0, top, plenumDepth, { profile, h: dims.h, frontRise })
     : spigots0;
+
+  const roofInsetZ =
+    traits.island && traits.supply && profile === 'trapezoid'
+      ? islandSupplyType2Chamfer(dims.h, dims.d, plenumDepth).chamferZ
+      : 0;
 
   return {
     dims,
@@ -452,7 +647,7 @@ export function buildLayout(
     profile,
     spigots,
     filters: layoutFilters(dims, traits),
-    hangers: layoutHangers(top, traits, spigots),
+    hangers: layoutHangers(top, traits, spigots, { roofInsetZ }),
     lamps: layoutLamps(dims, !!options.lamps),
     nozzles: traits.hydro ? Math.max(2, Math.round(dims.w / BUILD.nozzleStep)) : 0,
     supplySlot: layoutSupplySlot(dims, traits),

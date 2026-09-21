@@ -11,7 +11,7 @@
 
 import type { Dims, FamilyTraits, Calculation } from './calc.ts';
 import { ru, dec } from './calc.ts';
-import { buildLayout, BUILD, supplyType2Chamfer, type Layout } from './geometry.ts';
+import { buildLayout, BUILD, supplyType2Chamfer, islandSupplyType2Chamfer, islandSupplyType1Seam, type Layout } from './geometry.ts';
 
 export type Point = [number, number];
 
@@ -122,11 +122,68 @@ function sideOutline(layout: Layout): Polyline[] {
   const h = dims.h;
 
   if (supplyPlenum) {
+    const island = layout.filters.some((f) => f.kind === 'front' || f.kind === 'back');
     const yR = supplyPlenum.frontRise;
     const zP = hd - supplyPlenum.depth;
     const type2 = profile === 'trapezoid';
-    const ch = type2 ? supplyType2Chamfer(dims.h, dims.d, supplyPlenum.depth) : null;
+    const type1 = profile === 'triangle';
+    const ch = type2
+      ? (island
+          ? islandSupplyType2Chamfer(dims.h, dims.d, supplyPlenum.depth)
+          : supplyType2Chamfer(dims.h, dims.d, supplyPlenum.depth))
+      : null;
     const chamferMm = ch?.chamferZ ?? 0;
+
+    if (island) {
+      /* ЗПВО: симметричный контур + два шва */
+      let outline: [number, number][];
+      const seam1 = islandSupplyType1Seam(dims.h, dims.d, supplyPlenum.depth);
+      if (type2 && ch) {
+        outline = [
+          [-hd, 0],
+          [hd, 0],
+          [hd, ch.vertDy],
+          [hd - chamferMm, h],
+          [-hd + chamferMm, h],
+          [-hd, ch.vertDy],
+        ];
+      } else if (type1) {
+        /* Полный контур боковины-монодетали */
+        outline = [
+          [-seam1.zBot, seam1.yB],
+          [-seam1.zSeam, seam1.ySeam],
+          [-hd, seam1.ySeam],
+          [-hd, h],
+          [hd, h],
+          [hd, seam1.ySeam],
+          [seam1.zSeam, seam1.ySeam],
+          [seam1.zBot, seam1.yB],
+        ];
+      } else {
+        outline = [
+          [-hd, 0],
+          [hd, 0],
+          [hd, h],
+          [-hd, h],
+        ];
+      }
+      return [
+        { pts: outline, closed: true, style: 'solid' },
+        { pts: [[zP, 0], [zP, h]], style: 'dashed' },
+        { pts: [[-zP, 0], [-zP, h]], style: 'dashed' },
+        {
+          pts: [
+            [type2 ? -hd + chamferMm : -hd, h],
+            [type2 ? hd - chamferMm : hd, h],
+            [type2 ? hd - chamferMm : hd, h + 8],
+            [type2 ? -hd + chamferMm : -hd, h + 8],
+          ],
+          closed: true,
+          style: 'solid',
+        },
+      ];
+    }
+
     let outline: [number, number][];
     if (type2 && ch) {
       /* Зелёный профиль: низ прямой, вертикаль + скос // фильтру */

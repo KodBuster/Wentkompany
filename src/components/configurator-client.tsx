@@ -464,19 +464,21 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
             </button>
           </div>
           {view === '3d' && (
-            <div className="cfg-seg">
-              {(
-                [
-                  ['solid', 'Реализм'],
-                  ['xray', 'Рентген'],
-                  ['explode', 'Разнос'],
-                ] as [ViewMode, string][]
-              ).map(([m, label]) => (
-                <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>
-                  {label}
-                </button>
-              ))}
-            </div>
+            <>
+              <div className="cfg-seg">
+                {(
+                  [
+                    ['solid', 'Реализм'],
+                    ['xray', 'Рентген'],
+                    ['explode', 'Разнос'],
+                  ] as [ViewMode, string][]
+                ).map(([m, label]) => (
+                  <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
           <span className="lbl ml-auto">{title}</span>
         </div>
