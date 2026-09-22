@@ -1021,7 +1021,7 @@ function islandFilterCore(layout: Layout) {
   let zCFront = pipeZ + pipeHalf + pMin;
   let zCBack = pipeZ - pipeHalf - pMin;
 
-  let gapB = halfGap;
+  let gapB: number = halfGap;
   if (zCFront < gapB + 24) {
     gapB = Math.max(14, zCFront - 40);
   }
