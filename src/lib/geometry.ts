@@ -101,20 +101,27 @@ export const BUILD = {
     /** ТИП 2: поле от ребра крыши до наружного края врезки притока, мм — const. */
     type2EdgeConst: 16,
     /**
-     * ТИП 2: мин. N — верх жироуловителя → внутренний край врезки, мм.
-     * На D=600 должно читаться глазом (не «всё в одной точке»).
+     * N / P со схемы ЗПВО (общие для типов): const, не от D.
+     * N — верх жироуловителя → внутренний край врезки притока (на D=600 читается).
+     * P — край вытяжки → верх жироуловителя (склейка верхов).
      */
     type2NMin: 45,
+    type2PMin: 22,
     /** ТИП 2: Ø вытяжки для отображения — const. */
     type2DisplayExhaust: 120,
     /** ТИП 2: Ø притока для отображения, мм (≤ полости − зазоры). */
     type2DisplaySupply: 36,
-    /**
-     * ТИП 2: P — край вытяжки → верх жироуловителя, мм (склейка верхов).
-     */
-    type2PMin: 22,
     /** ТИП 2: мост шов → верх кассеты, мм (меньше — читаемее N на мин. D). */
     type2Bridge: 30,
+    /**
+     * ТИП 3 (прямоугольник): Ø вытяжки для отображения — const.
+     * Иначе расчётный Ø на мин. D заезжает на шов/приклейку.
+     */
+    type3DisplayExhaust: 120,
+    /** ТИП 3: Ø притока для отображения, мм. */
+    type3DisplaySupply: 55,
+    /** ТИП 3: мост шов → верх кассеты, мм (N/P — type2NMin / type2PMin). */
+    type3Bridge: 40,
   },
 } as const;
 
@@ -452,16 +459,29 @@ export function withIslandSupplySpigots(
     ];
   }
 
-  /* Остальные профили: Ø из расчёта, камера = D − 2×полости */
-  const exhaustMax = Math.min(
-    Math.max(120, top.d - 2 * plenumDepth - 48),
-    Math.max(120, top.w - 2 * edge),
-  );
-  const supplyDia = Math.min(85, Math.max(70, plenumDepth - 15));
+  /* ТИП 3 (и прочие): Ø const для отображения, полость с каждой стороны */
+  const type3 = opts?.profile === 'rect';
+  const exD = type3
+    ? BUILD.zpvo.type3DisplayExhaust
+    : Math.min(
+        Math.max(...spigots.map((s) => s.diameter)),
+        Math.min(
+          Math.max(120, top.d - 2 * plenumDepth - 48),
+          Math.max(120, top.w - 2 * edge),
+        ),
+      );
+  const supplyDia = type3
+    ? BUILD.zpvo.type3DisplaySupply
+    : Math.min(85, Math.max(70, plenumDepth - 15));
   const zP = half - plenumDepth;
-  const zSup = clamp((zP + half) / 2, zP + supplyDia / 2 + 16, half - supplyDia / 2 - 20);
-  let dia = Math.min(Math.max(...spigots.map((s) => s.diameter)), exhaustMax);
-  dia = Math.min(dia, 2 * Math.abs(zSup) - supplyDia - 40);
+  const zSup = clamp(
+    (zP + half) / 2,
+    zP + supplyDia / 2 + 14,
+    half - supplyDia / 2 - 16,
+  );
+  let dia = type3
+    ? exD
+    : Math.min(exD, 2 * Math.abs(zSup) - supplyDia - 40);
 
   const n = spigots.length;
   if (n === 1) {
@@ -475,7 +495,7 @@ export function withIslandSupplySpigots(
   const exhaust = spigots.map((_, i) => ({
     x: -usable / 2 + (usable * i) / (n - 1),
     z: 0,
-    diameter: Math.min(spigots[i].diameter, dia),
+    diameter: type3 ? dia : Math.min(spigots[i].diameter, dia),
     role: 'exhaust' as const,
   }));
   return [

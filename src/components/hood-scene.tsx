@@ -361,7 +361,6 @@ function makeIslandSupplyShell(layout: Layout) {
   const zB = -D / 2;
   const zPF = zF - plenum;
   const zPB = zB + plenum;
-  const ySeamTop = H - 8 * MM;
 
   const ch = type2
     ? islandSupplyType2Chamfer(layout.dims.h, layout.dims.d, layout.supplyPlenum!.depth)
@@ -429,13 +428,24 @@ function makeIslandSupplyShell(layout: Layout) {
     addSide(hw, false);
     addSide(-hw, true);
   } else if (rect) {
+    /*
+     * ТИП 3: прямоугольный короб; перегородки до крыши (сварной шов).
+     * Полки крыши над притоком — без наложения на центральную плоскость.
+     */
     pushQuad(pos, idx, [-hw, 0, zB], [hw, 0, zB], [hw, H, zB], [-hw, H, zB]);
     pushQuad(pos, idx, [hw, 0, zF], [-hw, 0, zF], [-hw, H, zF], [hw, H, zF]);
     pushQuad(pos, idx, [hw, 0, zB], [hw, 0, zF], [hw, H, zF], [hw, H, zB]);
     pushQuad(pos, idx, [-hw, 0, zB], [-hw, H, zB], [-hw, H, zF], [-hw, 0, zF]);
-    pushQuad(pos, idx, [-hw, H, zB], [hw, H, zB], [hw, H, zF], [-hw, H, zF]);
-    pushQuad(pos, idx, [-hw, 0, zPF], [hw, 0, zPF], [hw, ySeamTop, zPF], [-hw, ySeamTop, zPF]);
-    pushQuad(pos, idx, [hw, 0, zPB], [-hw, 0, zPB], [-hw, ySeamTop, zPB], [hw, ySeamTop, zPB]);
+    /* Крыша: только вытяжная зона между швами (полки — отдельно) */
+    pushQuad(pos, idx, [-hw, H, zPB], [hw, H, zPB], [hw, H, zPF], [-hw, H, zPF]);
+    /* Перегородки 0→H */
+    pushQuad(pos, idx, [-hw, 0, zPF], [hw, 0, zPF], [hw, H, zPF], [-hw, H, zPF]);
+    pushQuad(pos, idx, [hw, 0, zPB], [-hw, 0, zPB], [-hw, H, zPB], [hw, H, zPB]);
+    /* Полки над притоком */
+    if (plenum > 1e-6) {
+      pushQuad(pos, idx, [-hw, H, zPF], [hw, H, zPF], [hw, H, zF], [-hw, H, zF]);
+      pushQuad(pos, idx, [hw, H, zPB], [-hw, H, zPB], [-hw, H, zB], [hw, H, zB]);
+    }
   } else {
     /*
      * ТИП 1: короб без сплошного скоса по W (жаровики видны снизу);
@@ -790,26 +800,33 @@ function islandFilterCore(layout: Layout) {
 
   if (isZpvo) {
     /*
-     * Склейка верхов OK: зазор между ними const = Ø + 2·P.
-     * N = верх кассеты → внутренний край притока; на D=600 ≥ Nmin (читается глазом).
-     * Верх упирается в шов с зазором bridge — не лезет в приточную камеру.
+     * ЗПВО: P / N со схемы (type2PMin / type2NMin) — const для всех типов.
+     * Верх упирается в шов с зазором bridge — не лезет в приточную камеру / на трубу.
      */
-    const bridge =
-      layout.profile === 'trapezoid' ? BUILD.zpvo.type2Bridge : BUILD.zpvo.minBridge;
+    const isType2 = layout.profile === 'trapezoid';
+    const isType3 = layout.profile === 'rect';
+    const bridge = isType2
+      ? BUILD.zpvo.type2Bridge
+      : isType3
+        ? BUILD.zpvo.type3Bridge
+        : BUILD.zpvo.minBridge;
     const yB0 = yB;
     const yC = dims.h - 3;
-    const pipeD = exhaust?.diameter ?? BUILD.zpvo.type2DisplayExhaust;
+    const pipeD =
+      exhaust?.diameter ??
+      (isType3 ? BUILD.zpvo.type3DisplayExhaust : BUILD.zpvo.type2DisplayExhaust);
     const pipeHalf = pipeD / 2;
     const pMin = BUILD.zpvo.type2PMin;
     const nMin = BUILD.zpvo.type2NMin;
 
     const supply = spigots.find((s) => s.role === 'supply');
-    const sDia = supply?.diameter ?? BUILD.zpvo.type2DisplaySupply;
+    const sDia =
+      supply?.diameter ??
+      (isType3 ? BUILD.zpvo.type3DisplaySupply : BUILD.zpvo.type2DisplaySupply);
     const zSup = Math.abs(supply?.z ?? dims.d / 4);
     const supplyInner = zSup - sDia / 2;
 
-    /* Шов на крыше: у ТИП 2 верх наклонной перегородки = zFlat − полость */
-    const isType2 = layout.profile === 'trapezoid';
+    /* Шов на крыше: ТИП 2 — верх наклонной перегородки; иначе half − полость */
     const ch2 = isType2
       ? islandSupplyType2Chamfer(dims.h, dims.d, plenum)
       : null;
@@ -1368,30 +1385,52 @@ function SupplyChamber({
       );
     }
 
-    /* ТИП 3: на внутренней перегородке короба */
-    const zSlit = zP + panelT / (2 * MM) + 3;
-    const ySlit = Math.max(40, Math.round(dims.h * 0.28));
+    /*
+     * ТИП 3: щелевые решётки // полу у низа прямоугольной полости
+     * (как вырезы в плоскости; для 3D — рамка с ламелями).
+     */
+    {
+      const zMid = (zF + zP) / 2;
+      const openD = Math.min(plenum * 0.62, 72) * MM;
+      const thick = Math.max(BUILD.supplySlot.t, 6) * MM;
+      const louverN = BUILD.supplySlot.louvers;
+      const louverT = 1.2 * MM;
+      const yG = Math.max(thick / MM + 2, 8);
 
-    return (
-      <group>
-        {([1, -1] as const).map((sign) => (
-          <group key={sign}>
-            {Array.from({ length: n }, (_, i) => {
-              const x = n === 1 ? 0 : -spanU / 2 + i * (panelW + gapU);
-              return (
-                <mesh
-                  key={i}
-                  material={dark}
-                  position={[x, ySlit * MM, sign * zSlit * MM]}
-                >
-                  <boxGeometry args={[panelW, panelH, panelT]} />
-                </mesh>
-              );
-            })}
-          </group>
-        ))}
-      </group>
-    );
+      return (
+        <group>
+          {([1, -1] as const).map((sign) => (
+            <group key={sign}>
+              {Array.from({ length: n }, (_, i) => {
+                const x = n === 1 ? 0 : -spanU / 2 + i * (panelW + gapU);
+                return (
+                  <group
+                    key={i}
+                    position={[x, yG * MM - thick / 2, sign * zMid * MM]}
+                  >
+                    <mesh material={dark}>
+                      <boxGeometry args={[panelW, thick, openD]} />
+                    </mesh>
+                    {Array.from({ length: louverN }, (_, L) => {
+                      const zL = (-0.5 + (L + 0.5) / louverN) * (openD - 4 * MM);
+                      return (
+                        <mesh
+                          key={L}
+                          material={mat}
+                          position={[0, -thick * 0.15, zL]}
+                        >
+                          <boxGeometry args={[panelW * 0.9, louverT, openD * 0.1]} />
+                        </mesh>
+                      );
+                    })}
+                  </group>
+                );
+              })}
+            </group>
+          ))}
+        </group>
+      );
+    }
   }
 
   /*
