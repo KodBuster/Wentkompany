@@ -32,23 +32,26 @@ function StudioEnvironment() {
     canvas.height = 256;
     const ctx = canvas.getContext('2d')!;
 
-    /* Тёплый «цех» под палитру сайта — металл читается бронзово, не холодно-серо */
+    /* Тёплый цех: плавный градиент + мягкие блики (без жёстких прямоугольников) */
     const sky = ctx.createLinearGradient(0, 0, 0, 256);
-    sky.addColorStop(0, '#f3ebe3');
-    sky.addColorStop(0.42, '#c4a890');
-    sky.addColorStop(0.52, '#3d322c');
-    sky.addColorStop(1, '#1a1612');
+    sky.addColorStop(0, '#f6f0ea');
+    sky.addColorStop(0.42, '#c9b09a');
+    sky.addColorStop(0.58, '#3f342e');
+    sky.addColorStop(1, '#161210');
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, 512, 256);
 
-    // световые панели цеха — дают металлу продольные блики
-    ctx.fillStyle = '#fff6ea';
-    ctx.globalAlpha = 0.9;
-    ctx.fillRect(40, 26, 190, 26);
-    ctx.fillRect(300, 40, 150, 18);
-    ctx.globalAlpha = 0.35;
-    ctx.fillRect(60, 96, 380, 10);
-    ctx.globalAlpha = 1;
+    const g1 = ctx.createRadialGradient(170, 36, 6, 170, 36, 130);
+    g1.addColorStop(0, 'rgba(255,248,238,0.55)');
+    g1.addColorStop(1, 'rgba(255,248,238,0)');
+    ctx.fillStyle = g1;
+    ctx.fillRect(0, 0, 340, 150);
+
+    const g2 = ctx.createRadialGradient(390, 50, 4, 390, 50, 100);
+    g2.addColorStop(0, 'rgba(255,244,230,0.35)');
+    g2.addColorStop(1, 'rgba(255,244,230,0)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(290, 0, 220, 130);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.mapping = THREE.EquirectangularReflectionMapping;
@@ -75,34 +78,38 @@ function StudioEnvironment() {
 function useMaterials(mode: ViewMode, material: '430' | '304') {
   return useMemo(() => {
     const xray = mode === 'xray';
+    /*
+     * forceSinglePass: DoubleSide без второго прохода по тем же треугольникам —
+     * иначе на плоских/скосах штриховка (z-fighting лицевой и изнанки).
+     */
     const steel = new THREE.MeshStandardMaterial({
       color: material === '304' ? '#B9AFA3' : '#A89888',
-      metalness: 0.86,
-      roughness: material === '304' ? 0.22 : 0.32,
+      metalness: 0.82,
+      roughness: material === '304' ? 0.26 : 0.36,
+      envMapIntensity: 0.85,
       side: THREE.DoubleSide,
+      forceSinglePass: true,
       transparent: xray,
       opacity: xray ? 0.18 : 1,
       depthWrite: !xray,
-      polygonOffset: true,
-      polygonOffsetFactor: 1,
-      polygonOffsetUnits: 1,
     });
     const dark = new THREE.MeshStandardMaterial({
       color: '#3A322C',
       metalness: 0.7,
-      roughness: 0.5,
+      roughness: 0.48,
+      envMapIntensity: 0.65,
+      forceSinglePass: true,
       transparent: xray,
       opacity: xray ? 0.25 : 1,
       depthWrite: !xray,
     });
     const filter = new THREE.MeshStandardMaterial({
       color: '#A89A8C',
-      metalness: 0.78,
-      roughness: 0.48,
+      metalness: 0.72,
+      roughness: 0.46,
+      envMapIntensity: 0.7,
       side: THREE.DoubleSide,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
+      forceSinglePass: true,
     });
     const water = new THREE.MeshStandardMaterial({
       color: '#58B4DC',
@@ -116,15 +123,14 @@ function useMaterials(mode: ViewMode, material: '430' | '304') {
     const ghost = mode !== 'solid';
     const corpus = new THREE.MeshStandardMaterial({
       color: material === '304' ? '#B9AFA3' : '#A89888',
-      metalness: 0.86,
-      roughness: material === '304' ? 0.22 : 0.32,
+      metalness: 0.82,
+      roughness: material === '304' ? 0.26 : 0.36,
+      envMapIntensity: 0.85,
       side: THREE.DoubleSide,
+      forceSinglePass: true,
       transparent: ghost,
       opacity: xray ? 0.16 : ghost ? 0.32 : 1,
       depthWrite: !ghost,
-      polygonOffset: true,
-      polygonOffsetFactor: 1,
-      polygonOffsetUnits: 1,
     });
     return { steel, dark, filter, water, corpus };
   }, [mode, material]);
@@ -383,7 +389,11 @@ function makeIslandSupplyShell(layout: Layout) {
     pushQuad(pos, idx, [hw, yV, zF], [-hw, yV, zF], [-hw, H, zTopF], [hw, H, zTopF]);
     pushQuad(pos, idx, [-hw, yV, zB], [hw, yV, zB], [hw, 0, zB], [-hw, 0, zB]);
     pushQuad(pos, idx, [-hw, yV, zB], [hw, yV, zB], [hw, H, zTopB], [-hw, H, zTopB]);
-    pushQuad(pos, idx, [-hw, H, zTopB], [hw, H, zTopB], [hw, H, zTopF], [-hw, H, zTopF]);
+    /*
+     * Крыша без z-fighting: только вытяжная зона между швами.
+     * Полки над притоком — отдельными квадами (как у ТИП 3).
+     */
+    pushQuad(pos, idx, [-hw, H, zPartTopB], [hw, H, zPartTopB], [hw, H, zPartTopF], [-hw, H, zPartTopF]);
 
     /* Перегородка: та же вертикаль + тот же скос, смещение dIn внутрь */
     pushQuad(pos, idx, [-hw, 0, zPartBotF], [hw, 0, zPartBotF], [hw, yV, zPartBotF], [-hw, yV, zPartBotF]);
@@ -391,7 +401,7 @@ function makeIslandSupplyShell(layout: Layout) {
     pushQuad(pos, idx, [-hw, yV, zPartBotF], [hw, yV, zPartBotF], [hw, H, zPartTopF], [-hw, H, zPartTopF]);
     pushQuad(pos, idx, [hw, yV, zPartBotB], [-hw, yV, zPartBotB], [-hw, H, zPartTopB], [hw, H, zPartTopB]);
 
-    /* Полка крыши над притоком: шов → ребро */
+    /* Полка крыши над притоком: шов → ребро (стык без наложения на центр) */
     if (dIn > 1e-6 && zTopF > zPartTopF + 1e-6) {
       pushQuad(pos, idx, [-hw, H, zPartTopF], [hw, H, zPartTopF], [hw, H, zTopF], [-hw, H, zTopF]);
       pushQuad(pos, idx, [hw, H, zPartTopB], [-hw, H, zPartTopB], [-hw, H, zTopB], [hw, H, zTopB]);
@@ -636,18 +646,47 @@ function Corpus({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
   );
 }
 
-/** Крышка / врезки. У приточных сварных корпусов крыша уже в оболочке — только патрубки. */
-function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; dark: THREE.Material }) {
-  const { top, dims, spigots, supplyPlenum, profile, filters } = layout;
-  const island = filters.some((f) => f.kind === 'front' || f.kind === 'back');
+/** Патрубок на крышке: открытая труба вниз в короб + фланец сверху (без диска на плоскости крыши). */
+function SpigotStub({
+  diameter,
+  body,
+  flange,
+}: {
+  diameter: number;
+  body: THREE.Material;
+  flange: THREE.Material;
+}) {
+  const r = (diameter / 2) * MM;
+  const h = BUILD.spigot * MM;
+  const tube = 4 * MM;
+  return (
+    <group>
+      {/* openEnded — проход в короб; диск на y=H давал «стробоскоп» при взгляде сверху */}
+      <mesh material={body}>
+        <cylinderGeometry args={[r, r, h, 28, 1, true]} />
+      </mesh>
+      {/* Фланец на верхнем обрезе трубы */}
+      <mesh material={flange} position={[0, h / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[r - tube * 0.15, r + tube, 28]} />
+      </mesh>
+    </group>
+  );
+}
 
-  if (supplyPlenum) {
-    /* ЗПВП ТИП 2: скос режет плоскую крышу; ЗПВО — симметрия, без сдвига центра */
+/** Крышка / врезки. У приточных и ТИП 1 крыша уже в оболочке — только патрубки. */
+function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; dark: THREE.Material }) {
+  const { top, dims, spigots, supplyPlenum, profile, filters, bottomRise } = layout;
+  const island = filters.some((f) => f.kind === 'front' || f.kind === 'back');
+  /* ТИП 1: крыша в makeSloped*Shell — плиту не дублируем */
+  const type1Shell = profile === 'triangle' && !supplyPlenum && bottomRise > 0;
+  const roofInShell = !!supplyPlenum || type1Shell;
+
+  if (roofInShell) {
     const wallType2 = !island && profile === 'trapezoid';
     const chamfer =
-      wallType2
+      supplyPlenum && wallType2
         ? supplyType2Chamfer(dims.h, dims.d, supplyPlenum.depth).chamferZ
-        : island && profile === 'trapezoid'
+        : supplyPlenum && island && profile === 'trapezoid'
           ? islandSupplyType2Chamfer(dims.h, dims.d, supplyPlenum.depth).chamferZ
           : 0;
     const topD = island
@@ -660,20 +699,11 @@ function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; 
           const body = s.role === 'supply' ? mat : dark;
           const localZ = s.z + (top.z - topZ);
           const half = topD / 2 - s.diameter / 2 - 8;
-          /* Приток уже в камере — не сдвигать clamp'ом */
           const zPos =
             s.role === 'supply' ? localZ : Math.max(-half, Math.min(half, localZ));
           return (
             <group key={i} position={[s.x * MM, (BUILD.spigot / 2) * MM, zPos * MM]}>
-              <mesh material={body}>
-                <cylinderGeometry args={[(s.diameter / 2) * MM, (s.diameter / 2) * MM, BUILD.spigot * MM, 28, 1, true]} />
-              </mesh>
-              <mesh material={body} position={[0, (-BUILD.spigot / 2) * MM, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <circleGeometry args={[(s.diameter / 2) * MM, 28]} />
-              </mesh>
-              <mesh material={mat} position={[0, (BUILD.spigot / 2) * MM, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <torusGeometry args={[(s.diameter / 2) * MM, 6 * MM, 8, 28]} />
-              </mesh>
+              <SpigotStub diameter={s.diameter} body={body} flange={mat} />
             </group>
           );
         })}
@@ -681,6 +711,7 @@ function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; 
     );
   }
 
+  /* ТИП 2/3 без притока: крыша только здесь (frustum без верхней грани) */
   return (
     <group position={[0, dims.h * MM, top.z * MM]}>
       <mesh material={mat} position={[0, 4 * MM, 0]}>
@@ -690,15 +721,7 @@ function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; 
         const body = s.role === 'supply' ? mat : dark;
         return (
           <group key={i} position={[s.x * MM, (BUILD.spigot / 2) * MM, s.z * MM]}>
-            <mesh material={body}>
-              <cylinderGeometry args={[(s.diameter / 2) * MM, (s.diameter / 2) * MM, BUILD.spigot * MM, 28, 1, true]} />
-            </mesh>
-            <mesh material={body} position={[0, (-BUILD.spigot / 2) * MM, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-              <circleGeometry args={[(s.diameter / 2) * MM, 28]} />
-            </mesh>
-            <mesh material={mat} position={[0, (BUILD.spigot / 2) * MM, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[(s.diameter / 2) * MM, 6 * MM, 8, 28]} />
-            </mesh>
+            <SpigotStub diameter={s.diameter} body={body} flange={mat} />
           </group>
         );
       })}
@@ -718,7 +741,6 @@ function wallFilterCore(layout: Layout) {
   const trayH = Math.min(BUILD.core.trayH, 22);
   const wallGap = 8;
   const floorGap = 2;
-  const yTopClear = 8;
 
   const trayZ = zBack + wallGap + trayD / 2;
   const floorY =
@@ -731,9 +753,6 @@ function wallFilterCore(layout: Layout) {
   const yB = floorY + floorGap + trayH + 1;
   const zB = trayZ;
 
-  /* C: под крышей, склейка P от края врезки — не под патрубком */
-  const yC = dims.h - yTopClear;
-  const dy = Math.max(yC - yB, 50);
   const topFront = top.z + top.d / 2;
   const topBack = top.z - top.d / 2;
   const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
@@ -745,8 +764,19 @@ function wallFilterCore(layout: Layout) {
   zC = Math.max(zC, pipeZ + pipeR + pMin);
   zC = Math.max(zC, Math.max(topBack + 28, zB + 50));
 
-  const dz = zC - zB;
-  const tilt = Math.atan2(Math.abs(dz), dy);
+  /*
+   * Верх C под крышей с учётом толщины кассеты после наклона —
+   * иначе угол «жировика» пробивает крышку (и даёт «прозрачные» полосы).
+   */
+  const tHalf = BUILD.core.filterT * 0.5;
+  let yC = dims.h - 12;
+  let dy = Math.max(yC - yB, 50);
+  let dz = zC - zB;
+  let tilt = Math.atan2(Math.abs(dz), dy);
+  yC = dims.h - (14 + tHalf * Math.sin(tilt) + 10);
+  dy = Math.max(yC - yB, 50);
+  dz = zC - zB;
+  tilt = Math.atan2(Math.abs(dz), dy);
   const fh = Math.hypot(Math.abs(dz), dy);
   const y = (yB + yC) / 2;
   const z = (zB + zC) / 2;
@@ -805,7 +835,8 @@ function islandFilterCore(layout: Layout) {
         ? BUILD.zpvo.type3Bridge
         : BUILD.zpvo.minBridge;
     const yB0 = yB;
-    const yC = dims.h - 3;
+    const tHalf = BUILD.core.filterT * 0.5;
+    let yC = dims.h - 16;
     const pipeD =
       exhaust?.diameter ??
       (isType3 ? BUILD.zpvo.type3DisplayExhaust : BUILD.zpvo.type2DisplayExhaust);
@@ -850,9 +881,13 @@ function islandFilterCore(layout: Layout) {
       gapB = Math.max(14, zCFront - 40);
     }
 
-    const dz = Math.max(Math.abs(zCFront - gapB), 24);
-    const dy = Math.max(yC - yB0, 50);
-    const tilt = Math.atan2(dz, dy);
+    let dz = Math.max(Math.abs(zCFront - gapB), 24);
+    let dy = Math.max(yC - yB0, 50);
+    let tilt = Math.atan2(dz, dy);
+    yC = dims.h - (14 + tHalf * Math.sin(tilt) + 10);
+    dy = Math.max(yC - yB0, 50);
+    dz = Math.max(Math.abs(zCFront - gapB), 24);
+    tilt = Math.atan2(dz, dy);
     const fhBank = Math.hypot(dz, dy);
 
     return {
@@ -878,15 +913,12 @@ function islandFilterCore(layout: Layout) {
     };
   }
 
-  /* ЗВО / ЗВОГ: склейка верхов — P от края трубы (не под патрубком) */
-  const yTopClear = 10;
-  const yC = dims.h - yTopClear;
-  const dy = Math.max(yC - yB, 50);
+  /* ЗВО / ЗВОГ: склейка верхов — P от края трубы; толщина кассеты не выше крыши */
+  const tHalf = BUILD.core.filterT * 0.5;
   const pMin = BUILD.zpvo.type2PMin;
   const edgeClear = 22;
   const zRoofF = Math.min(top.z + top.d / 2 - edgeClear, zExLimit);
   const zRoofB = Math.max(top.z - top.d / 2 + edgeClear, -zExLimit);
-  /* База pipeR+P; рост D тянет верх к ребру крыши */
   const pGrow = Math.max(0, (dims.d - 600) * 0.18);
   let zCFront = pipeZ + pipeR + pMin + pGrow;
   let zCBack = pipeZ - pipeR - pMin - pGrow;
@@ -894,6 +926,12 @@ function islandFilterCore(layout: Layout) {
   zCBack = Math.max(zCBack, zRoofB);
   zCFront = Math.max(zCFront, pipeZ + pipeR + pMin);
   zCBack = Math.min(zCBack, pipeZ - pipeR - pMin);
+
+  let yC = dims.h - 12;
+  let dy = Math.max(yC - yB, 50);
+  let tiltEst = Math.atan2(Math.abs(zCFront - zBFront), dy);
+  yC = dims.h - (14 + tHalf * Math.sin(tiltEst) + 10);
+  dy = Math.max(yC - yB, 50);
 
   const side = (zBottom: number, zTop: number, rotSign: number) => {
     const dz = zTop - zBottom;
@@ -1344,20 +1382,9 @@ function SupplyChamber({
   const zF = dims.d / 2;
   const plenum = supplyPlenum.depth;
 
-  const slitN = Math.max(1, supplySlot.frontCount);
-  const gapMm = BUILD.supplySlot.gap;
-  const slitW =
-    Math.min(
-      BUILD.supplySlot.panelW,
-      (dims.w - 80 - Math.max(0, slitN - 1) * gapMm) / slitN,
-    ) * MM;
-  const slitD = Math.min(plenum * 0.45, 48) * MM;
-  const slitT = 5 * MM;
-  const gap = gapMm * MM;
-  const span = slitN <= 1 ? 0 : (slitN - 1) * (slitW + gap);
-
   const type2 = profile === 'trapezoid';
   const type1 = profile === 'triangle';
+  const type3 = profile === 'rect';
   const ch = type2
     ? (island ? islandSupplyType2Chamfer(dims.h, dims.d, plenum) : supplyType2Chamfer(dims.h, dims.d, plenum))
     : null;
@@ -1471,8 +1498,7 @@ function SupplyChamber({
     }
 
     /*
-     * ТИП 3: щелевые решётки // полу у низа прямоугольной полости
-     * (как вырезы в плоскости; для 3D — рамка с ламелями).
+     * ТИП 3: щелевые решётки // полу по центру прямоугольной полости (по Z).
      */
     {
       const zMid = (zF + zP) / 2;
@@ -1519,25 +1545,62 @@ function SupplyChamber({
   }
 
   /*
-   * ЗПВП: щели на переднем фронте (изнутри), не на крышке:
-   * ТИП 2 — короткая вертикаль; ТИП 1 — над скосом низа; ТИП 3 — у низа фронта.
+   * ЗПВП: плоские щелевые решётки // полу внутри приточной полости.
+   * На передней зоне короба, ряд по центру W (равные поля от боковин).
    */
-  const zSlit = zF - slitD / (2 * MM) - 6;
-  const ySlit =
-    type2 && ch
-      ? Math.max(10, Math.min(ch.vertDy * 0.4, ch.vertDy - 8))
-      : type1
-        ? yR + 12
-        : 12;
+  const sideMarg = 50;
+  const panelWmm = BUILD.supplySlot.panelW;
+  const gapUmm = BUILD.supplySlot.gap;
+  const maxN = Math.max(
+    1,
+    Math.floor((dims.w - 2 * sideMarg + gapUmm) / (panelWmm + gapUmm)),
+  );
+  const n = Math.min(Math.max(1, supplySlot.frontCount), maxN);
+  const panelW = panelWmm * MM;
+  const gapU = gapUmm * MM;
+  const totalW = n * panelW + Math.max(0, n - 1) * gapU;
+  const x0 = -totalW / 2 + panelW / 2;
+
+  const zP = zF - plenum;
+  const openD = Math.min(plenum * 0.62, 72) * MM;
+  /*
+   * ТИП 1 и ТИП 3: центр приточной камеры по Z.
+   * ТИП 2: ближе к наружному фронту (скос визуально смещает середину).
+   */
+  const zSlit =
+    type1 || type3
+      ? (zF + zP) / 2
+      : zF - Math.min(plenum * 0.28, openD / (2 * MM) + 10);
+  const thick = Math.max(BUILD.supplySlot.t, 6) * MM;
+  const louverN = BUILD.supplySlot.louvers;
+  const louverT = 1.2 * MM;
+
+  /* Высота: чуть над полом полости (ТИП 1 — над скосом; ТИП 2 — в пределах бортика) */
+  const yG = type2 && ch
+    ? Math.min(ch.vertDy - 2, Math.max(thick / MM + 4, 10))
+    : type1
+      ? yR + thick / MM + 6
+      : Math.max(thick / MM + 4, 10);
 
   return (
     <group>
-      {Array.from({ length: slitN }, (_, i) => {
-        const x = slitN === 1 ? 0 : -span / 2 + i * (slitW + gap);
+      {Array.from({ length: n }, (_, i) => {
+        const x = n === 1 ? 0 : x0 + i * (panelW + gapU);
         return (
-          <mesh key={i} material={dark} position={[x, ySlit * MM, zSlit * MM]}>
-            <boxGeometry args={[slitW, slitT, slitD]} />
-          </mesh>
+          <group key={i} position={[x, yG * MM - thick / 2, zSlit * MM]}>
+            {/* Рамка в горизонтальной плоскости (// полу) */}
+            <mesh material={dark}>
+              <boxGeometry args={[panelW, thick, openD]} />
+            </mesh>
+            {Array.from({ length: louverN }, (_, L) => {
+              const zL = (-0.5 + (L + 0.5) / louverN) * (openD - 4 * MM);
+              return (
+                <mesh key={L} material={mat} position={[0, -thick * 0.15, zL]}>
+                  <boxGeometry args={[panelW * 0.9, louverT, openD * 0.1]} />
+                </mesh>
+              );
+            })}
+          </group>
         );
       })}
     </group>
@@ -1768,16 +1831,16 @@ export function HoodScene({ dims, traits, ducts, mode, material, lamps, typeLabe
       <directionalLight position={[3, 5, 2]} intensity={1.12} color="#fff4e8" />
       <directionalLight position={[-4, 2, -3]} intensity={0.48} color="#c4a890" />
       {/* Свет снизу — нутро видно при взгляде орбитой снизу */}
-      <directionalLight position={[0, -4, 1]} intensity={0.55} color="#fff4e8" />
+      <directionalLight position={[0, -4, 1]} intensity={0.45} color="#fff4e8" />
 
       {/* Низ модели у y≈0 — вертикаль кадра считает CameraRig от верхней точки */}
       <group position={[0, 0, 0]}>
         <Hood layout={layout} mode={mode} material={material} />
         <ContactShadows
           position={[0, -0.02, 0]}
-          opacity={0.45}
+          opacity={0.38}
           scale={radius * 6}
-          blur={2.4}
+          blur={2.6}
           far={2}
           color="#000000"
         />
