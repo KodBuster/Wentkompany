@@ -48,12 +48,45 @@ export const BUILD = {
   /** Отступ верха кассеты от обшивки при поджиме, мм. */
   filterClearance: 40,
   /**
+   * Вытяжная камера ① (ЗПВП) — ядро у задника, не тянется за вылетом D.
+   * Зона ② (свободный захват) растёт между жировиком и перегородкой притока.
+   */
+  exhaustChamber: {
+    /** Отступ задняя плоскость → стенка Ø вытяжного патрубка, мм */
+    rearClear: 56,
+    /** Зазор Ø вытяжки → верх кассеты (P), мм */
+    pMin: 22,
+    /** Зазор верх кассеты → перегородка притока, мм */
+    bridge: 52,
+    /** Зазор ванночки от задней стенки, мм */
+    wallGap: 22,
+  },
+  /**
    * Приточная камера ③ (ЗПВП) — фурнитура, не тянется за габаритом заказа.
    * depth = dia + 2×edge: край → зазор → Ø → такой же зазор → перегородка.
    */
   supplyChamber: {
-    /** Глубина короба: передняя плоскость → перегородка, мм */
+    /** Глубина короба: передняя плоскость → перегородка, мм (ТИП 1/3) */
     depth: 160,
+    /**
+     * ТИП 2: чуть мельче ТИП 1/3 — больше зона ②.
+     * Не меньше dia + 2×edgeMin, иначе патрубок наезжает на шов.
+     */
+    /**
+     * ТИП 2: глубина камеры ③, мм.
+     * Меньше → перегородка ближе к фронту → больше свободная зона ② (горячий воздух).
+     */
+    /**
+     * ТИП 2: глубина камеры ③, мм.
+     * Меньше → больше зона ②; минимум ≈ Ø + 2×зазор, иначе ломается крыша.
+     */
+    /**
+     * ТИП 2: глубина камеры ③, мм.
+     * Чуть меньше ТИП 1/3 (160) → больше зона ②; не жать — иначе патрубки сходятся и жировик уезжает.
+     */
+    depthType2: 125,
+    /** ТИП 2: высота нижнего вертикального бортика, мм — const (часть камеры ③) */
+    type2VertDy: 84,
     /** Отступ от переднего края крыши до стенки патрубка (и такой же до шва), мм */
     edge: 35,
     /** Ø приточного патрубка (пока const; таблица по расходу — позже) */
@@ -245,23 +278,29 @@ function supplyFrontRise(profile: Layout['profile'], height: number) {
 }
 
 /**
- * ТИП 2 ЗПВП: длинный верхний скос, короткая вертикаль снизу.
- * На плоской крыше целиком влезает камера ③ (depth const).
+ * ТИП 2 ЗПВП: скос сверху + бортик снизу (высота бортика — const).
+ * На D≈600 не утягивать приток к центру — иначе патрубки «слипаются» (дефолт каталога).
  */
 export function supplyType2Chamfer(h: number, d: number, plenumDepth: number) {
   const frontH = Math.max(h, 80);
-  const vertDy = Math.max(Math.round(frontH * 0.16), 36);
-  const slantDy = frontH - vertDy;
+  const vertDy = Math.min(BUILD.supplyChamber.type2VertDy, frontH - 40);
+  const slantDy = Math.max(frontH - vertDy, 40);
 
-  /* Плоская полка ≥ глубина камеры ③ */
-  const needFlat = Math.max(plenumDepth, BUILD.supplyChamber.depth);
+  const needFlat = Math.max(plenumDepth, BUILD.supplyChamber.depthType2);
+  /*
+   * Вынос низа, но плоская полка под камеру ③ остаётся у фронта.
+   * Иначе при D=600 приток визуально как при «сжатом» центре.
+   */
   const maxChamfer = Math.max(
-    36,
-    Math.min(d * 0.14, d / 2 - needFlat - 40, 72),
+    48,
+    Math.min(Math.floor(d * 0.22), d / 2 - needFlat - 48, 130),
   );
 
-  const tilt = (BUILD.filterTilt * Math.PI) / 180;
-  const chamferZ = Math.min(Math.tan(tilt) * slantDy, maxChamfer);
+  const alphaTarget = (36 * Math.PI) / 180;
+  const chamferZ = Math.min(
+    Math.round(Math.tan(alphaTarget) * slantDy),
+    maxChamfer,
+  );
 
   return { chamferZ, slantDy, vertDy };
 }
@@ -367,8 +406,12 @@ export function withSupplySpigot(
   plenumDepth: number,
   opts?: { profile?: Layout['profile']; h?: number; frontRise?: number },
 ): Spigot[] {
-  const { edge, dia: supplyDia } = BUILD.supplyChamber;
-  const depth = Math.min(plenumDepth, BUILD.supplyChamber.depth);
+  const { dia: supplyDia } = BUILD.supplyChamber;
+  const depth = Math.max(plenumDepth, supplyDia + 2 * 12);
+  const edge = Math.min(
+    BUILD.supplyChamber.edge,
+    Math.max(12, (depth - supplyDia) / 2),
+  );
   const half = top.d / 2;
   const zF = half;
 
@@ -379,27 +422,32 @@ export function withSupplySpigot(
     zFlatFront = zF - ch.chamferZ;
   }
 
-  /*
-   * Центр патрубка: от переднего края edge + R.
-   * Шов на крыше: за патрубком ещё edge → глубина камеры = dia + 2×edge.
-   */
   const zSup = zFlatFront - edge - supplyDia / 2;
   const zSeamTop = zFlatFront - depth;
 
-  /* Вытяжка — камера ① у тыла */
-  const rearClear = 56;
-  const gapZ = 28;
+  /* Вытяжка — камера ①: от задней плоскости; Ø не съедает зазор до притока */
+  const rearClear = BUILD.exhaustChamber.rearClear;
+  const gapZ = BUILD.exhaustChamber.bridge;
+  const minPipeGap = 90; /* как при «раздвинутом» D — читаемый зазор на крыше */
   const exhaustDepth = Math.max(top.d - depth, 160);
+  const exhaustMaxByGap =
+    zSup - supplyDia / 2 + half - rearClear - minPipeGap;
   const exhaustMax = Math.min(
     Math.max(120, exhaustDepth - 100),
     Math.max(120, top.w - 2 * 40),
+    Math.max(120, exhaustMaxByGap),
   );
   const zExLimit = Math.min(half - depth - gapZ, zSeamTop - 20);
   const n = spigots.length;
 
   if (n === 1) {
     const dia = Math.min(spigots[0].diameter, exhaustMax);
-    const zEx = clamp(-half + dia / 2 + rearClear, -half + rearClear, zExLimit - dia / 2);
+    /* Центр: зад − rearClear − R (зазор до стенки const) */
+    const zEx = clamp(
+      -half + dia / 2 + rearClear,
+      -half + rearClear,
+      zExLimit - dia / 2,
+    );
     return [
       { x: 0, z: zEx, diameter: dia, role: 'exhaust' },
       { x: 0, z: zSup, diameter: Math.min(supplyDia, dia), role: 'supply' },
@@ -664,7 +712,9 @@ export function buildLayout(
   const plenumDepth = traits.supply
     ? traits.island
       ? islandSupplyPlenumDepth(dims.d, profile)
-      : BUILD.supplyPlenumDepth /* камера ③ — const, не от D */
+      : profile === 'trapezoid'
+        ? BUILD.supplyChamber.depthType2 /* ТИП 2: камера чуть вперёд → больше зона ② */
+        : BUILD.supplyPlenumDepth
     : 0;
   /* У ЗПВО скос — наружные грани; frontRise только у пристенного ЗПВП */
   const frontRise =

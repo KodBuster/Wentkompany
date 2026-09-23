@@ -953,12 +953,14 @@ function islandFilterCore(layout: Layout) {
 }
 
 /**
- * ЗПВП (пристенный приток): жироуловитель только в вытяжной камере.
- * Отдельно от wall/island — пункт 2: A≡B на ванночке у задника, C≡D под крышей у врезки вытяжки.
+ * ЗПВП (пристенный приток): жироуловитель только в вытяжной камере ①.
+ * Якоря const от задника и патрубка; рост D расширяет зону ②, не ядро.
+ * A≡B на ванночке у задника, C≡D под крышей у врезки вытяжки (P).
  */
 function supplyWallFilterCore(layout: Layout) {
-  const { dims, top, spigots, supplyPlenum } = layout;
+  const { dims, top, spigots, supplyPlenum, profile } = layout;
   const plenum = supplyPlenum!;
+  const ex = BUILD.exhaustChamber;
   const zBack = -dims.d / 2;
   const zF = dims.d / 2;
   const zP = zF - plenum.depth;
@@ -967,9 +969,8 @@ function supplyWallFilterCore(layout: Layout) {
 
   const trayD = BUILD.core.trayD;
   const trayH = Math.min(BUILD.core.trayH, 20);
-  const wallGap = 22;
+  const wallGap = ex.wallGap;
   const floorGap = 2;
-  /* Зазор под крышей с учётом толщины кассеты после наклона — иначе верх пробивает крышу */
   const tHalf = BUILD.core.filterT * 0.5;
 
   const trayZ = zBack + wallGap + trayD / 2;
@@ -982,12 +983,21 @@ function supplyWallFilterCore(layout: Layout) {
   const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
   const pipeZ = top.z + (exhaust?.z ?? 0);
   const pipeR = (exhaust?.diameter ?? 160) / 2;
-  const outMax = Math.max(50, (zP - zBack) * 0.42);
-  let zC = pipeZ + Math.min(pipeR + 28, outMax);
-  zC = Math.min(zC, zP - 36);
+
+  /*
+   * Верх кассеты: P от Ø вытяжки.
+   * Лимит до шва: у ТИП 2 на крыше шов ближе к тылу (zTopF − depth), чем низ zP —
+   * иначе верх «прилипает» к перегородке (синяя зона на скрине).
+   */
+  let zSeamLimit = zP;
+  if (profile === 'trapezoid') {
+    const ch = supplyType2Chamfer(dims.h, dims.d, plenum.depth);
+    zSeamLimit = Math.min(zP, zF - ch.chamferZ - plenum.depth);
+  }
+  let zC = pipeZ + pipeR + ex.pMin;
+  zC = Math.min(zC, zSeamLimit - ex.bridge);
   zC = Math.max(zC, zB + 48);
 
-  /* Сначала оценка наклона, затем опускаем верх C≡D под крышку */
   let yC = dims.h - 8;
   let dy = Math.max(yC - yB, 50);
   let dz = zC - zB;
