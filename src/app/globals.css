@@ -555,13 +555,29 @@
 
   .cfg-dim {
     display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.1rem;
-    padding: 0.55rem 0.6rem; border-radius: var(--radius-sm);
-    border: 1px solid transparent;
-    transition: background 0.18s var(--ease-out), border-color 0.18s var(--ease-out);
   }
-  .cfg-dim.is-active {
-    background: rgba(184, 92, 56, 0.08);
-    border-color: rgba(184, 92, 56, 0.28);
+  .cfg-dim-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+  }
+  /* Цифра кликабельна для прямого ввода; без «карточки» на весь блок */
+  .cfg-dim-num {
+    display: inline-flex; align-items: baseline; gap: 0.25rem;
+    margin: 0; cursor: text;
+  }
+  .cfg-dim-num-input {
+    width: 4.6ch; min-width: 3ch; max-width: 6ch;
+    padding: 0 0 1px; margin: 0;
+    border: 0; border-bottom: 1px solid transparent;
+    background: transparent; color: var(--color-steel-100);
+    text-align: right; font: inherit; font-variant-numeric: tabular-nums;
+    outline: none; border-radius: 0;
+    transition: border-color 0.18s var(--ease-out);
+  }
+  .cfg-dim-num-input:hover { border-bottom-color: var(--color-steel-500); }
+  .cfg-dim-num-input:focus { border-bottom-color: var(--color-extract); }
+  .cfg-dim-num-unit {
+    font-family: var(--font-mono); font-size: 0.85em; color: var(--color-steel-400);
+    user-select: none;
   }
   .cfg-dim-row { display: flex; align-items: center; gap: 0.4rem; }
   .cfg-dim-btn {

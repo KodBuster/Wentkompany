@@ -5,6 +5,7 @@ import {
   useState,
   useEffect,
   useRef,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
 import dynamic from 'next/dynamic';
@@ -146,7 +147,8 @@ function buildCfgText(input: {
 }
 
 /**
- * Поле габарита: подпись + мм, − / трек / +, колесо ±1 мм на активном поле.
+ * Габарит: цифра вводится напрямую; интерактив только у − / ползунка / +.
+ * Колесо ±step — лишь над треком; удержание −/+ — автоповтор.
  */
 function DimSlider({
   label,
@@ -167,16 +169,34 @@ function DimSlider({
   ariaLabel: string;
   hint?: ReactNode;
 }) {
-  const rootRef = useRef<HTMLDivElement>(null);
+  const rangeRef = useRef<HTMLInputElement>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
-  const [active, setActive] = useState(false);
+  const holdRef = useRef<{ delay: ReturnType<typeof setTimeout> | null; tick: ReturnType<typeof setInterval> | null }>({
+    delay: null,
+    tick: null,
+  });
+  const [draft, setDraft] = useState(String(value));
+  const [editing, setEditing] = useState(false);
 
   const set = (n: number) => onChange(clampDim(n, min, max));
 
+  const stopHold = () => {
+    if (holdRef.current.delay != null) clearTimeout(holdRef.current.delay);
+    if (holdRef.current.tick != null) clearInterval(holdRef.current.tick);
+    holdRef.current = { delay: null, tick: null };
+  };
+
+  useEffect(() => () => stopHold(), []);
+
+  /* Слайдер/кнопки обновили мм — подтянуть draft, если не печатаем */
   useEffect(() => {
-    const el = rootRef.current;
-    if (!el || !active) return;
+    if (!editing) setDraft(String(value));
+  }, [value, editing]);
+
+  useEffect(() => {
+    const el = rangeRef.current;
+    if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const dir = e.deltaY > 0 ? -step : step;
@@ -184,49 +204,110 @@ function DimSlider({
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [active, min, max, step, onChange]);
+  }, [min, max, step, onChange]);
+
+  const commitDraft = () => {
+    setEditing(false);
+    const raw = draft.replace(/\D/g, '');
+    if (!raw) {
+      setDraft(String(valueRef.current));
+      return;
+    }
+    set(Number(raw));
+  };
+
+  /** Первый шаг сразу, после паузы — быстрый автоповтор до min/max */
+  const startHold = (dir: 1 | -1) => (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    stopHold();
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    const stepOnce = () => {
+      const next = clampDim(valueRef.current + dir * step, min, max);
+      if (next === valueRef.current) {
+        stopHold();
+        return false;
+      }
+      onChange(next);
+      return true;
+    };
+
+    if (!stepOnce()) return;
+    holdRef.current.delay = setTimeout(() => {
+      holdRef.current.tick = setInterval(() => {
+        if (!stepOnce()) stopHold();
+      }, 48);
+    }, 380);
+  };
 
   return (
-    <div
-      ref={rootRef}
-      className={`cfg-dim${active ? ' is-active' : ''}`}
-      onMouseEnter={() => setActive(true)}
-      onMouseLeave={() => setActive(false)}
-      onFocusCapture={() => setActive(true)}
-      onBlurCapture={(e) => {
-        if (!rootRef.current?.contains(e.relatedTarget as Node | null)) setActive(false);
-      }}
-    >
-      <div className="flex items-baseline justify-between gap-3">
+    <div className="cfg-dim">
+      <div className="cfg-dim-head">
         <span className="lbl">{label}</span>
-        <span className="num">{value} мм</span>
+        <label className="cfg-dim-num">
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            className="cfg-dim-num-input num"
+            value={editing ? draft : String(value)}
+            aria-label={ariaLabel}
+            onFocus={(e) => {
+              setEditing(true);
+              setDraft(String(valueRef.current));
+              e.target.select();
+            }}
+            onChange={(e) => setDraft(e.target.value.replace(/\D/g, ''))}
+            onBlur={commitDraft}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.currentTarget.blur();
+              } else if (e.key === 'Escape') {
+                setDraft(String(valueRef.current));
+                setEditing(false);
+                e.currentTarget.blur();
+              }
+            }}
+          />
+          <span className="cfg-dim-num-unit" aria-hidden>
+            мм
+          </span>
+        </label>
       </div>
       <div className="cfg-dim-row">
         <button
           type="button"
           className="cfg-dim-btn"
-          aria-label={`${ariaLabel}: минус 1 мм`}
+          aria-label={`${ariaLabel}: минус ${step} мм`}
           disabled={value <= min}
-          onClick={() => set(value - step)}
+          onPointerDown={startHold(-1)}
+          onPointerUp={stopHold}
+          onPointerCancel={stopHold}
+          onLostPointerCapture={stopHold}
         >
           −
         </button>
         <input
+          ref={rangeRef}
           type="range"
           className="cfg-range"
           min={min}
           max={max}
           step={step}
           value={value}
-          aria-label={ariaLabel}
+          aria-label={`${ariaLabel}: ползунок`}
           onChange={(e) => set(+e.target.value)}
         />
         <button
           type="button"
           className="cfg-dim-btn"
-          aria-label={`${ariaLabel}: плюс 1 мм`}
+          aria-label={`${ariaLabel}: плюс ${step} мм`}
           disabled={value >= max}
-          onClick={() => set(value + step)}
+          onPointerDown={startHold(1)}
+          onPointerUp={stopHold}
+          onPointerCancel={stopHold}
+          onLostPointerCapture={stopHold}
         >
           +
         </button>
