@@ -328,6 +328,39 @@ export function islandSupplyType2Chamfer(h: number, d: number, plenumDepth: numb
 
   return { chamferZ, slantDy, vertDy };
 }
+
+/**
+ * ТИП 2 ЗВП/ЗВО (без притока): бортик const + скос зоны ②.
+ * Зона ① (x) — const (вытяжка + жировик); на мин. D=600: y/x ≈ 1.5.
+ * Патрубок в центре зоны ① (A = B). С ростом D растёт только y.
+ */
+export function wallType2Chamfer(h: number, d: number) {
+  const frontH = Math.max(h, 80);
+  const vertDy = Math.min(BUILD.zpvo.type2VertDy, Math.round(frontH * 0.28));
+  const slantDy = Math.max(frontH - vertDy, 40);
+  const A = BUILD.zpvo.type2DisplayExhaust;
+  const edge = 14;
+  const dMin = 600;
+  /** y/x на каталожном минимуме D */
+  const yOverX = 1.5;
+  const xFromRatio = Math.round(dMin / (1 + yOverX)); /* 240 при 600 и 1.5 */
+  const xMinPipe = A + 2 * edge;
+  const xConst = Math.max(xFromRatio, xMinPipe);
+  const chamferZ = Math.max(0, d - xConst);
+  return {
+    chamferZ,
+    slantDy,
+    vertDy,
+    /** Глубина зоны ① (плоская крыша), мм — const */
+    zone1: xConst,
+    /** Глубина зоны ② (скос), мм */
+    zone2: chamferZ,
+    A,
+    edge,
+    yOverX,
+  };
+}
+
 /**
  * Завалы по глубине для типов ЗВП/ЗВО (не приток).
  * ТИП 1 — план полный, скос низа задаётся bottomRise в buildLayout;
@@ -344,8 +377,14 @@ function taperForProfile(
   if (supply) return empty;
   if (profile === 'rect' || profile === 'triangle') return empty;
 
+  /* ТИП 2 пристенный: α + бортик const; зона ① под патрубок A=B */
+  if (!island && !hydro) {
+    const ch = wallType2Chamfer(dims.h, dims.d);
+    return { topFront: ch.chamferZ, topBack: 0, bottomFront: 0, bottomBack: 0 };
+  }
+
   /*
-   * ТИП 2: низ прямой, верх со скосом.
+   * ТИП 2 остров / гидро: низ прямой, верх со скосом.
    * Гидро (ЗВПГ/ЗВОГ): крыша шире — место патрубку, шпилькам и форсункам под крышкой.
    */
   const minFlat = hydro
@@ -353,8 +392,8 @@ function taperForProfile(
     : Math.max(200, Math.round(dims.d * 0.34));
   const tMax = Math.max(0, dims.d - minFlat);
   const deg = hydro ? 14 : 28;
-  const byDeg = (d: number) =>
-    Math.min(Math.round(dims.h * Math.tan((d * Math.PI) / 180)), tMax);
+  const byDeg = (degV: number) =>
+    Math.min(Math.round(dims.h * Math.tan((degV * Math.PI) / 180)), tMax);
   const t = hydro
     ? Math.min(byDeg(deg), Math.round(dims.d * 0.14), tMax)
     : Math.min(Math.max(byDeg(28), Math.round(dims.d * 0.4)), tMax);
@@ -699,10 +738,13 @@ export function buildLayout(
     d: Math.max(dims.d - insets.bottomFront - insets.bottomBack, 160),
     z: (insets.bottomBack - insets.bottomFront) / 2,
   };
-  /* ТИП 1: скос низа вверх к фронту (план полный) */
+  /*
+   * ТИП 1: скос низа вверх к фронту (план полный).
+   * Передняя вертикаль L = ¼V const → подъём низа = ¾H.
+   */
   const bottomRise =
     profile === 'triangle' && !traits.supply
-      ? Math.min(Math.round(dims.h * 0.34), dims.h - 80)
+      ? Math.min(Math.round(dims.h * 0.75), dims.h - Math.max(80, Math.round(dims.h / 4)))
       : 0;
   const taper = insets.topFront + insets.bottomFront + bottomRise;
 
@@ -720,11 +762,28 @@ export function buildLayout(
       : 0;
 
   const spigots0 = layoutSpigots(top.w, top.d, pick, { island: traits.island });
-  const spigots = traits.supply
+  let spigots = traits.supply
     ? traits.island
       ? withIslandSupplySpigots(spigots0, top, plenumDepth, { profile, h: dims.h })
       : withSupplySpigot(spigots0, top, plenumDepth, { profile, h: dims.h, frontRise })
     : spigots0;
+
+  /*
+   * ЗВП/ЗВО без притока: Ø вытяжки const (как на схеме).
+   * ТИП 2 пристенный: патрубок в центре зоны ① (A = B const на плоской крыше).
+   */
+  if (!traits.supply) {
+    const A =
+      profile === 'rect'
+        ? BUILD.zpvo.type3DisplayExhaust
+        : BUILD.zpvo.type2DisplayExhaust;
+    const centerOnZone1 = !traits.island && profile === 'trapezoid';
+    spigots = spigots.map((s) => ({
+      ...s,
+      diameter: Math.min(s.diameter, A),
+      ...(centerOnZone1 ? { z: 0 } : {}),
+    }));
+  }
 
   const roofInsetZ =
     traits.island && traits.supply && profile === 'trapezoid'

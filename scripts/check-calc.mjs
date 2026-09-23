@@ -77,8 +77,18 @@ for (const code of ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'З�
     assert.ok(l.top.d <= dims.d + 1e-6, `${code}: крышка шире габарита по D`);
     if (!tr.supply) {
       assert.ok(l.bottom.d >= 200, `${code}: нижний проём выродился`);
-      /* По умолчанию (без typeLabel) — ТИП 2: скос сверху */
-      assert.ok(l.top.d < dims.d, `${code}: крышка короче по глубине (скос сверху)`);
+      /*
+       * По умолчанию (без typeLabel) — ТИП 2: скос сверху.
+       * ЗВПГ/ЗВОГ без «ТИП n» — прямоугольник (крыша = D), см. buildLayout.
+       */
+      if (tr.hydro) {
+        assert.ok(
+          Math.abs(l.top.d - dims.d) < 1e-6,
+          `${code}: гидро без типа — крыша на весь вылет`,
+        );
+      } else {
+        assert.ok(l.top.d < dims.d, `${code}: крышка короче по глубине (скос сверху)`);
+      }
       assert.ok(Math.abs(l.bottom.d - dims.d) < 1e-6, `${code}: низ на весь вылет`);
     } else {
       assert.equal(l.taper, 0, `${code}: приточный — фронт вертикальный, без завала`);

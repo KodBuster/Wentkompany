@@ -11,7 +11,7 @@
 
 import type { Dims, FamilyTraits, Calculation } from './calc.ts';
 import { ru, dec } from './calc.ts';
-import { buildLayout, BUILD, supplyType2Chamfer, islandSupplyType2Chamfer, islandSupplyType1Seam, type Layout } from './geometry.ts';
+import { buildLayout, BUILD, supplyType2Chamfer, islandSupplyType2Chamfer, islandSupplyType1Seam, wallType2Chamfer, type Layout } from './geometry.ts';
 
 export type Point = [number, number];
 
@@ -278,6 +278,8 @@ function sideOutline(layout: Layout): Polyline[] {
       {
         pts: [
           [-hd, 0],
+          /* Под ванночкой — горизонталь, дальше скос к фронту L=¼V */
+          [-hd + BUILD.core.trayD + 8, 0],
           [hd, yR],
           [hd, h],
           [-hd, h],
@@ -291,6 +293,36 @@ function sideOutline(layout: Layout): Polyline[] {
           [-hd, h],
           [hd, h],
           [hd, h + 8],
+          [-hd, h + 8],
+        ],
+        closed: true,
+        style: 'solid',
+      },
+    ];
+  }
+
+  /* ТИП 2 пристенный без притока: бортик + тупой скос */
+  if (profile === 'trapezoid' && !layout.filters.some((f) => f.kind === 'front' || f.kind === 'back')) {
+    const ch = wallType2Chamfer(dims.h, dims.d);
+    const zTopF = hd - ch.chamferZ;
+    return [
+      {
+        pts: [
+          [-hd, 0],
+          [hd, 0],
+          [hd, ch.vertDy],
+          [zTopF, h],
+          [-hd, h],
+        ],
+        closed: true,
+        style: 'solid',
+      },
+      { pts: [[-hd + 40, gutterHeight], [zTopF - 40, gutterHeight]], style: 'dashed' },
+      {
+        pts: [
+          [-hd, h],
+          [zTopF, h],
+          [zTopF, h + 8],
           [-hd, h + 8],
         ],
         closed: true,
