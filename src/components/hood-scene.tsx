@@ -1700,31 +1700,54 @@ const VIEW_DIR = new THREE.Vector3(0.52, 0.58, 0.62).normalize();
 
 /**
  * Автокадр по габариту зонта.
+ * orbitKey (семья/тип/сброс/двойной клик) — полный дефолтный ракурс.
+ * Смена мм при ручном зуме/повороте — только масштаб дистанции, ракурс сохраняем.
+ * onFramed — первый удачный кадр готов (Firefox иначе мелькает «далеко»).
  */
 function CameraRig({
   dims,
   hasHangers,
   userMoved,
   fitting,
-  tick,
+  orbitKey,
+  onFramed,
 }: {
   dims: Dims;
   hasHangers: boolean;
   userMoved: MutableRefObject<boolean>;
   fitting: MutableRefObject<boolean>;
-  tick: string;
+  orbitKey: string;
+  onFramed?: () => void;
 }) {
   const { camera, controls, size, invalidate } = useThree();
   const fitLeft = useRef(0);
   const lastSpan = useRef(0);
+  const lastSize = useRef({ w: 0, h: 0 });
+  const lastDims = useRef({ w: 0, d: 0, h: 0 });
+  const lastTargetY = useRef(0);
+  const framedSent = useRef(false);
 
+  /* Семья / тип / сброс / двойной клик — жёсткий автокадр */
   useEffect(() => {
     userMoved.current = false;
     fitting.current = true;
     fitLeft.current = 30;
     lastSpan.current = 0;
     invalidate();
-  }, [tick, size.width, size.height, userMoved, fitting, invalidate]);
+  }, [orbitKey, userMoved, fitting, invalidate]);
+
+  /* Ресайз канваса: только заметное изменение, без сброса ручного ракурса */
+  useEffect(() => {
+    const dw = Math.abs(size.width - lastSize.current.w);
+    const dh = Math.abs(size.height - lastSize.current.h);
+    lastSize.current = { w: size.width, h: size.height };
+    if (dw < 2 && dh < 2) return;
+    if (!userMoved.current && size.width >= 2 && size.height >= 2) {
+      fitting.current = true;
+      fitLeft.current = Math.max(fitLeft.current, 12);
+    }
+    invalidate();
+  }, [size.width, size.height, userMoved, fitting, invalidate]);
 
   useFrame(() => {
     const perspective = camera as THREE.PerspectiveCamera;
@@ -1739,23 +1762,54 @@ function CameraRig({
     if (size.width < 2 || size.height < 2) return;
 
     const ext = hoodExtents(dims, hasHangers);
+    const targetY = dims.h * 0.68 * MM;
 
+    /*
+     * После автокадра камеру не трогаем, пока пользователь орбитит/панит/зумит.
+     * Подстройка только в кадр, когда реально сменились W/D/H.
+     */
     if (fitLeft.current <= 0) {
       fitting.current = false;
-      if (userMoved.current && lastSpan.current > 0) {
+
+      const dimsChanged =
+        lastDims.current.w !== dims.w ||
+        lastDims.current.d !== dims.d ||
+        lastDims.current.h !== dims.h;
+
+      if (userMoved.current && dimsChanged && lastSpan.current > 0) {
+        const ratio = ext.span / Math.max(lastSpan.current, 1e-6);
+        const dy = targetY - lastTargetY.current;
+        const t = orbit.target;
+        /* Сохраняем pan: сдвигаем якорь на ΔH, не прибиваем к (0, targetY, 0) */
+        t.y += dy;
+        const offset = perspective.position.clone().sub(t);
+        if (Number.isFinite(ratio) && Math.abs(ratio - 1) > 0.002) {
+          offset.multiplyScalar(ratio);
+        }
+        perspective.position.copy(t).add(offset);
+        const used = offset.length();
+        orbit.minDistance = Math.max(0.3, used * 0.2);
+        orbit.maxDistance = Math.max(used * 10, 30);
+        orbit.update();
+      } else if (!userMoved.current && dimsChanged && lastSpan.current > 0) {
         const ratio = ext.span / lastSpan.current;
         if (Number.isFinite(ratio) && Math.abs(ratio - 1) > 0.002) {
-          const t = orbit.target;
-          const offset = perspective.position.clone().sub(t).multiplyScalar(ratio);
-          perspective.position.copy(t).add(offset);
-          const used = offset.length();
-          orbit.minDistance = Math.max(0.3, used * 0.2);
-          orbit.maxDistance = Math.max(used * 10, 30);
-          orbit.update();
+          fitLeft.current = 15;
+          fitting.current = true;
         }
       }
+
       lastSpan.current = ext.span;
-      return;
+      lastTargetY.current = targetY;
+      lastDims.current = { w: dims.w, d: dims.d, h: dims.h };
+
+      if (fitLeft.current <= 0) {
+        if (!framedSent.current) {
+          framedSent.current = true;
+          onFramed?.();
+        }
+        return;
+      }
     }
 
     fitting.current = true;
@@ -1764,8 +1818,6 @@ function CameraRig({
     const boxW = Math.max(ext.halfW * 2, 0.25);
     const boxD = Math.max(ext.halfD * 2, 0.25);
     const aspect = size.width / Math.max(size.height, 1);
-    /* Якорь выше — зонт ниже в окне (пустоты сверху/снизу ближе к равновесию) */
-    const targetY = dims.h * 0.68 * MM;
 
     perspective.aspect = aspect;
     perspective.updateProjectionMatrix();
@@ -1774,7 +1826,6 @@ function CameraRig({
     const tanV = Math.tan(vFov / 2);
     const tanH = tanV * Math.max(aspect, 0.5);
 
-    /* Чуть ближе, чем 2.0 — запас есть, но не «горошина» */
     const dist =
       Math.max(boxH / (2 * tanV), Math.max(boxW, boxD) / (2 * tanH)) * 1.85;
 
@@ -1793,8 +1844,16 @@ function CameraRig({
     orbit.update();
 
     lastSpan.current = ext.span;
+    lastTargetY.current = targetY;
+    lastDims.current = { w: dims.w, d: dims.d, h: dims.h };
     fitLeft.current -= 1;
-    if (fitLeft.current <= 0) fitting.current = false;
+    if (fitLeft.current <= 0) {
+      fitting.current = false;
+      if (!framedSent.current) {
+        framedSent.current = true;
+        onFramed?.();
+      }
+    }
   });
 
   return null;
@@ -1873,9 +1932,20 @@ export interface HoodSceneProps {
   lamps: boolean;
   /** Подпись типа из каталога («ТИП 1»…) — меняет профиль корпуса. */
   typeLabel?: string | null;
+  /** Инкремент снаружи (сброс конфигурации) — снова вписать зонт в окно. */
+  fitRequest?: number;
 }
 
-export function HoodScene({ dims, traits, ducts, mode, material, lamps, typeLabel }: HoodSceneProps) {
+export function HoodScene({
+  dims,
+  traits,
+  ducts,
+  mode,
+  material,
+  lamps,
+  typeLabel,
+  fitRequest = 0,
+}: HoodSceneProps) {
   const layout = useMemo(
     () => buildLayout(dims, traits, ducts, { lamps, typeLabel }),
     [dims, traits, ducts, lamps, typeLabel],
@@ -1886,6 +1956,8 @@ export function HoodScene({ dims, traits, ducts, mode, material, lamps, typeLabe
   const fitting = useRef(true);
   const [fitNonce, setFitNonce] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
+  /* Пока автокадр не готов — канвас скрыт (Firefox иначе мелькает мелкий кадр) */
+  const [framed, setFramed] = useState(false);
   const hasHangers = layout.hangers.length > 0;
   const viewKey = [
     traits.island ? 'i' : 'w',
@@ -1895,10 +1967,20 @@ export function HoodScene({ dims, traits, ducts, mode, material, lamps, typeLabe
   ].join('|');
 
   const radius = Math.max(dims.w, dims.d) * MM;
-  const camera = useMemo(
-    () => ({ position: [2.8, 2.2, 3.6] as [number, number, number], fov: 40 }),
-    [],
-  );
+  /* Стартовая позиция уже близка к автокадру — меньше скачок, если что мелькнет */
+  const camera = useMemo(() => {
+    const cy = dims.h * 0.68 * MM;
+    const span = Math.max(dims.w, dims.d, dims.h + 200) * MM;
+    const dist = span * 2.4;
+    return {
+      position: [
+        VIEW_DIR.x * dist,
+        cy + VIEW_DIR.y * dist,
+        VIEW_DIR.z * dist,
+      ] as [number, number, number],
+      fov: 40,
+    };
+  }, [dims.w, dims.d, dims.h]);
 
   return (
     <div
@@ -1910,11 +1992,22 @@ export function HoodScene({ dims, traits, ducts, mode, material, lamps, typeLabe
         setFitNonce((n) => n + 1);
       }}
     >
+      {!framed && (
+        <div className="hood-scene-boot" aria-hidden>
+          Собираем ракурс…
+        </div>
+      )}
       <Canvas
         camera={camera}
         dpr={[1, 1.75]}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
-        style={{ background: 'transparent', width: '100%', height: '100%' }}
+        style={{
+          background: 'transparent',
+          width: '100%',
+          height: '100%',
+          opacity: framed ? 1 : 0,
+          transition: framed ? 'opacity 0.12s ease-out' : 'none',
+        }}
       >
         <StudioEnvironment />
         <CameraRig
@@ -1922,7 +2015,8 @@ export function HoodScene({ dims, traits, ducts, mode, material, lamps, typeLabe
           hasHangers={hasHangers}
           userMoved={userMoved}
           fitting={fitting}
-          tick={`${viewKey}|${fitNonce}|${dims.w}x${dims.d}x${dims.h}`}
+          orbitKey={`${viewKey}|${fitNonce}|${fitRequest}`}
+          onFramed={() => setFramed(true)}
         />
         <hemisphereLight args={['#efe6dc', '#1a1612', 0.72]} />
         <directionalLight position={[3, 5, 2]} intensity={1.12} color="#fff4e8" />
@@ -2001,6 +2095,9 @@ export function HoodScene({ dims, traits, ducts, mode, material, lamps, typeLabe
               </li>
               <li>
                 <b>Двойной клик</b> — вписать в окно
+                <span className="hood-scene-help-note">
+                  (если деталь уехала за край экрана)
+                </span>
               </li>
             </ul>
             <button type="button" className="hood-scene-help-close" onClick={() => setHelpOpen(false)}>

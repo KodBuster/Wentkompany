@@ -250,6 +250,33 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
   const [mode, setMode] = useState<ViewMode>('solid');
   const [view, setView] = useState<'3d' | 'draft'>('3d');
   const [webgl, setWebgl] = useState<boolean | null>(null);
+  /* Счётчик «вписать сцену» — растёт при жёстком сбросе */
+  const [sceneFit, setSceneFit] = useState(0);
+
+  /*
+   * Снимок входа: каталог (slug+мм) или дефолт конфигуратора.
+   * «Сбросить» возвращает именно сюда, а не к абстрактному ЗВП.
+   */
+  const entryRef = useRef<{
+    modelSlug: string;
+    dims: Dims;
+    mount: number;
+    material: '430' | '304';
+    options: string[];
+    mode: ViewMode;
+    view: '3d' | 'draft';
+  } | null>(null);
+  if (entryRef.current === null) {
+    entryRef.current = {
+      modelSlug,
+      dims: { ...dims },
+      mount,
+      material,
+      options: [...options],
+      mode,
+      view,
+    };
+  }
 
   useEffect(() => setWebgl(hasWebGL()), []);
   useEffect(() => track(GOALS.configuratorOpen), []);
@@ -273,13 +300,17 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     setDims({ h: next.h, w: next.w, d: next.d });
   }
 
+  /** Жёсткий сброс к состоянию при входе + вернуть зонт в кадр */
   function reset() {
-    setDims(base);
-    setMount(DEFAULT_MOUNT);
-    setMaterial('430');
-    setOptions([]);
-    setMode('solid');
-    setView('3d');
+    const e = entryRef.current!;
+    setModelSlug(e.modelSlug);
+    setDims({ ...e.dims });
+    setMount(e.mount);
+    setMaterial(e.material);
+    setOptions([...e.options]);
+    setMode(e.mode);
+    setView(e.view);
+    setSceneFit((n) => n + 1);
   }
 
   const isBase = dims.h === base.h && dims.w === base.w && dims.d === base.d;
@@ -441,6 +472,9 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
         <button type="button" className="btn btn-ghost w-full" onClick={reset}>
           Сбросить конфигурацию
         </button>
+        <p className="hint mt-2">
+          Вернёт семейство, тип и размеры как при входе — в том числе если пришли из каталога.
+        </p>
 
         <div className="cfg-cta-block">
           <Link href={orderHref} className="btn w-full">
@@ -516,6 +550,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
               material={material}
               lamps={options.includes(OPTIONS[3])}
               typeLabel={model.type}
+              fitRequest={sceneFit}
             />
           )}
         </div>
