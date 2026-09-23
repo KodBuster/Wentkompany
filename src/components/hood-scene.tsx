@@ -730,7 +730,7 @@ function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; 
  * A≡B — низ на ванночке у задника; C≡D — верх под крышей чуть впереди патрубка.
  */
 function wallFilterCore(layout: Layout) {
-  const { dims, top, bottomRise, spigots } = layout;
+  const { dims, bottomRise } = layout;
   const zBack = -dims.d / 2;
   const trayD = BUILD.core.trayD;
   const trayH = Math.min(BUILD.core.trayH, 22);
@@ -748,16 +748,12 @@ function wallFilterCore(layout: Layout) {
   const yB = floorY + floorGap + trayH + 1;
   const zB = trayZ;
 
-  const topFront = top.z + top.d / 2;
-  const topBack = top.z - top.d / 2;
-  const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
-  const pipeZ = top.z + (exhaust?.z ?? 0);
-  const pipeR = (exhaust?.diameter ?? 160) / 2;
+  /* Якорь от задней стенки: Ø и rearClear const — камера ① не плывёт с D */
+  const pipeHalf = BUILD.zpvo.type2DisplayExhaust / 2;
+  const rearClear = 14;
+  const pipeZ = zBack + pipeHalf + rearClear;
   const pMin = BUILD.zpvo.type2PMin;
-  let zC = pipeZ + pipeR + pMin;
-  zC = Math.min(zC, topFront - 20);
-  zC = Math.max(zC, pipeZ + pipeR + pMin);
-  zC = Math.max(zC, Math.max(topBack + 28, zB + 50));
+  const zC = pipeZ + pipeHalf + pMin;
 
   /*
    * Верх C под крышей с учётом толщины кассеты после наклона —
@@ -802,11 +798,6 @@ function islandFilterCore(layout: Layout) {
   const floorGap = 2;
   const halfGap = BUILD.core.vGap;
   const isZpvo = !!supplyPlenum;
-  const plenum = supplyPlenum?.depth ?? 0;
-  /* Зазор верха кассеты до шва притока (красная зона на скрине) */
-  const seamClear = 28;
-  const zExLimit = dims.d / 2 - plenum - (isZpvo ? seamClear : 28);
-
   const trayY = floorGap + trayH / 2;
   const yB = floorGap + trayH + 1;
 
@@ -878,19 +869,12 @@ function islandFilterCore(layout: Layout) {
     };
   }
 
-  /* ЗВО / ЗВОГ: склейка верхов — P от края трубы; толщина кассеты не выше крыши */
+  /* ЗВО / ЗВОГ: камера ① — верх кассет только P от трубы; с D растёт зона ② */
   const tHalf = BUILD.core.filterT * 0.5;
   const pMin = BUILD.zpvo.type2PMin;
-  const edgeClear = 22;
-  const zRoofF = Math.min(top.z + top.d / 2 - edgeClear, zExLimit);
-  const zRoofB = Math.max(top.z - top.d / 2 + edgeClear, -zExLimit);
-  const pGrow = Math.max(0, (dims.d - 600) * 0.18);
-  let zCFront = pipeZ + pipeR + pMin + pGrow;
-  let zCBack = pipeZ - pipeR - pMin - pGrow;
-  zCFront = Math.min(zCFront, zRoofF);
-  zCBack = Math.max(zCBack, zRoofB);
-  zCFront = Math.max(zCFront, pipeZ + pipeR + pMin);
-  zCBack = Math.min(zCBack, pipeZ - pipeR - pMin);
+  const pipeHalf = Math.min(pipeR, BUILD.zpvo.type2DisplayExhaust / 2);
+  let zCFront = pipeZ + pipeHalf + pMin;
+  let zCBack = pipeZ - pipeHalf - pMin;
 
   let yC = dims.h - 12;
   let dy = Math.max(yC - yB, 50);
