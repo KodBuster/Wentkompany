@@ -113,12 +113,6 @@ function useMaterials(mode: ViewMode, material: '430' | '304') {
       emissive: '#1d6a8c',
       emissiveIntensity: 0.35,
     });
-    const lamp = new THREE.MeshStandardMaterial({
-      color: '#FFF4E2',
-      emissive: '#FFD9A8',
-      emissiveIntensity: 1.4,
-      roughness: 0.4,
-    });
     const ghost = mode !== 'solid';
     const corpus = new THREE.MeshStandardMaterial({
       color: material === '304' ? '#B9AFA3' : '#A89888',
@@ -132,7 +126,7 @@ function useMaterials(mode: ViewMode, material: '430' | '304') {
       polygonOffsetFactor: 1,
       polygonOffsetUnits: 1,
     });
-    return { steel, dark, filter, water, lamp, corpus };
+    return { steel, dark, filter, water, corpus };
   }, [mode, material]);
 }
 
@@ -737,7 +731,7 @@ function wallFilterCore(layout: Layout) {
   const yB = floorY + floorGap + trayH + 1;
   const zB = trayZ;
 
-  /* C: под крышей, чуть впереди врезки — не угонять в передний угол */
+  /* C: под крышей, склейка P от края врезки — не под патрубком */
   const yC = dims.h - yTopClear;
   const dy = Math.max(yC - yB, 50);
   const topFront = top.z + top.d / 2;
@@ -745,10 +739,10 @@ function wallFilterCore(layout: Layout) {
   const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
   const pipeZ = top.z + (exhaust?.z ?? 0);
   const pipeR = (exhaust?.diameter ?? 160) / 2;
-  const halfTop = top.d / 2;
-  const outMax = Math.max(60, halfTop * 0.55);
-  let zC = pipeZ + Math.min(pipeR + 32, outMax);
+  const pMin = BUILD.zpvo.type2PMin;
+  let zC = pipeZ + pipeR + pMin;
   zC = Math.min(zC, topFront - 20);
+  zC = Math.max(zC, pipeZ + pipeR + pMin);
   zC = Math.max(zC, Math.max(topBack + 28, zB + 50));
 
   const dz = zC - zB;
@@ -761,7 +755,7 @@ function wallFilterCore(layout: Layout) {
 
   return {
     tray: {
-      w: Math.min(Math.max(dims.w - 120, 220), dims.w - 60),
+      w: Math.max(dims.w - 2 * BUILD.core.sideClear, 200),
       d: trayD,
       h: trayH,
       y: trayY,
@@ -863,7 +857,7 @@ function islandFilterCore(layout: Layout) {
 
     return {
       tray: {
-        w: Math.max(dims.w - 8, 200),
+        w: Math.max(dims.w - 2 * BUILD.core.sideClear, 200),
         d: trayD,
         h: trayH,
         y: floorGap + trayH / 2,
@@ -884,15 +878,22 @@ function islandFilterCore(layout: Layout) {
     };
   }
 
-  /* ЗВО: верхи жаровиков к крыше */
+  /* ЗВО / ЗВОГ: склейка верхов — P от края трубы (не под патрубком) */
   const yTopClear = 10;
   const yC = dims.h - yTopClear;
   const dy = Math.max(yC - yB, 50);
-  const halfTop = Math.min(top.d / 2, zExLimit);
-  const outMax = Math.max(halfGap + 48, halfTop * 0.38);
-  const out = Math.min(pipeR + 22, outMax);
-  const zCFront = Math.min(pipeZ + out, zExLimit);
-  const zCBack = Math.max(pipeZ - out, -zExLimit);
+  const pMin = BUILD.zpvo.type2PMin;
+  const edgeClear = 22;
+  const zRoofF = Math.min(top.z + top.d / 2 - edgeClear, zExLimit);
+  const zRoofB = Math.max(top.z - top.d / 2 + edgeClear, -zExLimit);
+  /* База pipeR+P; рост D тянет верх к ребру крыши */
+  const pGrow = Math.max(0, (dims.d - 600) * 0.18);
+  let zCFront = pipeZ + pipeR + pMin + pGrow;
+  let zCBack = pipeZ - pipeR - pMin - pGrow;
+  zCFront = Math.min(zCFront, zRoofF);
+  zCBack = Math.max(zCBack, zRoofB);
+  zCFront = Math.max(zCFront, pipeZ + pipeR + pMin);
+  zCBack = Math.min(zCBack, pipeZ - pipeR - pMin);
 
   const side = (zBottom: number, zTop: number, rotSign: number) => {
     const dz = zTop - zBottom;
@@ -907,7 +908,7 @@ function islandFilterCore(layout: Layout) {
 
   return {
     tray: {
-      w: Math.min(Math.max(dims.w - 120, 220), dims.w - 60),
+      w: Math.max(dims.w - 2 * BUILD.core.sideClear, 200),
       d: trayD,
       h: trayH,
       y: trayY,
@@ -969,7 +970,7 @@ function supplyWallFilterCore(layout: Layout) {
 
   return {
     tray: {
-      w: Math.min(Math.max(dims.w - 120, 220), dims.w - 60),
+      w: Math.max(dims.w - 2 * BUILD.core.sideClear, 200),
       d: trayD,
       h: trayH,
       y: trayY,
@@ -984,7 +985,7 @@ function supplyWallFilterCore(layout: Layout) {
  * У ТИП 1 кромка только у задника (по скосу) — без «парящей» рамки на y=0.
  */
 function Gutter({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
-  const { dims, lip, filters, supplyPlenum, bottomRise, profile } = layout;
+  const { dims, filters, supplyPlenum, bottomRise, profile } = layout;
   const island = filters.some((f) => f.kind === 'front' || f.kind === 'back');
 
   if (supplyPlenum && !island) {
@@ -1025,15 +1026,16 @@ function Gutter({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
     <group>
       {type1 ? (
         <mesh material={mat} position={[0, 3 * MM, -d / 2 + t / 2]}>
-          <boxGeometry args={[w + lip * 2 * MM, 2.5 * MM, t]} />
+          <boxGeometry args={[w, 2.5 * MM, t]} />
         </mesh>
       ) : (
         <>
+          {/* Перед / зад = ровно W, без +lip — иначе торчит за боковины */}
           <mesh material={mat} position={[0, 3 * MM, d / 2 - t / 2]}>
-            <boxGeometry args={[w + lip * 2 * MM, 2.5 * MM, t]} />
+            <boxGeometry args={[w, 2.5 * MM, t]} />
           </mesh>
           <mesh material={mat} position={[0, 3 * MM, -d / 2 + t / 2]}>
-            <boxGeometry args={[w + lip * 2 * MM, 2.5 * MM, t]} />
+            <boxGeometry args={[w, 2.5 * MM, t]} />
           </mesh>
           <mesh material={mat} position={[w / 2 - t / 2, 3 * MM, 0]}>
             <boxGeometry args={[t, 2.5 * MM, d]} />
@@ -1065,6 +1067,8 @@ function renderFilterBank(
   const baffles = 5;
   const pitch = (BUILD.core.filterT / baffles) * MM;
   const endT = 5 * MM;
+  /* Торцы внутри fw — общая ширина банка = fw, без «просвета» по бокам */
+  const endX = (opts.fw - endT) / 2;
   return (
     <group key={opts.key} position={[opts.x, opts.y, opts.z]} rotation={[opts.rotX, 0, 0]}>
       {Array.from({ length: baffles }, (_, b) => (
@@ -1072,15 +1076,15 @@ function renderFilterBank(
           key={b}
           material={mat}
           position={[0, 0, (b - (baffles - 1) / 2) * pitch]}
-          scale={[opts.fw, opts.fh, 3.5 * MM]}
+          scale={[opts.fw - endT * 2, opts.fh, 3.5 * MM]}
         >
           <boxGeometry args={[1, 1, 1]} />
         </mesh>
       ))}
-      <mesh material={mat} position={[-opts.fw / 2, 0, 0]} scale={[endT, opts.fh, BUILD.core.filterT * MM]}>
+      <mesh material={mat} position={[-endX, 0, 0]} scale={[endT, opts.fh, BUILD.core.filterT * MM]}>
         <boxGeometry args={[1, 1, 1]} />
       </mesh>
-      <mesh material={mat} position={[opts.fw / 2, 0, 0]} scale={[endT, opts.fh, BUILD.core.filterT * MM]}>
+      <mesh material={mat} position={[endX, 0, 0]} scale={[endT, opts.fh, BUILD.core.filterT * MM]}>
         <boxGeometry args={[1, 1, 1]} />
       </mesh>
     </group>
@@ -1095,7 +1099,10 @@ function renderFilterBank(
 function Filters({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
   const { dims, filters, supplyPlenum } = layout;
   const island = filters.some((f) => f.kind === 'front' || f.kind === 'back');
-  const fwMax = (dims.w / 2 - 28) * MM;
+  const side = BUILD.core.sideClear;
+  const fwMax = (dims.w / 2 - side) * MM;
+  /* Кассета на весь шаг ряда — без ужатия 0.98 */
+  const bankW = (step: number) => step * MM;
 
   if (island) {
     /* ЗВО / ЗПВО: V в вытяжной зоне (у ЗПВО между двумя притоками) */
@@ -1108,14 +1115,13 @@ function Filters({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
           return Array.from({ length: row.count }, (_, i) => {
             const along = (-row.span / 2 + row.step * (i + 0.5)) * MM;
             const x = Math.max(-fwMax, Math.min(fwMax, along));
-            const fw = Math.min(BUILD.core.filterW, row.step * 0.96) * MM;
             return renderFilterBank(mat, {
               key: `${row.kind}-${i}`,
               x,
               y: bank.y * MM,
               z: bank.z * MM,
               rotX: bank.rotX,
-              fw,
+              fw: bankW(row.step),
               fh,
             });
           });
@@ -1133,14 +1139,13 @@ function Filters({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
           Array.from({ length: row.count }, (_, i) => {
             const along = (-row.span / 2 + row.step * (i + 0.5)) * MM;
             const x = Math.max(-fwMax, Math.min(fwMax, along));
-            const fw = Math.min(BUILD.core.filterW, row.step * 0.96) * MM;
             return renderFilterBank(mat, {
               key: `${row.kind}-${i}`,
               x,
               y: filter.y * MM,
               z: filter.z * MM,
               rotX: filter.rotX,
-              fw,
+              fw: bankW(row.step),
               fh,
             });
           }),
@@ -1158,14 +1163,13 @@ function Filters({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
         Array.from({ length: row.count }, (_, i) => {
           const along = (-row.span / 2 + row.step * (i + 0.5)) * MM;
           const x = Math.max(-fwMax, Math.min(fwMax, along));
-          const fw = Math.min(BUILD.core.filterW, row.step * 0.96) * MM;
           return renderFilterBank(mat, {
             key: `${row.kind}-${i}`,
             x,
             y: filter.y * MM,
             z: filter.z * MM,
             rotX: filter.rotX,
-            fw,
+            fw: bankW(row.step),
             fh,
           });
         }),
@@ -1174,31 +1178,132 @@ function Filters({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
   );
 }
 
-/** Гидроконтур: труба с форсунками и водяная завеса. */
+/** Гидроконтур: патрубок на крышке над левой форсункой → стояк → коллектор. */
 function HydroLoop({ layout, mat, water }: { layout: Layout; mat: THREE.Material; water: THREE.Material }) {
-  const { dims, nozzles, gutterHeight } = layout;
+  const { dims, nozzles, gutterHeight, top, spigots, hangers } = layout;
   if (!nozzles) return null;
-  const y = (dims.h * 0.62) * MM;
-  const usable = dims.w - 300;
+
+  const island = hangers.length > 0;
+  const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
+  const pipeZ = top.z + (exhaust?.z ?? 0);
+  const pipeR = (exhaust?.diameter ?? 160) / 2;
+  /*
+   * Остров — под осью врезки; пристенный — чуть к проёму от патрубка.
+   * Тот же Z — для патрубка подвода воды на крышке (всегда над форсунками).
+   */
+  const zMm = island ? pipeZ : pipeZ + Math.min(pipeR * 0.45, 40);
+  const z = zMm * MM;
+
+  const pipeLen = Math.min(dims.w * 0.68, Math.max(dims.w - 120, 320)) * MM;
+  const usable = pipeLen / MM;
+  /* Ряд форсунок по центру крышки; патрубок воды — только над левой */
+  const xs = Array.from({ length: nozzles }, (_, i) =>
+    nozzles === 1 ? 0 : -usable / 2 + (usable * i) / (nozzles - 1),
+  );
+  const inletX = xs[0] * MM;
+
+  const inletD = BUILD.hydroInlet.d;
+  const inletH = BUILD.hydroInlet.h;
+  const yLid = dims.h * MM;
+  const yManifold = (dims.h - 42) * MM;
+  const dropH = Math.max(yLid - yManifold, 20 * MM);
+  const dropY = (yLid + yManifold) / 2;
+  const curtainH = Math.max(yManifold - gutterHeight * MM - 36 * MM, 80 * MM);
+  const curtainR = dims.d * 0.2 * MM;
+
   return (
     <group>
-      <mesh material={mat} position={[0, y, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[14 * MM, 14 * MM, dims.w * 0.82 * MM, 12]} />
+      {/* Патрубок подвода — всегда над левой форсункой */}
+      <group position={[inletX, yLid + (inletH / 2) * MM, z]}>
+        <mesh material={mat}>
+          <cylinderGeometry
+            args={[(inletD / 2) * MM, (inletD / 2) * MM, inletH * MM, 16, 1, true]}
+          />
+        </mesh>
+        <mesh material={mat} position={[0, (-inletH / 2) * MM, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[(inletD / 2) * MM, 16]} />
+        </mesh>
+        <mesh material={mat} position={[0, (inletH / 2) * MM, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[(inletD / 2) * MM, 3 * MM, 6, 16]} />
+        </mesh>
+      </group>
+
+      {/* Стояк: крышка → коллектор у левой форсунки */}
+      <mesh material={mat} position={[inletX, dropY, z]}>
+        <cylinderGeometry args={[(inletD / 2 - 2) * MM, (inletD / 2 - 2) * MM, dropH, 12]} />
       </mesh>
-      {Array.from({ length: nozzles }, (_, i) => {
-        const x = (nozzles === 1 ? 0 : -usable / 2 + (usable * i) / (nozzles - 1)) * MM;
-        const curtainH = Math.max(y - gutterHeight * MM - 20 * MM, 40 * MM);
-        return (
-          <group key={i} position={[x, y, 0]}>
-            <mesh material={mat} position={[0, -20 * MM, 0]}>
-              <coneGeometry args={[14 * MM, 32 * MM, 10]} />
+
+      <group position={[0, yManifold, z]}>
+        <mesh material={mat} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[8 * MM, 8 * MM, pipeLen, 12]} />
+        </mesh>
+        {xs.map((xMm, i) => (
+          <group key={i} position={[xMm * MM, 0, 0]}>
+            <mesh material={mat} position={[0, -16 * MM, 0]} rotation={[Math.PI, 0, 0]}>
+              <coneGeometry args={[10 * MM, 24 * MM, 10]} />
             </mesh>
-            <mesh material={water} position={[0, -curtainH / 2 - 28 * MM, 0]}>
-              <coneGeometry args={[dims.d * 0.22 * MM, curtainH, 14, 1, true]} />
+            <mesh material={water} position={[0, -curtainH / 2 - 28 * MM, 0]} rotation={[Math.PI, 0, 0]}>
+              <coneGeometry args={[curtainR, curtainH, 14, 1, true]} />
             </mesh>
           </group>
-        );
-      })}
+        ))}
+      </group>
+    </group>
+  );
+}
+
+/** Координаты ванночки — те же ветки, что у Gutter. */
+function trayOf(layout: Layout) {
+  const { filters, supplyPlenum } = layout;
+  const island = filters.some((f) => f.kind === 'front' || f.kind === 'back');
+  if (supplyPlenum && !island) return supplyWallFilterCore(layout).tray;
+  if (island) return islandFilterCore(layout).tray;
+  return wallFilterCore(layout).tray;
+}
+
+/** Патрубок слива: ЗВПГ — сзади наружу; ЗВОГ — слева в боковину (как раньше). */
+function HydroDrain({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
+  if (!layout.nozzles) return null;
+
+  const { dims, hangers } = layout;
+  const island = hangers.length > 0;
+  const tray = trayOf(layout);
+  const d = BUILD.hydroDrain.d;
+  const len = BUILD.hydroDrain.len;
+  const edge = BUILD.hydroDrain.edge;
+  const y = (tray.y - tray.h / 2 + d / 2) * MM;
+
+  const stub = (
+    <>
+      <mesh material={mat}>
+        <cylinderGeometry args={[(d / 2) * MM, (d / 2) * MM, len * MM, 14, 1, true]} />
+      </mesh>
+      <mesh material={mat} position={[0, (-len / 2) * MM, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[(d / 2) * MM, 2 * MM, 6, 14]} />
+      </mesh>
+      <mesh material={mat} position={[0, (len / 2) * MM, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[(d / 2) * MM, 14]} />
+      </mesh>
+    </>
+  );
+
+  if (island) {
+    /* ЗВОГ: фланец на левой боковине, тело наружу (−X), Z по оси ванночки */
+    const x = (-dims.w / 2 - len / 2) * MM;
+    const z = tray.z * MM;
+    return (
+      <group position={[x, y, z]} rotation={[0, 0, -Math.PI / 2]}>
+        {stub}
+      </group>
+    );
+  }
+
+  /* ЗВПГ: фланец на задней плоскости, тело наружу (−Z) */
+  const x = (-tray.w / 2 + edge + d / 2) * MM;
+  const z = (-dims.d / 2 - len / 2) * MM;
+  return (
+    <group position={[x, y, z]} rotation={[-Math.PI / 2, 0, 0]}>
+      {stub}
     </group>
   );
 }
@@ -1213,26 +1318,6 @@ function Hangers({ layout, mat, length }: { layout: Layout; mat: THREE.Material;
         <mesh key={i} material={mat} position={[h.x * MM, 0, h.z * MM]}>
           <cylinderGeometry args={[(BUILD.hanger.d / 2) * MM, (BUILD.hanger.d / 2) * MM, len, 8]} />
         </mesh>
-      ))}
-    </group>
-  );
-}
-
-function Lamps({ layout, mat, body }: { layout: Layout; mat: THREE.Material; body: THREE.Material }) {
-  const { lamps, gutterHeight, supplyPlenum } = layout;
-  /* На скошенном низу ЗПВП цилиндры светильников пробивают обшивку — не рисуем */
-  if (supplyPlenum || lamps.length === 0) return null;
-  return (
-    <group position={[0, (gutterHeight + 20) * MM, 0]}>
-      {lamps.map((l, i) => (
-        <group key={i} position={[l.x * MM, 0, l.z * MM]}>
-          <mesh material={body}>
-            <cylinderGeometry args={[(BUILD.lamp.d / 2) * MM, (BUILD.lamp.d / 2) * MM, BUILD.lamp.h * MM, 16]} />
-          </mesh>
-          <mesh material={mat} position={[0, -(BUILD.lamp.h / 2) * MM, 0]}>
-            <cylinderGeometry args={[(BUILD.lamp.d / 2 - 8) * MM, (BUILD.lamp.d / 2 - 8) * MM, 4 * MM, 16]} />
-          </mesh>
-        </group>
       ))}
     </group>
   );
@@ -1632,7 +1717,8 @@ function Hood({ layout, mode, material }: HoodProps) {
 
       <group ref={gutterRef}>
         <Gutter layout={layout} mat={mats.steel} />
-        <Lamps layout={layout} mat={mats.lamp} body={mats.dark} />
+        <HydroDrain layout={layout} mat={mats.dark} />
+        {/* 3D-mesh светильников не рисуем; опция в «Доп. оборудование» остаётся */}
       </group>
     </group>
   );

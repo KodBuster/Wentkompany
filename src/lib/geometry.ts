@@ -38,6 +38,8 @@ export const BUILD = {
     trayD: 70,
     /** Высота ванночки, мм. */
     trayH: 26,
+    /** Зазор ряда/ванночки от боковины корпуса по W, мм (почти встык). */
+    sideClear: 2,
   },
   /** Габарит лабиринтной кассеты (алиас ядра — для чертежа/IFC). */
   filter: { w: 500, h: 280, t: 40 },
@@ -74,6 +76,10 @@ export const BUILD = {
   lamp: { d: 90, h: 40 },
   /** Шаг форсунок гидроконтура, мм. */
   nozzleStep: 260,
+  /** Подвод воды на крышке (ЗВПГ/ЗВОГ): Ø и высота — const. */
+  hydroInlet: { d: 28, h: 55 },
+  /** Слив с ванночки (ЗВПГ/ЗВОГ): компактный Ø, длина внутрь, отступ от левого края ванны. */
+  hydroDrain: { d: 18, len: 36, edge: 10 },
   /**
    * ЗПВО: фиксированные узлы (не от габарита заказа).
    * Корыто (вылет) растёт в зоне «моста» между коробом и жироуловителем.
@@ -277,17 +283,26 @@ function taperForProfile(
   dims: Dims,
   island: boolean,
   supply: boolean,
+  hydro = false,
 ) {
   const empty = { topFront: 0, topBack: 0, bottomFront: 0, bottomBack: 0 };
   if (supply) return empty;
   if (profile === 'rect' || profile === 'triangle') return empty;
 
-  /* ТИП 2: низ прямой, верх со скосом вниз — плоский верх только над врезкой */
-  const minFlat = Math.max(200, Math.round(dims.d * 0.34));
+  /*
+   * ТИП 2: низ прямой, верх со скосом.
+   * Гидро (ЗВПГ/ЗВОГ): крыша шире — место патрубку, шпилькам и форсункам под крышкой.
+   */
+  const minFlat = hydro
+    ? Math.max(320, Math.round(dims.d * 0.72))
+    : Math.max(200, Math.round(dims.d * 0.34));
   const tMax = Math.max(0, dims.d - minFlat);
-  const byDeg = (deg: number) =>
-    Math.min(Math.round(dims.h * Math.tan((deg * Math.PI) / 180)), tMax);
-  const t = Math.min(Math.max(byDeg(28), Math.round(dims.d * 0.4)), tMax);
+  const deg = hydro ? 14 : 28;
+  const byDeg = (d: number) =>
+    Math.min(Math.round(dims.h * Math.tan((d * Math.PI) / 180)), tMax);
+  const t = hydro
+    ? Math.min(byDeg(deg), Math.round(dims.d * 0.14), tMax)
+    : Math.min(Math.max(byDeg(28), Math.round(dims.d * 0.4)), tMax);
   if (island) {
     const each = Math.min(Math.round(t * 0.5), Math.floor(tMax / 2));
     return { topFront: each, topBack: each, bottomFront: 0, bottomBack: 0 };
@@ -518,8 +533,9 @@ export function islandSupplyPlenumDepth(d: number, profile?: Layout['profile']) 
  * Не по периметру обшивки, а внутри купола — как на схемах ЗВП/ЗВО.
  */
 export function layoutFilters(dims: Dims, traits: FamilyTraits): FilterRow[] {
-  const span = Math.max(dims.w - 120, BUILD.filter.w);
-  const count = Math.max(1, Math.floor(span / BUILD.filter.w));
+  /* Ряд почти во всю W — иначе по бокам «дыры» у корпуса */
+  const span = Math.max(dims.w - 2 * BUILD.core.sideClear, 200);
+  const count = Math.max(1, Math.round(span / BUILD.filter.w));
   const step = span / count;
   if (traits.island) {
     return [
@@ -616,8 +632,14 @@ export function buildLayout(
   pick: DuctPick,
   options: { lamps?: boolean; typeLabel?: string | null } = {},
 ): Layout {
-  const profile = hoodProfileOf(options.typeLabel);
-  const insets = taperForProfile(profile, dims, traits.island, traits.supply);
+  /*
+   * ЗВПГ / ЗВОГ без «ТИП n» — прямоугольный короб (фронт 90°).
+   * Иначе hoodProfileOf(null) → trapezoid и передняя стенка скошена.
+   */
+  const typed = !!options.typeLabel?.match(/\d/);
+  const profile =
+    traits.hydro && !typed ? 'rect' : hoodProfileOf(options.typeLabel);
+  const insets = taperForProfile(profile, dims, traits.island, traits.supply, traits.hydro);
   const top = {
     w: dims.w,
     d: Math.max(dims.d - insets.topFront - insets.topBack, 160),
