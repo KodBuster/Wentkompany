@@ -1304,19 +1304,13 @@ function Filters({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
 
 /** Гидроконтур: патрубок на крышке над левой форсункой → стояк → коллектор. */
 function HydroLoop({ layout, mat, water }: { layout: Layout; mat: THREE.Material; water: THREE.Material }) {
-  const { dims, nozzles, gutterHeight, top, spigots, hangers } = layout;
+  const { dims, nozzles, gutterHeight, top, spigots } = layout;
   if (!nozzles) return null;
 
-  const island = hangers.length > 0;
   const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
   const pipeZ = top.z + (exhaust?.z ?? 0);
-  const pipeR = (exhaust?.diameter ?? 160) / 2;
-  /*
-   * Остров — под осью врезки; пристенный — чуть к проёму от патрубка.
-   * Тот же Z — для патрубка подвода воды на крышке (всегда над форсунками).
-   */
-  const zMm = island ? pipeZ : pipeZ + Math.min(pipeR * 0.45, 40);
-  const z = zMm * MM;
+  /* ЗВПГ/ЗВОГ: ряд форсунок и подвод — под осью вытяжного патрубка */
+  const z = pipeZ * MM;
 
   const pipeLen = Math.min(dims.w * 0.68, Math.max(dims.w - 120, 320)) * MM;
   const usable = pipeLen / MM;

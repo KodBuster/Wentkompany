@@ -824,20 +824,28 @@ export function buildLayout(
     : spigots0;
 
   /*
-   * ЗВП/ЗВО без притока: Ø вытяжки const (как на схеме).
-   * ТИП 2: патрубок в центре зоны ① (A = B) — и пристенный, и остров.
+   * ЗВП/ЗВО/гидро без притока: Ø вытяжки const (как на схеме).
+   * ТИП 2: центр зоны ① (A = B). ТИП 1/3 и гидро: z пересчитать под фактический Ø —
+   * иначе остаётся поза от расчётного 250 при отрисовке 120 (патрубок «висит» впереди).
    */
   if (!traits.supply) {
     const A =
       profile === 'rect'
         ? BUILD.zpvo.type3DisplayExhaust
         : BUILD.zpvo.type2DisplayExhaust;
-    const centerOnZone1 = profile === 'trapezoid';
-    spigots = spigots.map((s) => ({
-      ...s,
-      diameter: Math.min(s.diameter, A),
-      ...(centerOnZone1 ? { z: 0 } : {}),
-    }));
+    const edge = 14;
+    const half = top.d / 2;
+    spigots = spigots.map((s) => {
+      const dia = Math.min(s.diameter, A);
+      if (profile === 'trapezoid') {
+        return { ...s, diameter: dia, z: 0 };
+      }
+      if (traits.island) {
+        return { ...s, diameter: dia, z: 0 };
+      }
+      const z = clamp(-half + dia / 2 + edge, -half + edge, 0);
+      return { ...s, diameter: dia, z };
+    });
   }
 
   const roofInsetZ =
