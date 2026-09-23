@@ -306,7 +306,9 @@ export function supplyType2Chamfer(h: number, d: number, plenumDepth: number) {
 }
 
 /**
- * ТИП 2 ЗПВО «абажур»: α const; полость const по нормали к обшивке (перегородка // скосу).
+ * ТИП 2 ЗПВО «абажур»: α const; полость const по нормали к обшивке.
+ * Скос (chamferZ) не растёт с D — иначе на старте от 600 Lv стоит, а α плывёт.
+ * С ростом D увеличиваются Ln (=D) и Lv (= D − 2×chamfer) вместе.
  */
 export function islandSupplyType2Chamfer(h: number, d: number, plenumDepth: number) {
   const frontH = Math.max(h, 80);
@@ -317,10 +319,13 @@ export function islandSupplyType2Chamfer(h: number, d: number, plenumDepth: numb
   const ex = BUILD.zpvo.type2DisplayExhaust;
   const pMin = BUILD.zpvo.type2PMin;
   const bridge = BUILD.zpvo.type2Bridge;
-  /* Плоская крыша: 2×полость + вытяжная зона с P */
   const minFlat = 2 * plenumDepth + ex + 2 * pMin + 2 * bridge;
-  const maxByRoof = Math.max(0, Math.floor((d - minFlat) / 2));
-  const chamferZ = Math.min(byAlpha, maxByRoof);
+  /* Потолок скоса — по мин. каталожному D (600), не по текущему вылету */
+  const dMin = 600;
+  const roomAtMin = Math.max(0, Math.floor((dMin - minFlat) / 2));
+  const roomNow = Math.max(0, Math.floor((d - minFlat) / 2));
+  const chamferZ = Math.min(byAlpha, roomAtMin, roomNow);
+
   return { chamferZ, slantDy, vertDy };
 }
 /**
@@ -526,17 +531,11 @@ export function withIslandSupplySpigots(
     ];
   }
 
-  /* ТИП 3 (и прочие): Ø const для отображения, полость с каждой стороны */
+  /* ТИП 1 / ТИП 3: Ø const для отображения, полость с каждой стороны */
   const type3 = opts?.profile === 'rect';
   const exD = type3
     ? BUILD.zpvo.type3DisplayExhaust
-    : Math.min(
-        Math.max(...spigots.map((s) => s.diameter)),
-        Math.min(
-          Math.max(120, top.d - 2 * plenumDepth - 48),
-          Math.max(120, top.w - 2 * edge),
-        ),
-      );
+    : BUILD.zpvo.type2DisplayExhaust; /* ТИП 1: тоже const — статика камеры ① */
   const supplyDia = type3
     ? BUILD.zpvo.type3DisplaySupply
     : Math.min(85, Math.max(70, plenumDepth - 15));
@@ -546,9 +545,7 @@ export function withIslandSupplySpigots(
     zP + supplyDia / 2 + 14,
     half - supplyDia / 2 - 16,
   );
-  let dia = type3
-    ? exD
-    : Math.min(exD, 2 * Math.abs(zSup) - supplyDia - 40);
+  const dia = exD;
 
   const n = spigots.length;
   if (n === 1) {
@@ -562,7 +559,7 @@ export function withIslandSupplySpigots(
   const exhaust = spigots.map((_, i) => ({
     x: -usable / 2 + (usable * i) / (n - 1),
     z: 0,
-    diameter: type3 ? dia : Math.min(spigots[i].diameter, dia),
+    diameter: dia,
     role: 'exhaust' as const,
   }));
   return [

@@ -819,57 +819,27 @@ function islandFilterCore(layout: Layout) {
 
   if (isZpvo) {
     /*
-     * ЗПВО: P / N со схемы (type2PMin / type2NMin) — const для всех типов.
-     * Верх упирается в шов с зазором bridge — не лезет в приточную камеру / на трубу.
+     * ЗПВО камера ①: верх кассет — P от Ø вытяжки (const), зеркально.
+     * Зона ② (мост до шва притока) растёт с D.
+     * Не тянуть верхи внутрь по N/шлю при малом D — иначе на 600 «уезжают»,
+     * а с ~660–670 встают на место (баг динамики).
      */
     const isType2 = layout.profile === 'trapezoid';
     const isType3 = layout.profile === 'rect';
-    const bridge = isType2
-      ? BUILD.zpvo.type2Bridge
-      : isType3
-        ? BUILD.zpvo.type3Bridge
-        : BUILD.zpvo.minBridge;
     const yB0 = yB;
     const tHalf = BUILD.core.filterT * 0.5;
     let yC = dims.h - 16;
-    const pipeD =
-      exhaust?.diameter ??
-      (isType3 ? BUILD.zpvo.type3DisplayExhaust : BUILD.zpvo.type2DisplayExhaust);
+    const pipeD = isType2
+      ? BUILD.zpvo.type2DisplayExhaust
+      : isType3
+        ? BUILD.zpvo.type3DisplayExhaust
+        : BUILD.zpvo.type2DisplayExhaust;
     const pipeHalf = pipeD / 2;
     const pMin = BUILD.zpvo.type2PMin;
-    const nMin = BUILD.zpvo.type2NMin;
 
-    const supply = spigots.find((s) => s.role === 'supply');
-    const sDia =
-      supply?.diameter ??
-      (isType3 ? BUILD.zpvo.type3DisplaySupply : BUILD.zpvo.type2DisplaySupply);
-    const zSup = Math.abs(supply?.z ?? dims.d / 4);
-    const supplyInner = zSup - sDia / 2;
-
-    /* Шов на крыше: ТИП 2 — верх наклонной перегородки; иначе half − полость */
-    const ch2 = isType2
-      ? islandSupplyType2Chamfer(dims.h, dims.d, plenum)
-      : null;
-    const zSeam = ch2
-      ? dims.d / 2 - ch2.chamferZ - plenum
-      : dims.d / 2 - plenum;
-    const zLimTop = zSeam - bridge - 6;
-
-    /* Склейка: верхи на Ø/2+P от оси трубы */
+    /* Склейка верхов: только P от оси трубы — статика камеры ① */
     let zCFront = pipeZ + pipeHalf + pMin;
     let zCBack = pipeZ - pipeHalf - pMin;
-
-    /* N до притока */
-    const zMaxByN = supplyInner - nMin;
-    if (zCFront > zMaxByN) {
-      zCFront = Math.max(pipeHalf + 10, zMaxByN);
-      zCBack = -zCFront;
-    }
-    /* Не пересекать шов */
-    if (zCFront > zLimTop) {
-      zCFront = zLimTop;
-      zCBack = -zLimTop;
-    }
 
     let gapB = halfGap;
     if (zCFront < gapB + 24) {
