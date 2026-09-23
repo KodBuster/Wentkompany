@@ -240,28 +240,23 @@ function makeWeldedSupplyShell(layout: Layout) {
   const zTopF = zF - chamfer;
 
   /*
-   * Шов (синяя линия): // скосу, от низа до подкрышечного зазора.
-   * Не доводить до y=H — иначе тёмная полоса на крышке между патрубками.
+   * Шов / перегородка камеры ③:
+   * ТИП 2 — // скосу, отступ = depth от наружной грани (низ и верх);
+   * ТИП 1/3 — вертикаль на zF − depth.
+   * Не доводить до y=H — иначе тёмная полоса на крышке.
    */
   const ySeamTop = H - 8 * MM;
-  const slope = type2 ? (zTopF - zF) / Math.max(H - ySplit, 0.02) : 0;
-  const seamGap = type2 ? Math.min(plenum * 0.72, 0.1) : 0;
-  let zSeamTop = type2 ? zTopF - seamGap : 0;
-  let zSeamBot = type2 ? zSeamTop - slope * ySeamTop : 0;
-  if (type2 && zSeamBot > zF - 10 * MM) {
-    zSeamBot = zF - 10 * MM;
-    zSeamTop = zSeamBot + slope * ySeamTop;
+  let zSeamTop = 0;
+  let zSeamBot = 0;
+  if (type2) {
+    zSeamBot = zF - plenum;
+    zSeamTop = zTopF - plenum;
   }
 
-  /* ТИП 1/3: шов у перегородки, тоже не до крышки */
-  let ySeam0 = yP;
-  let zSeamBot1 = zP;
-  let zSeamTop1 = zP;
-  if (!type2) {
-    const seamDz = Math.min(plenum * 0.45, 0.1);
-    zSeamBot1 = zP + seamDz * 0.45;
-    zSeamTop1 = zP - seamDz * 0.55;
-  }
+  /* ТИП 1/3: вертикальная перегородка на глубине камеры */
+  const ySeam0 = yP;
+  const zSeamBot1 = zP;
+  const zSeamTop1 = zP;
 
   const pos: number[] = [];
   const idx: number[] = [];
@@ -1384,7 +1379,6 @@ function SupplyChamber({
 
   const type2 = profile === 'trapezoid';
   const type1 = profile === 'triangle';
-  const type3 = profile === 'rect';
   const ch = type2
     ? (island ? islandSupplyType2Chamfer(dims.h, dims.d, plenum) : supplyType2Chamfer(dims.h, dims.d, plenum))
     : null;
@@ -1563,14 +1557,8 @@ function SupplyChamber({
 
   const zP = zF - plenum;
   const openD = Math.min(plenum * 0.62, 72) * MM;
-  /*
-   * ТИП 1 и ТИП 3: центр приточной камеры по Z.
-   * ТИП 2: ближе к наружному фронту (скос визуально смещает середину).
-   */
-  const zSlit =
-    type1 || type3
-      ? (zF + zP) / 2
-      : zF - Math.min(plenum * 0.28, openD / (2 * MM) + 10);
+  /* Решётки — по центру глубины камеры ③ (одинаково для всех типов) */
+  const zSlit = (zF + zP) / 2;
   const thick = Math.max(BUILD.supplySlot.t, 6) * MM;
   const louverN = BUILD.supplySlot.louvers;
   const louverT = 1.2 * MM;

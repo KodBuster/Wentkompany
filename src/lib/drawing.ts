@@ -210,27 +210,20 @@ function sideOutline(layout: Layout): Polyline[] {
       ];
     }
 
-    /* Шов: // скосу, от крыши до низа (как синяя линия) */
+    /* Шов камеры ③: глубина const; ТИП 2 — // скосу, иначе вертикаль */
     let seamPts: [number, number][];
     if (type2 && ch) {
-      const slope = -chamferMm / Math.max(ch.slantDy, 1);
-      const gap = Math.min(supplyPlenum.depth * 0.72, 100);
-      let zTop = hd - chamferMm - gap;
-      let zBot = zTop - slope * h;
-      if (zBot > hd - 10) {
-        zBot = hd - 10;
-        zTop = zBot + slope * h;
-      }
+      const zBot = hd - supplyPlenum.depth;
+      const zTop = hd - chamferMm - supplyPlenum.depth;
       seamPts = [
         [zBot, 0],
         [zTop, h],
       ];
     } else {
-      const seamDz = Math.min(supplyPlenum.depth * 0.45, 100);
       const ySeam0 = yR < 1 ? 0 : (yR * (zP + hd)) / (2 * hd);
       seamPts = [
-        [zP + seamDz * 0.45, ySeam0],
-        [zP - seamDz * 0.55, h],
+        [zP, ySeam0],
+        [zP, h],
       ];
     }
 
