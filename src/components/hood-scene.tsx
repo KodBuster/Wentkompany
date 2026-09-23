@@ -12,6 +12,7 @@ import {
   islandSupplyType2Chamfer,
   islandSupplyType1Seam,
   wallType2Chamfer,
+  islandType2Chamfer,
   type Layout,
 } from '@/lib/geometry';
 
@@ -511,7 +512,7 @@ function makeIslandSupplyShell(layout: Layout) {
 }
 
 /**
- * ТИП 2 пристенный (ЗВП/ЗВО без притока): низ прямой, бортик const,
+ * ТИП 2 пристенный (ЗВП без притока): низ прямой, бортик const,
  * длинный скос с тупым α const, короткая крыша.
  */
 function makeWallType2Shell(layout: Layout) {
@@ -553,6 +554,63 @@ function makeWallType2Shell(layout: Layout) {
   }
   /* Крыша */
   pushQuad(pos, idx, [-hw, H, zTopB], [hw, H, zTopB], [hw, H, zTopF], [-hw, H, zTopF]);
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * ТИП 2 островной ЗВО = оболочка ЗПВО без приточных полостей.
+ * Бортики const с обоих торцов, скосы к плоской зоне ① по центру.
+ */
+function makeIslandType2Shell(layout: Layout) {
+  const W = layout.dims.w * MM;
+  const D = layout.dims.d * MM;
+  const H = layout.dims.h * MM;
+  const ch = islandType2Chamfer(layout.dims.h, layout.dims.d);
+  const yV = ch.vertDy * MM;
+  const hw = W / 2;
+  const zB = -D / 2;
+  const zF = D / 2;
+  const zTopF = zF - ch.chamferZ * MM;
+  const zTopB = zB + ch.chamferZ * MM;
+
+  const pos: number[] = [];
+  const idx: number[] = [];
+
+  pushQuad(pos, idx, [hw, yV, zF], [-hw, yV, zF], [-hw, 0, zF], [hw, 0, zF]);
+  pushQuad(pos, idx, [hw, yV, zF], [-hw, yV, zF], [-hw, H, zTopF], [hw, H, zTopF]);
+  pushQuad(pos, idx, [-hw, yV, zB], [hw, yV, zB], [hw, 0, zB], [-hw, 0, zB]);
+  pushQuad(pos, idx, [-hw, yV, zB], [hw, yV, zB], [hw, H, zTopB], [-hw, H, zTopB]);
+  pushQuad(pos, idx, [-hw, H, zTopB], [hw, H, zTopB], [hw, H, zTopF], [-hw, H, zTopF]);
+
+  const addSide = (x: number, flip: boolean) => {
+    const p0 = [x, 0, zB];
+    const p1 = [x, 0, zF];
+    const p2 = [x, yV, zF];
+    const p3 = [x, H, zTopF];
+    const p4 = [x, H, zTopB];
+    const p5 = [x, yV, zB];
+    const tris = flip
+      ? [
+          [p0, p2, p1], [p0, p5, p2],
+          [p2, p4, p3], [p2, p5, p4],
+        ]
+      : [
+          [p0, p1, p2], [p0, p2, p5],
+          [p2, p3, p4], [p2, p4, p5],
+        ];
+    for (const t of tris) {
+      const base = pos.length / 3;
+      for (const v of t) pos.push(v[0], v[1], v[2]);
+      idx.push(base, base + 1, base + 2);
+    }
+  };
+  addSide(hw, false);
+  addSide(-hw, true);
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -621,8 +679,8 @@ function makeSlopedBottomShell(layout: Layout) {
 }
 
 /**
- * ТИП 1 островной (ЗВО): верх прямой; скос снизу к обоим торцам по D;
- * короткие вертикали спереди и сзади. Сплошного дна нет.
+ * ТИП 1 островной (ЗВО): как ЗПВО без притока —
+ * под ванночкой горизонталь, скосы к обоим торцам, короткие вертикали L=¼V.
  */
 function makeIslandSlopedBottomShell(layout: Layout) {
   const W = layout.dims.w * MM;
@@ -632,6 +690,9 @@ function makeIslandSlopedBottomShell(layout: Layout) {
   const hw = W / 2;
   const zB = -D / 2;
   const zF = D / 2;
+  const halfTray = (BUILD.core.trayD / 2) * MM;
+  const zKneeF = halfTray;
+  const zKneeB = -halfTray;
 
   const pos: number[] = [];
   const idx: number[] = [];
@@ -639,23 +700,46 @@ function makeIslandSlopedBottomShell(layout: Layout) {
   /* Тыл и фронт — короткие стенки от скоса до верха */
   pushQuad(pos, idx, [-hw, yR, zB], [hw, yR, zB], [hw, H, zB], [-hw, H, zB]);
   pushQuad(pos, idx, [hw, yR, zF], [-hw, yR, zF], [-hw, H, zF], [hw, H, zF]);
-  /* Боковины: низ V (центр y=0), верх полный */
+  /* Боковины: горизонт под ванной → скосы к торцам */
   {
-    const p = [[hw, 0, 0], [hw, yR, zF], [hw, H, zF], [hw, H, zB], [hw, yR, zB]];
+    const p = [
+      [hw, 0, zKneeB],
+      [hw, 0, zKneeF],
+      [hw, yR, zF],
+      [hw, H, zF],
+      [hw, H, zB],
+      [hw, yR, zB],
+    ];
     const base = pos.length / 3;
-    /* два треугольника: центр-фронт-верхфронт + центр-верхфронт-верхтыл-тыл… */
-    for (const v of [p[0], p[1], p[2], p[0], p[2], p[3], p[0], p[3], p[4]]) {
+    for (const v of [
+      p[0], p[1], p[2],
+      p[0], p[2], p[3],
+      p[0], p[3], p[4],
+      p[0], p[4], p[5],
+    ]) {
       pos.push(v[0], v[1], v[2]);
     }
-    for (let i = 0; i < 9; i++) idx.push(base + i);
+    for (let i = 0; i < 12; i++) idx.push(base + i);
   }
   {
-    const p = [[-hw, 0, 0], [-hw, yR, zB], [-hw, H, zB], [-hw, H, zF], [-hw, yR, zF]];
+    const p = [
+      [-hw, 0, zKneeB],
+      [-hw, yR, zB],
+      [-hw, H, zB],
+      [-hw, H, zF],
+      [-hw, yR, zF],
+      [-hw, 0, zKneeF],
+    ];
     const base = pos.length / 3;
-    for (const v of [p[0], p[1], p[2], p[0], p[2], p[3], p[0], p[3], p[4]]) {
+    for (const v of [
+      p[0], p[1], p[2],
+      p[0], p[2], p[3],
+      p[0], p[3], p[4],
+      p[0], p[4], p[5],
+    ]) {
       pos.push(v[0], v[1], v[2]);
     }
-    for (let i = 0; i < 9; i++) idx.push(base + i);
+    for (let i = 0; i < 12; i++) idx.push(base + i);
   }
   pushQuad(pos, idx, [-hw, H, zB], [hw, H, zB], [hw, H, zF], [-hw, H, zF]);
 
@@ -674,6 +758,7 @@ function Corpus({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
   const type1Wall = profile === 'triangle' && !supply && !island;
   const type1Island = profile === 'triangle' && !supply && island;
   const type2Wall = profile === 'trapezoid' && !supply && !island;
+  const type2Island = profile === 'trapezoid' && !supply && island;
   const islandSupply = supply && island;
   const wallSupply = supply && !island;
 
@@ -683,6 +768,7 @@ function Corpus({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
     if (type1Wall) return makeSlopedBottomShell(layout);
     if (type1Island) return makeIslandSlopedBottomShell(layout);
     if (type2Wall) return makeWallType2Shell(layout);
+    if (type2Island) return makeIslandType2Shell(layout);
     return makeFrustumShell(
       dims.w * MM,
       bottom.d * MM,
@@ -695,13 +781,13 @@ function Corpus({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
     dims.w, dims.d, dims.h,
     top.w, top.d, top.z,
     bottom.d, bottom.z, bottomRise,
-    supply, type1Wall, type1Island, type2Wall, islandSupply, wallSupply, profile, island,
+    supply, type1Wall, type1Island, type2Wall, type2Island, islandSupply, wallSupply, profile, island,
     supplyPlenum?.depth, supplyPlenum?.frontRise, layout,
   ]);
 
   useEffect(() => () => { geo.dispose(); }, [geo]);
 
-  if (supply || type1Wall || type1Island || type2Wall) {
+  if (supply || type1Wall || type1Island || type2Wall || type2Island) {
     return <mesh geometry={geo} material={mat} castShadow />;
   }
 
@@ -743,14 +829,14 @@ function SpigotStub({
   );
 }
 
-/** Крышка / врезки. У приточных, ТИП 1 и ТИП 2-стены крыша в оболочке — только патрубки. */
+/** Крышка / врезки. У приточных, ТИП 1 и ТИП 2 (стенa/остров) крыша в оболочке — только патрубки. */
 function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; dark: THREE.Material }) {
   const { top, dims, spigots, supplyPlenum, profile, filters, bottomRise } = layout;
   const island = filters.some((f) => f.kind === 'front' || f.kind === 'back');
-  /* ТИП 1 / ТИП 2 пристенный: крыша в shell — плиту не дублируем */
   const type1Shell = profile === 'triangle' && !supplyPlenum && bottomRise > 0;
   const type2WallShell = profile === 'trapezoid' && !supplyPlenum && !island;
-  const roofInShell = !!supplyPlenum || type1Shell || type2WallShell;
+  const type2IslandShell = profile === 'trapezoid' && !supplyPlenum && island;
+  const roofInShell = !!supplyPlenum || type1Shell || type2WallShell || type2IslandShell;
 
   if (roofInShell) {
     const wallType2 = !island && profile === 'trapezoid';
@@ -760,9 +846,11 @@ function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; 
         ? islandSupplyType2Chamfer(dims.h, dims.d, supplyPlenum.depth).chamferZ
         : type2WallShell
           ? wallType2Chamfer(dims.h, dims.d).chamferZ
-          : 0;
+          : type2IslandShell
+            ? islandType2Chamfer(dims.h, dims.d).chamferZ
+            : 0;
     const topD = island
-      ? top.d - (profile === 'trapezoid' ? 2 * chamfer : 0)
+      ? top.d - (profile === 'trapezoid' && supplyPlenum ? 2 * chamfer : 0)
       : top.d - (supplyPlenum && wallType2 ? chamfer : 0);
     const topZ = island
       ? 0
@@ -775,8 +863,8 @@ function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; 
       <group position={[0, dims.h * MM, topZ * MM]}>
         {spigots.map((s, i) => {
           const body = s.role === 'supply' ? mat : dark;
-          /* ЗВП без притока: поза из layout (A×1.5 / P), без clamp — иначе уезжает от жировика */
-          if (type1Shell || type2WallShell) {
+          /* ЗВП/ЗВО без притока: поза из layout (A=B / P), без clamp */
+          if (type1Shell || type2WallShell || type2IslandShell) {
             const zPos = s.z + (top.z - topZ);
             return (
               <group key={i} position={[s.x * MM, (BUILD.spigot / 2) * MM, zPos * MM]}>
@@ -798,7 +886,7 @@ function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; 
     );
   }
 
-  /* ТИП 3 / остров ТИП 2 без притока: крыша плитой (frustum без верхней грани) */
+  /* ТИП 3 / прочее без крыши в shell: плита + патрубки */
   return (
     <group position={[0, dims.h * MM, top.z * MM]}>
       <mesh material={mat} position={[0, 4 * MM, 0]}>
@@ -885,121 +973,69 @@ function wallFilterCore(layout: Layout) {
 
 /**
  * Островное ядро V (ЗВО / ЗПВО): ванночка в центре; два ряда кассет.
- * ЗВО — тянется к крыше; ЗПВО — стандартный блок BUILD.core (не масштабируется с H/D),
- * центрирован под вытяжкой, с зазором до перегородки притока.
+ * ЗВО = ЗПВО без камеры ③: те же якоря P от Ø вытяжки; зона ② растёт с D.
  */
 function islandFilterCore(layout: Layout) {
-  const { dims, top, spigots, supplyPlenum } = layout;
+  const { dims, top, spigots } = layout;
   const trayD = BUILD.core.trayD;
   const trayH = Math.min(BUILD.core.trayH, 22);
   const floorGap = 2;
   const halfGap = BUILD.core.vGap;
-  const isZpvo = !!supplyPlenum;
-  const trayY = floorGap + trayH / 2;
-  const yB = floorGap + trayH + 1;
+  const yB0 = floorGap + trayH + 1;
 
   const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
   const pipeZ = top.z + (exhaust?.z ?? 0);
-  const pipeR = (exhaust?.diameter ?? 200) / 2;
 
-  const zBFront = halfGap;
-  const zBBack = -halfGap;
-
-  if (isZpvo) {
-    /*
-     * ЗПВО камера ①: верх кассет — P от Ø вытяжки (const), зеркально.
-     * Зона ② (мост до шва притока) растёт с D.
-     * Не тянуть верхи внутрь по N/шлю при малом D — иначе на 600 «уезжают»,
-     * а с ~660–670 встают на место (баг динамики).
-     */
-    const isType2 = layout.profile === 'trapezoid';
-    const isType3 = layout.profile === 'rect';
-    const yB0 = yB;
-    const tHalf = BUILD.core.filterT * 0.5;
-    let yC = dims.h - 16;
-    const pipeD = isType2
-      ? BUILD.zpvo.type2DisplayExhaust
-      : isType3
-        ? BUILD.zpvo.type3DisplayExhaust
-        : BUILD.zpvo.type2DisplayExhaust;
-    const pipeHalf = pipeD / 2;
-    const pMin = BUILD.zpvo.type2PMin;
-
-    /* Склейка верхов: только P от оси трубы — статика камеры ① */
-    let zCFront = pipeZ + pipeHalf + pMin;
-    let zCBack = pipeZ - pipeHalf - pMin;
-
-    let gapB = halfGap;
-    if (zCFront < gapB + 24) {
-      gapB = Math.max(14, zCFront - 40);
-    }
-
-    let dz = Math.max(Math.abs(zCFront - gapB), 24);
-    let dy = Math.max(yC - yB0, 50);
-    let tilt = Math.atan2(dz, dy);
-    yC = dims.h - (14 + tHalf * Math.sin(tilt) + 10);
-    dy = Math.max(yC - yB0, 50);
-    dz = Math.max(Math.abs(zCFront - gapB), 24);
-    tilt = Math.atan2(dz, dy);
-    const fhBank = Math.hypot(dz, dy);
-
-    return {
-      tray: {
-        w: Math.max(dims.w - 2 * BUILD.core.sideClear, 200),
-        d: trayD,
-        h: trayH,
-        y: floorGap + trayH / 2,
-        z: 0,
-      },
-      front: {
-        fh: fhBank,
-        rotX: tilt,
-        y: (yB0 + yC) / 2,
-        z: (gapB + zCFront) / 2,
-      },
-      back: {
-        fh: fhBank,
-        rotX: -tilt,
-        y: (yB0 + yC) / 2,
-        z: (-gapB + zCBack) / 2,
-      },
-    };
-  }
-
-  /* ЗВО / ЗВОГ: камера ① — верх кассет только P от трубы; с D растёт зона ② */
+  const isType2 = layout.profile === 'trapezoid';
+  const isType3 = layout.profile === 'rect';
   const tHalf = BUILD.core.filterT * 0.5;
+  let yC = dims.h - 16;
+  const pipeD = isType2
+    ? BUILD.zpvo.type2DisplayExhaust
+    : isType3
+      ? BUILD.zpvo.type3DisplayExhaust
+      : BUILD.zpvo.type2DisplayExhaust;
+  const pipeHalf = pipeD / 2;
   const pMin = BUILD.zpvo.type2PMin;
-  const pipeHalf = Math.min(pipeR, BUILD.zpvo.type2DisplayExhaust / 2);
+
+  /* Склейка верхов: только P от оси трубы — статика камеры ① */
   let zCFront = pipeZ + pipeHalf + pMin;
   let zCBack = pipeZ - pipeHalf - pMin;
 
-  let yC = dims.h - 12;
-  let dy = Math.max(yC - yB, 50);
-  let tiltEst = Math.atan2(Math.abs(zCFront - zBFront), dy);
-  yC = dims.h - (14 + tHalf * Math.sin(tiltEst) + 10);
-  dy = Math.max(yC - yB, 50);
+  let gapB = halfGap;
+  if (zCFront < gapB + 24) {
+    gapB = Math.max(14, zCFront - 40);
+  }
 
-  const side = (zBottom: number, zTop: number, rotSign: number) => {
-    const dz = zTop - zBottom;
-    const t = Math.atan2(Math.abs(dz), dy);
-    return {
-      fh: Math.hypot(Math.abs(dz), dy),
-      rotX: rotSign > 0 ? t : -t,
-      y: (yB + yC) / 2,
-      z: (zBottom + zTop) / 2,
-    };
-  };
+  let dz = Math.max(Math.abs(zCFront - gapB), 24);
+  let dy = Math.max(yC - yB0, 50);
+  let tilt = Math.atan2(dz, dy);
+  yC = dims.h - (14 + tHalf * Math.sin(tilt) + 10);
+  dy = Math.max(yC - yB0, 50);
+  dz = Math.max(Math.abs(zCFront - gapB), 24);
+  tilt = Math.atan2(dz, dy);
+  const fhBank = Math.hypot(dz, dy);
 
   return {
     tray: {
       w: Math.max(dims.w - 2 * BUILD.core.sideClear, 200),
       d: trayD,
       h: trayH,
-      y: trayY,
+      y: floorGap + trayH / 2,
       z: 0,
     },
-    front: side(zBFront, zCFront, 1),
-    back: side(zBBack, zCBack, -1),
+    front: {
+      fh: fhBank,
+      rotX: tilt,
+      y: (yB0 + yC) / 2,
+      z: (gapB + zCFront) / 2,
+    },
+    back: {
+      fh: fhBank,
+      rotX: -tilt,
+      y: (yB0 + yC) / 2,
+      z: (-gapB + zCBack) / 2,
+    },
   };
 }
 

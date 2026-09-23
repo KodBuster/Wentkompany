@@ -11,7 +11,7 @@
 
 import type { Dims, FamilyTraits, Calculation } from './calc.ts';
 import { ru, dec } from './calc.ts';
-import { buildLayout, BUILD, supplyType2Chamfer, islandSupplyType2Chamfer, islandSupplyType1Seam, wallType2Chamfer, type Layout } from './geometry.ts';
+import { buildLayout, BUILD, supplyType2Chamfer, islandSupplyType2Chamfer, islandSupplyType1Seam, wallType2Chamfer, islandType2Chamfer, type Layout } from './geometry.ts';
 
 export type Point = [number, number];
 
@@ -248,12 +248,14 @@ function sideOutline(layout: Layout): Polyline[] {
     const yR = bottomRise;
     const island = layout.filters.some((f) => f.kind === 'front' || f.kind === 'back');
     if (island) {
-      /* ЗВО ТИП 1: скос снизу к обоим торцам */
+      /* ЗВО ТИП 1: горизонт под ванной + скосы к торцам */
+      const halfTray = BUILD.core.trayD / 2;
       return [
         {
           pts: [
             [-hd, yR],
-            [0, 0],
+            [-halfTray, 0],
+            [halfTray, 0],
             [hd, yR],
             [hd, h],
             [-hd, h],
@@ -324,6 +326,38 @@ function sideOutline(layout: Layout): Polyline[] {
           [zTopF, h],
           [zTopF, h + 8],
           [-hd, h + 8],
+        ],
+        closed: true,
+        style: 'solid',
+      },
+    ];
+  }
+
+  /* ТИП 2 островной ЗВО: симметричные бортики + скосы к зоне ① */
+  if (profile === 'trapezoid') {
+    const ch = islandType2Chamfer(dims.h, dims.d);
+    const zTopF = hd - ch.chamferZ;
+    const zTopB = -hd + ch.chamferZ;
+    return [
+      {
+        pts: [
+          [-hd, 0],
+          [hd, 0],
+          [hd, ch.vertDy],
+          [zTopF, h],
+          [zTopB, h],
+          [-hd, ch.vertDy],
+        ],
+        closed: true,
+        style: 'solid',
+      },
+      { pts: [[zTopB + 40, gutterHeight], [zTopF - 40, gutterHeight]], style: 'dashed' },
+      {
+        pts: [
+          [zTopB, h],
+          [zTopF, h],
+          [zTopF, h + 8],
+          [zTopB, h + 8],
         ],
         closed: true,
         style: 'solid',

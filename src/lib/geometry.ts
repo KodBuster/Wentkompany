@@ -362,6 +362,34 @@ export function wallType2Chamfer(h: number, d: number) {
 }
 
 /**
+ * ТИП 2 ЗВО (остров без притока) = ЗПВО без камеры ③.
+ * Зона ① по центру — const; скосы y с двух сторон; на D=600 сумма y / x ≈ 1.5.
+ * Патрубок в центре (A = B).
+ */
+export function islandType2Chamfer(h: number, d: number) {
+  const frontH = Math.max(h, 80);
+  const vertDy = Math.min(BUILD.zpvo.type2VertDy, Math.round(frontH * 0.28));
+  const slantDy = Math.max(frontH - vertDy, 40);
+  const A = BUILD.zpvo.type2DisplayExhaust;
+  const edge = 14;
+  const dMin = 600;
+  const yOverX = 1.5;
+  const xFromRatio = Math.round(dMin / (1 + yOverX));
+  const xConst = Math.max(xFromRatio, A + 2 * edge);
+  const each = Math.max(0, Math.floor((d - xConst) / 2));
+  return {
+    chamferZ: each,
+    slantDy,
+    vertDy,
+    zone1: d - 2 * each,
+    zone2Each: each,
+    A,
+    edge,
+    yOverX,
+  };
+}
+
+/**
  * Завалы по глубине для типов ЗВП/ЗВО (не приток).
  * ТИП 1 — план полный, скос низа задаётся bottomRise в buildLayout;
  * ТИП 2 — скос сверху (короткая крышка); ТИП 3 — прямоугольник.
@@ -377,26 +405,31 @@ function taperForProfile(
   if (supply) return empty;
   if (profile === 'rect' || profile === 'triangle') return empty;
 
-  /* ТИП 2 пристенный: α + бортик const; зона ① под патрубок A=B */
+  /* ТИП 2 пристенный ЗВП */
   if (!island && !hydro) {
     const ch = wallType2Chamfer(dims.h, dims.d);
     return { topFront: ch.chamferZ, topBack: 0, bottomFront: 0, bottomBack: 0 };
   }
 
+  /* ТИП 2 островной ЗВО: симметрия, зона ① const */
+  if (island && !hydro) {
+    const ch = islandType2Chamfer(dims.h, dims.d);
+    return {
+      topFront: ch.chamferZ,
+      topBack: ch.chamferZ,
+      bottomFront: 0,
+      bottomBack: 0,
+    };
+  }
+
   /*
-   * ТИП 2 остров / гидро: низ прямой, верх со скосом.
    * Гидро (ЗВПГ/ЗВОГ): крыша шире — место патрубку, шпилькам и форсункам под крышкой.
    */
-  const minFlat = hydro
-    ? Math.max(320, Math.round(dims.d * 0.72))
-    : Math.max(200, Math.round(dims.d * 0.34));
+  const minFlat = Math.max(320, Math.round(dims.d * 0.72));
   const tMax = Math.max(0, dims.d - minFlat);
-  const deg = hydro ? 14 : 28;
   const byDeg = (degV: number) =>
     Math.min(Math.round(dims.h * Math.tan((degV * Math.PI) / 180)), tMax);
-  const t = hydro
-    ? Math.min(byDeg(deg), Math.round(dims.d * 0.14), tMax)
-    : Math.min(Math.max(byDeg(28), Math.round(dims.d * 0.4)), tMax);
+  const t = Math.min(byDeg(14), Math.round(dims.d * 0.14), tMax);
   if (island) {
     const each = Math.min(Math.round(t * 0.5), Math.floor(tMax / 2));
     return { topFront: each, topBack: each, bottomFront: 0, bottomBack: 0 };
@@ -770,14 +803,14 @@ export function buildLayout(
 
   /*
    * ЗВП/ЗВО без притока: Ø вытяжки const (как на схеме).
-   * ТИП 2 пристенный: патрубок в центре зоны ① (A = B const на плоской крыше).
+   * ТИП 2: патрубок в центре зоны ① (A = B) — и пристенный, и остров.
    */
   if (!traits.supply) {
     const A =
       profile === 'rect'
         ? BUILD.zpvo.type3DisplayExhaust
         : BUILD.zpvo.type2DisplayExhaust;
-    const centerOnZone1 = !traits.island && profile === 'trapezoid';
+    const centerOnZone1 = profile === 'trapezoid';
     spigots = spigots.map((s) => ({
       ...s,
       diameter: Math.min(s.diameter, A),
@@ -786,8 +819,10 @@ export function buildLayout(
   }
 
   const roofInsetZ =
-    traits.island && traits.supply && profile === 'trapezoid'
-      ? islandSupplyType2Chamfer(dims.h, dims.d, plenumDepth).chamferZ
+    traits.island && profile === 'trapezoid'
+      ? traits.supply
+        ? islandSupplyType2Chamfer(dims.h, dims.d, plenumDepth).chamferZ
+        : islandType2Chamfer(dims.h, dims.d).chamferZ
       : 0;
 
   return {
