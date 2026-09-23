@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, type MutableRefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
@@ -1692,26 +1692,42 @@ function hoodExtents(dims: Dims, hasHangers: boolean) {
   };
 }
 
-const VIEW_DIR = new THREE.Vector3(0.52, 0.48, 0.72).normalize();
+/*
+ * Единая изометрия: +Y верх, −Z тыл/стена, +Z перед;
+ * камера в +X+Y+Z, чуть сверху — меньше «вид снизу».
+ */
+const VIEW_DIR = new THREE.Vector3(0.52, 0.58, 0.62).normalize();
 
 /**
- * Кадр от верхней точки модели. Снизу — орбитой мыши (maxPolar ≈ π).
+ * Автокадр по габариту зонта.
  */
 function CameraRig({
   dims,
   hasHangers,
   userMoved,
+  fitting,
+  tick,
 }: {
   dims: Dims;
   hasHangers: boolean;
   userMoved: MutableRefObject<boolean>;
+  fitting: MutableRefObject<boolean>;
+  tick: string;
 }) {
-  const { camera, controls, size } = useThree();
+  const { camera, controls, size, invalidate } = useThree();
+  const fitLeft = useRef(0);
   const lastSpan = useRef(0);
 
   useEffect(() => {
+    userMoved.current = false;
+    fitting.current = true;
+    fitLeft.current = 30;
+    lastSpan.current = 0;
+    invalidate();
+  }, [tick, size.width, size.height, userMoved, fitting, invalidate]);
+
+  useFrame(() => {
     const perspective = camera as THREE.PerspectiveCamera;
-    const ext = hoodExtents(dims, hasHangers);
     const orbit = controls as {
       target: THREE.Vector3;
       update: () => void;
@@ -1719,84 +1735,71 @@ function CameraRig({
       maxDistance: number;
     } | null;
 
-    perspective.aspect = size.width / Math.max(size.height, 1);
+    if (!orbit?.target) return;
+    if (size.width < 2 || size.height < 2) return;
+
+    const ext = hoodExtents(dims, hasHangers);
+
+    if (fitLeft.current <= 0) {
+      fitting.current = false;
+      if (userMoved.current && lastSpan.current > 0) {
+        const ratio = ext.span / lastSpan.current;
+        if (Number.isFinite(ratio) && Math.abs(ratio - 1) > 0.002) {
+          const t = orbit.target;
+          const offset = perspective.position.clone().sub(t).multiplyScalar(ratio);
+          perspective.position.copy(t).add(offset);
+          const used = offset.length();
+          orbit.minDistance = Math.max(0.3, used * 0.2);
+          orbit.maxDistance = Math.max(used * 10, 30);
+          orbit.update();
+        }
+      }
+      lastSpan.current = ext.span;
+      return;
+    }
+
+    fitting.current = true;
+
+    const boxH = Math.max(ext.yMax - ext.yMin, 0.25);
+    const boxW = Math.max(ext.halfW * 2, 0.25);
+    const boxD = Math.max(ext.halfD * 2, 0.25);
+    const aspect = size.width / Math.max(size.height, 1);
+    /* Якорь выше — зонт ниже в окне (пустоты сверху/снизу ближе к равновесию) */
+    const targetY = dims.h * 0.68 * MM;
+
+    perspective.aspect = aspect;
     perspective.updateProjectionMatrix();
 
-    const vFov = perspective.fov * DEG;
+    const vFov = (perspective.fov * Math.PI) / 180;
     const tanV = Math.tan(vFov / 2);
-    const hFov = 2 * Math.atan(tanV * perspective.aspect);
-    const tanH = Math.tan(hFov / 2);
+    const tanH = tanV * Math.max(aspect, 0.5);
 
-    const topInset = 0.08;
-    const bottomInset = 0.1;
-    const sideInset = 0.08;
+    /* Чуть ближе, чем 2.0 — запас есть, но не «горошина» */
+    const dist =
+      Math.max(boxH / (2 * tanV), Math.max(boxW, boxD) / (2 * tanH)) * 1.85;
 
-    const boxH = ext.yMax - ext.yMin;
-    const boxHoriz = Math.max(ext.halfW, ext.halfD) * 2 * 1.2;
-
-    let dist = boxH / ((1 - topInset - bottomInset) * 2 * tanV);
-    dist = Math.max(dist, boxHoriz / ((1 - 2 * sideInset) * 2 * tanH));
-    dist *= 1.06;
-
-    const applyTopFit = () => {
-      for (let i = 0; i < 4; i++) {
-        const halfV = tanV * dist;
-        const targetY = ext.yMax - (1 - 2 * topInset) * halfV;
-        const ndcBottom = (ext.yMin - targetY) / halfV;
-        const minNdc = -1 + 2 * bottomInset;
-        if (ndcBottom >= minNdc - 0.02) {
-          if (orbit) {
-            orbit.target.set(0, targetY, 0);
-            perspective.position.copy(orbit.target).addScaledVector(VIEW_DIR, dist);
-            orbit.update();
-          } else {
-            const target = new THREE.Vector3(0, targetY, 0);
-            perspective.position.copy(target).addScaledVector(VIEW_DIR, dist);
-            perspective.lookAt(target);
-          }
-          return dist;
-        }
-        const usable = 1 - 2 * topInset - minNdc;
-        dist = Math.max(dist * 1.04, boxH / (usable * 2 * tanV));
-      }
-      const halfV = tanV * dist;
-      const targetY = ext.yMax - (1 - 2 * topInset) * halfV;
-      if (orbit) {
-        orbit.target.set(0, targetY, 0);
-        perspective.position.copy(orbit.target).addScaledVector(VIEW_DIR, dist);
-        orbit.update();
-      }
-      return dist;
-    };
-
-    let usedDist = dist;
-    if (!userMoved.current || lastSpan.current === 0) {
-      usedDist = applyTopFit();
-    } else if (orbit && lastSpan.current > 0) {
-      const ratio = ext.span / lastSpan.current;
-      if (Number.isFinite(ratio) && Math.abs(ratio - 1) > 0.002) {
-        const t = orbit.target;
-        const offset = perspective.position.clone().sub(t).multiplyScalar(ratio);
-        perspective.position.copy(t.clone().add(offset));
-        usedDist = offset.length();
-        orbit.update();
-      } else {
-        usedDist = perspective.position.distanceTo(orbit.target);
-      }
-    }
+    orbit.target.set(0, targetY, 0);
+    perspective.position.set(
+      orbit.target.x + VIEW_DIR.x * dist,
+      orbit.target.y + VIEW_DIR.y * dist,
+      orbit.target.z + VIEW_DIR.z * dist,
+    );
+    perspective.near = Math.max(0.05, dist / 100);
+    perspective.far = Math.max(dist * 30, 40);
+    perspective.lookAt(orbit.target);
+    perspective.updateProjectionMatrix();
+    orbit.minDistance = Math.max(0.3, dist * 0.2);
+    orbit.maxDistance = Math.max(dist * 10, 30);
+    orbit.update();
 
     lastSpan.current = ext.span;
-    if (orbit) {
-      orbit.minDistance = Math.max(0.2, usedDist * 0.35);
-      orbit.maxDistance = Math.max(usedDist * 3.5, 6);
-    }
-    perspective.near = 0.05;
-    perspective.far = Math.max(usedDist * 12, ext.span * 20);
-    perspective.updateProjectionMatrix();
-  }, [camera, controls, size.width, size.height, dims.w, dims.d, dims.h, hasHangers, userMoved]);
+    fitLeft.current -= 1;
+    if (fitLeft.current <= 0) fitting.current = false;
+  });
 
   return null;
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Сборка изделия                                                      */
@@ -1829,12 +1832,9 @@ function Hood({ layout, mode, material }: HoodProps) {
     if (filtersRef.current) filtersRef.current.position.y = k * h * 0.12;
   });
 
-  /* Пристенный ЗПВП: разворачиваем к ракурсу схемы — высокая вытяжка слева, приток справа */
-  const wallSupply =
-    !!layout.supplyPlenum && !layout.filters.some((f) => f.kind === 'front' || f.kind === 'back');
-
+  /* Все семейства в одной СК: −Z тыл/стена, +Z перед (человек) — без разворота ЗПВП */
   return (
-    <group rotation={[0, wallSupply ? Math.PI : 0, 0]}>
+    <group>
       <Corpus layout={layout} mat={mats.corpus} />
 
       <group ref={topRef}>
@@ -1881,60 +1881,134 @@ export function HoodScene({ dims, traits, ducts, mode, material, lamps, typeLabe
     [dims, traits, ducts, lamps, typeLabel],
   );
 
-  /* Пользователь сдвинул/приблизил сцену — не затираем ракурс при смене мм */
+  /* Пользователь крутит/зумит/панит — не затираем ракурс при смене мм */
   const userMoved = useRef(false);
+  const fitting = useRef(true);
+  const [fitNonce, setFitNonce] = useState(0);
+  const [helpOpen, setHelpOpen] = useState(false);
   const hasHangers = layout.hangers.length > 0;
+  const viewKey = [
+    traits.island ? 'i' : 'w',
+    traits.supply ? 's' : 'e',
+    traits.hydro ? 'h' : 'n',
+    typeLabel ?? '',
+  ].join('|');
 
   const radius = Math.max(dims.w, dims.d) * MM;
   const camera = useMemo(
-    () => ({ position: [2.2, 2.0, 2.9] as [number, number, number], fov: 32 }),
+    () => ({ position: [2.8, 2.2, 3.6] as [number, number, number], fov: 40 }),
     [],
   );
 
   return (
-    <Canvas
-      camera={camera}
-      dpr={[1, 1.75]}
-      gl={{ antialias: true, powerPreference: 'high-performance' }}
-      style={{ background: 'transparent' }}
+    <div
+      className="hood-scene-root"
+      onContextMenu={(e) => e.preventDefault()}
+      onDoubleClick={(e) => {
+        /* Двойной клик по сцене — вписать; по кнопке справки не реагируем */
+        if ((e.target as HTMLElement).closest('.hood-scene-help')) return;
+        setFitNonce((n) => n + 1);
+      }}
     >
-      <StudioEnvironment />
-      <CameraRig dims={dims} hasHangers={hasHangers} userMoved={userMoved} />
-      <hemisphereLight args={['#efe6dc', '#1a1612', 0.72]} />
-      <directionalLight position={[3, 5, 2]} intensity={1.12} color="#fff4e8" />
-      <directionalLight position={[-4, 2, -3]} intensity={0.48} color="#c4a890" />
-      {/* Свет снизу — нутро видно при взгляде орбитой снизу */}
-      <directionalLight position={[0, -4, 1]} intensity={0.45} color="#fff4e8" />
-
-      {/* Низ модели у y≈0 — вертикаль кадра считает CameraRig от верхней точки */}
-      <group position={[0, 0, 0]}>
-        <Hood layout={layout} mode={mode} material={material} />
-        <ContactShadows
-          position={[0, -0.02, 0]}
-          opacity={0.38}
-          scale={radius * 6}
-          blur={2.6}
-          far={2}
-          color="#000000"
+      <Canvas
+        camera={camera}
+        dpr={[1, 1.75]}
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        style={{ background: 'transparent', width: '100%', height: '100%' }}
+      >
+        <StudioEnvironment />
+        <CameraRig
+          dims={dims}
+          hasHangers={hasHangers}
+          userMoved={userMoved}
+          fitting={fitting}
+          tick={`${viewKey}|${fitNonce}|${dims.w}x${dims.d}x${dims.h}`}
         />
-      </group>
+        <hemisphereLight args={['#efe6dc', '#1a1612', 0.72]} />
+        <directionalLight position={[3, 5, 2]} intensity={1.12} color="#fff4e8" />
+        <directionalLight position={[-4, 2, -3]} intensity={0.48} color="#c4a890" />
+        <directionalLight position={[0, -4, 1]} intensity={0.45} color="#fff4e8" />
 
-      <OrbitControls
-        makeDefault
-        enablePan
-        screenSpacePanning
-        panSpeed={0.85}
-        /* Можно зайти снизу и смотреть вверх внутрь короба */
-        minPolarAngle={0.08}
-        maxPolarAngle={Math.PI - 0.08}
-        minDistance={radius * 0.7 + 0.5}
-        maxDistance={radius * 10 + 5}
-        enableDamping
-        dampingFactor={0.08}
-        onStart={() => {
-          userMoved.current = true;
-        }}
-      />
-    </Canvas>
+        <group>
+          <Hood layout={layout} mode={mode} material={material} />
+          <ContactShadows
+            position={[0, -0.02, 0]}
+            opacity={0.38}
+            scale={radius * 6}
+            blur={2.6}
+            far={2}
+            color="#000000"
+          />
+        </group>
+
+        {/*
+          ЛКМ — крутить, колёсико — зум, ПКМ — сдвигать кадр.
+        */}
+        <OrbitControls
+          makeDefault
+          enableRotate
+          enableZoom
+          enablePan
+          screenSpacePanning
+          panSpeed={1}
+          rotateSpeed={0.9}
+          zoomSpeed={0.9}
+          mouseButtons={{
+            LEFT: THREE.MOUSE.ROTATE,
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: THREE.MOUSE.PAN,
+          }}
+          touches={{
+            ONE: THREE.TOUCH.ROTATE,
+            TWO: THREE.TOUCH.DOLLY_PAN,
+          }}
+          minPolarAngle={0.08}
+          maxPolarAngle={Math.PI - 0.08}
+          minDistance={0.3}
+          maxDistance={40}
+          enableDamping
+          dampingFactor={0.08}
+          onStart={() => {
+            if (fitting.current) return;
+            userMoved.current = true;
+          }}
+        />
+      </Canvas>
+
+      {/* Справка по мыши: только по клику на «i», без автооткрытия */}
+      <div className="hood-scene-help">
+        <button
+          type="button"
+          className="hood-scene-help-btn"
+          aria-label="Справка по управлению"
+          aria-expanded={helpOpen}
+          onClick={() => setHelpOpen((v) => !v)}
+        >
+          i
+        </button>
+        {helpOpen && (
+          <div className="hood-scene-help-pop" role="dialog" aria-label="Управление 3D">
+            <p className="hood-scene-help-title">Управление видом</p>
+            <ul>
+              <li>
+                <b>ЛКМ</b> — вращение
+              </li>
+              <li>
+                <b>Колёсико</b> — зум
+              </li>
+              <li>
+                <b>ПКМ</b> — сдвиг кадра
+              </li>
+              <li>
+                <b>Двойной клик</b> — вписать в окно
+              </li>
+            </ul>
+            <button type="button" className="hood-scene-help-close" onClick={() => setHelpOpen(false)}>
+              Закрыть
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

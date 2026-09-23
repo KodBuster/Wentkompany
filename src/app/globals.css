@@ -417,23 +417,95 @@
     border-radius: var(--radius-lg);
     overflow: hidden;
     min-height: 640px;
-    align-items: stretch;
-  }
-  @media (max-width: 1180px) {
-    .cfg-shell { grid-template-columns: 1fr; }
-    .cfg-stage { order: -1; min-height: 60vh; }
+    /* Не растягивать сцену под высоту длинных боковых колонок */
+    align-items: start;
   }
   .cfg-pane {
     background: var(--color-sheet);
     padding: 1.1rem;
     display: flex;
     flex-direction: column;
-    /* Высота растёт с контентом — без принудительного скролла колонок на десктопе */
     min-height: 100%;
   }
-  .cfg-stage { background: var(--color-steel-900); display: flex; flex-direction: column; min-width: 0; min-height: 520px; }
-  .cfg-viewport { flex: 1 1 auto; min-height: 380px; position: relative; overflow: hidden; }
+  .cfg-stage {
+    background: var(--color-steel-900);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    width: 100%;
+    min-height: 0;
+  }
+  .cfg-viewport {
+    flex: 0 0 auto;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    /*
+     * Высота от ширины колонки — одинаковый aspect на любых мониторах/браузерах.
+     * Без max-height: иначе на широкой колонке aspect «плывёт» и масштаб 3D разный.
+     */
+    aspect-ratio: 4 / 3;
+    height: auto;
+    min-height: 300px;
+  }
   .cfg-viewport-zoom { width: 100%; height: 100%; }
+  @media (max-width: 1180px) {
+    .cfg-shell { grid-template-columns: 1fr; }
+    .cfg-stage { order: -1; }
+    .cfg-viewport {
+      aspect-ratio: 4 / 3;
+      max-height: 440px;
+    }
+  }
+
+  /* Корень 3D-сцены и справка по мыши (светлая — читается на тёмном cfg-stage) */
+  .hood-scene-root { position: relative; width: 100%; height: 100%; min-height: inherit; }
+  .hood-scene-help {
+    position: absolute; top: 10px; right: 10px; z-index: 5;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  }
+  .hood-scene-help-btn {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid rgba(61, 122, 140, 0.45);
+    background: #f3eee7;
+    color: #2f6a7a;
+    font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700;
+    line-height: 1; cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+    transition: border-color 0.2s var(--ease-out), color 0.2s var(--ease-out), background 0.2s var(--ease-out);
+  }
+  .hood-scene-help-btn:hover,
+  .hood-scene-help-btn[aria-expanded='true'] {
+    border-color: #3d7a8c; color: #1e4f5c; background: #fffaf4;
+  }
+  .hood-scene-help-pop {
+    width: min(230px, calc(100vw - 48px));
+    padding: 0.75rem 0.85rem 0.7rem;
+    border: 1px solid rgba(90, 78, 68, 0.22);
+    background: #f7f1ea;
+    color: #2a2420;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  }
+  .hood-scene-help-title {
+    margin: 0 0 0.5rem; font-family: var(--font-mono);
+    font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: #3d7a8c;
+  }
+  .hood-scene-help-pop ul {
+    margin: 0; padding: 0; list-style: none;
+    display: flex; flex-direction: column; gap: 0.4rem;
+    font-size: 0.8rem; line-height: 1.4; color: #3a332e;
+  }
+  .hood-scene-help-pop b { color: #1a1612; font-weight: 650; }
+  .hood-scene-help-close {
+    margin-top: 0.7rem; width: 100%;
+    font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 0.4rem 0.5rem; cursor: pointer;
+    border: 1px solid rgba(90, 78, 68, 0.28); background: #fffaf4; color: #4a423c;
+    border-radius: var(--radius-sm);
+  }
+  .hood-scene-help-close:hover { color: #1a1612; border-color: rgba(61, 122, 140, 0.55); }
   .cfg-toolbar {
     display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
     padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--hair);
