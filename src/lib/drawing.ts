@@ -202,8 +202,11 @@ function sideOutline(layout: Layout): Polyline[] {
         [-hd, h],
       ];
     } else {
+      /* ТИП 1 ЗПВП: горизонт под ванной + скос (как ЗВП) */
+      const knee = BUILD.core.trayD + 8;
       outline = [
         [-hd, 0],
+        [-hd + knee, 0],
         [hd, yR],
         [hd, h],
         [-hd, h],

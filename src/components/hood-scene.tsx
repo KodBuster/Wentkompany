@@ -310,18 +310,37 @@ function makeWeldedSupplyShell(layout: Layout) {
       [-hw, ySeamTop, zSeamTop1],
     );
   } else {
+    /* ТИП 1: как ЗВП — горизонт под ванной, скос к фронту L=¼V, + перегородка ③ */
+    const wallGap = 8;
+    const zKnee = zB + (wallGap + BUILD.core.trayD) * MM;
     pushQuad(pos, idx, [hw, yFront, zF], [-hw, yFront, zF], [-hw, H, zF], [hw, H, zF]);
     {
-      const p = [[hw, 0, zB], [hw, yR, zF], [hw, H, zF], [hw, H, zB]];
+      const p = [
+        [hw, 0, zB],
+        [hw, 0, zKnee],
+        [hw, yR, zF],
+        [hw, H, zF],
+        [hw, H, zB],
+      ];
       const base = pos.length / 3;
-      for (const v of [p[0], p[1], p[2], p[0], p[2], p[3]]) pos.push(v[0], v[1], v[2]);
-      for (let i = 0; i < 6; i++) idx.push(base + i);
+      for (const v of [p[0], p[1], p[2], p[0], p[2], p[3], p[0], p[3], p[4]]) {
+        pos.push(v[0], v[1], v[2]);
+      }
+      for (let i = 0; i < 9; i++) idx.push(base + i);
     }
     {
-      const p = [[-hw, 0, zB], [-hw, H, zB], [-hw, H, zF], [-hw, yR, zF]];
+      const p = [
+        [-hw, 0, zB],
+        [-hw, H, zB],
+        [-hw, H, zF],
+        [-hw, yR, zF],
+        [-hw, 0, zKnee],
+      ];
       const base = pos.length / 3;
-      for (const v of [p[0], p[1], p[2], p[0], p[2], p[3]]) pos.push(v[0], v[1], v[2]);
-      for (let i = 0; i < 6; i++) idx.push(base + i);
+      for (const v of [p[0], p[1], p[2], p[0], p[2], p[3], p[0], p[3], p[4]]) {
+        pos.push(v[0], v[1], v[2]);
+      }
+      for (let i = 0; i < 9; i++) idx.push(base + i);
     }
     pushQuad(pos, idx, [-hw, H, zB], [hw, H, zB], [hw, H, zF], [-hw, H, zF]);
     pushQuad(
@@ -1040,9 +1059,8 @@ function islandFilterCore(layout: Layout) {
 }
 
 /**
- * ЗПВП (пристенный приток): жироуловитель только в вытяжной камере ①.
- * Якоря const от задника и патрубка; рост D расширяет зону ②, не ядро.
- * A≡B на ванночке у задника, C≡D под крышей у врезки вытяжки (P).
+ * ЗПВП = ЗВП + камера ③: жироуловитель только в вытяжной камере ①.
+ * Якорь P от Ø вытяжки (как у ЗВП); рост D расширяет зону ②, не ядро.
  */
 function supplyWallFilterCore(layout: Layout) {
   const { dims, top, spigots, supplyPlenum, profile } = layout;
@@ -1050,9 +1068,7 @@ function supplyWallFilterCore(layout: Layout) {
   const ex = BUILD.exhaustChamber;
   const zBack = -dims.d / 2;
   const zF = dims.d / 2;
-  const zP = zF - plenum.depth;
   const yR = plenum.frontRise;
-  const yAt = (z: number) => yR * ((z - zBack) / Math.max(zF - zBack, 1));
 
   const trayD = BUILD.core.trayD;
   const trayH = Math.min(BUILD.core.trayH, 20);
@@ -1061,7 +1077,16 @@ function supplyWallFilterCore(layout: Layout) {
   const tHalf = BUILD.core.filterT * 0.5;
 
   const trayZ = zBack + wallGap + trayD / 2;
-  const floorY = yAt(trayZ);
+  /* ТИП 1: под ванночкой пол горизонтальный (как ЗВП); иначе плоскость скоса */
+  const kneeZ = zBack + wallGap + trayD;
+  const floorY =
+    profile === 'triangle' && yR > 0
+      ? trayZ > kneeZ
+        ? yR * ((trayZ - kneeZ) / Math.max(zF - kneeZ, 1))
+        : 0
+      : yR > 0
+        ? yR * ((trayZ - zBack) / Math.max(zF - zBack, 1))
+        : 0;
   const trayY = floorY + floorGap + trayH / 2;
 
   const yB = floorY + floorGap + trayH + 1;
@@ -1069,20 +1094,17 @@ function supplyWallFilterCore(layout: Layout) {
 
   const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
   const pipeZ = top.z + (exhaust?.z ?? 0);
-  const pipeR = (exhaust?.diameter ?? 160) / 2;
+  const pipeD =
+    profile === 'rect'
+      ? BUILD.zpvo.type3DisplayExhaust
+      : BUILD.zpvo.type2DisplayExhaust;
+  const pipeHalf = (exhaust?.diameter ?? pipeD) / 2;
 
   /*
-   * Верх кассеты: P от Ø вытяжки.
-   * Лимит до шва: у ТИП 2 на крыше шов ближе к тылу (zTopF − depth), чем низ zP —
-   * иначе верх «прилипает» к перегородке (синяя зона на скрине).
+   * Верх кассеты: только P от Ø (статика ①). Не тянуть к шву притока —
+   * иначе на малом D «уезжает», как раньше у ЗПВО.
    */
-  let zSeamLimit = zP;
-  if (profile === 'trapezoid') {
-    const ch = supplyType2Chamfer(dims.h, dims.d, plenum.depth);
-    zSeamLimit = Math.min(zP, zF - ch.chamferZ - plenum.depth);
-  }
-  let zC = pipeZ + pipeR + ex.pMin;
-  zC = Math.min(zC, zSeamLimit - ex.bridge);
+  let zC = pipeZ + pipeHalf + ex.pMin;
   zC = Math.max(zC, zB + 48);
 
   let yC = dims.h - 8;

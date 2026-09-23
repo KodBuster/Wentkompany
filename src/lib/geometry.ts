@@ -271,38 +271,37 @@ export function hoodProfileOf(typeLabel: string | null | undefined): Layout['pro
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
-/** Высота низа у притока: ТИП 1 — скос низа; ТИП 2/3 — низ прямой (углы 90°). */
+/** Высота низа у притока: ТИП 1 — как у ЗВП (L=¼V); ТИП 2/3 — низ прямой. */
 function supplyFrontRise(profile: Layout['profile'], height: number) {
-  if (profile === 'triangle') return Math.round(height * 0.52);
+  if (profile === 'triangle') {
+    return Math.min(
+      Math.round(height * 0.75),
+      height - Math.max(80, Math.round(height / 4)),
+    );
+  }
   return 0;
 }
 
 /**
- * ТИП 2 ЗПВП: скос сверху + бортик снизу (высота бортика — const).
- * На D≈600 не утягивать приток к центру — иначе патрубки «слипаются» (дефолт каталога).
+ * ТИП 2 ЗПВП = ЗВП + камера ③.
+ * Наружный бортик/угол как у ЗВП; плоская крыша длиннее на мост + ③ (const).
+ * С ростом D растёт только скос (зона ②).
  */
 export function supplyType2Chamfer(h: number, d: number, plenumDepth: number) {
-  const frontH = Math.max(h, 80);
-  const vertDy = Math.min(BUILD.supplyChamber.type2VertDy, frontH - 40);
-  const slantDy = Math.max(frontH - vertDy, 40);
-
-  const needFlat = Math.max(plenumDepth, BUILD.supplyChamber.depthType2);
-  /*
-   * Вынос низа, но плоская полка под камеру ③ остаётся у фронта.
-   * Иначе при D=600 приток визуально как при «сжатом» центре.
-   */
-  const maxChamfer = Math.max(
-    48,
-    Math.min(Math.floor(d * 0.22), d / 2 - needFlat - 48, 130),
-  );
-
-  const alphaTarget = (36 * Math.PI) / 180;
-  const chamferZ = Math.min(
-    Math.round(Math.tan(alphaTarget) * slantDy),
-    maxChamfer,
-  );
-
-  return { chamferZ, slantDy, vertDy };
+  const base = wallType2Chamfer(h, d);
+  const plenum = Math.max(plenumDepth, BUILD.supplyChamber.depthType2);
+  const bridge = BUILD.exhaustChamber.bridge;
+  /* Крыша: зона ① (как у ЗВП) + мост + камера ③ */
+  const flat = Math.min(d - 48, base.zone1 + bridge + plenum);
+  const chamferZ = Math.max(0, d - flat);
+  return {
+    chamferZ,
+    slantDy: base.slantDy,
+    vertDy: base.vertDy,
+    zone1: base.zone1,
+    flat,
+    plenum,
+  };
 }
 
 /**
@@ -474,8 +473,7 @@ export function layoutSpigots(
 
 /**
  * Вытяжка + приток на крышке (ЗПВП).
- * Камера ③: от переднего края крыши одинаковый edge до Ø и такой же до шва.
- * Камера ①: вытяжка от задней стенки на rearClear (const).
+ * ЗПВП = ЗВП + камера ③: вытяжка A=B в зоне ①; приток в ③ у фронта крыши.
  */
 export function withSupplySpigot(
   spigots: Spigot[],
@@ -490,26 +488,49 @@ export function withSupplySpigot(
     Math.max(12, (depth - supplyDia) / 2),
   );
   const half = top.d / 2;
-  const zF = half;
+  const profile = opts?.profile;
+  const h = opts?.h ?? 350;
 
-  /* Передний край плоской крыши: ТИП 2 — ребро скоса, иначе наружный фронт */
-  let zFlatFront = zF;
-  if (opts?.profile === 'trapezoid') {
-    const ch = supplyType2Chamfer(opts.h ?? 350, top.d, depth);
-    zFlatFront = zF - ch.chamferZ;
+  /* ТИП 2: наружный профиль как ЗВП; вытяжка в центре зоны ① */
+  if (profile === 'trapezoid') {
+    const ch = supplyType2Chamfer(h, top.d, depth);
+    const A = BUILD.zpvo.type2DisplayExhaust;
+    const zFlatFront = half - ch.chamferZ;
+    const zEx = -half + ch.zone1 / 2;
+    const zSup = zFlatFront - edge - supplyDia / 2;
+    const n = spigots.length;
+    if (n === 1) {
+      return [
+        { x: 0, z: zEx, diameter: A, role: 'exhaust' },
+        { x: 0, z: zSup, diameter: Math.min(supplyDia, A), role: 'supply' },
+      ];
+    }
+    const usable = Math.max(top.w - A - 80, 0);
+    const exhaust = spigots.map((_, i) => ({
+      x: -usable / 2 + (usable * i) / (n - 1),
+      z: zEx,
+      diameter: A,
+      role: 'exhaust' as const,
+    }));
+    return [...exhaust, { x: 0, z: zSup, diameter: supplyDia, role: 'supply' }];
   }
 
-  const zSup = zFlatFront - edge - supplyDia / 2;
-  const zSeamTop = zFlatFront - depth;
+  const zF = half;
+  const zSup = zF - edge - supplyDia / 2;
+  const zSeamTop = zF - depth;
 
-  /* Вытяжка — камера ①: от задней плоскости; Ø не съедает зазор до притока */
+  const A =
+    profile === 'rect'
+      ? BUILD.zpvo.type3DisplayExhaust
+      : BUILD.zpvo.type2DisplayExhaust;
   const rearClear = BUILD.exhaustChamber.rearClear;
   const gapZ = BUILD.exhaustChamber.bridge;
-  const minPipeGap = 90; /* как при «раздвинутом» D — читаемый зазор на крыше */
+  const minPipeGap = 90;
   const exhaustDepth = Math.max(top.d - depth, 160);
   const exhaustMaxByGap =
     zSup - supplyDia / 2 + half - rearClear - minPipeGap;
   const exhaustMax = Math.min(
+    A,
     Math.max(120, exhaustDepth - 100),
     Math.max(120, top.w - 2 * 40),
     Math.max(120, exhaustMaxByGap),
@@ -518,8 +539,7 @@ export function withSupplySpigot(
   const n = spigots.length;
 
   if (n === 1) {
-    const dia = Math.min(spigots[0].diameter, exhaustMax);
-    /* Центр: зад − rearClear − R (зазор до стенки const) */
+    const dia = Math.min(spigots[0].diameter, exhaustMax, A);
     const zEx = clamp(
       -half + dia / 2 + rearClear,
       -half + rearClear,
@@ -531,7 +551,7 @@ export function withSupplySpigot(
     ];
   }
 
-  const dia = Math.min(Math.max(...spigots.map((s) => s.diameter)), exhaustMax);
+  const dia = Math.min(Math.max(...spigots.map((s) => s.diameter)), exhaustMax, A);
   const zEx = clamp(-half + dia / 2 + rearClear, -half + rearClear, zExLimit - dia / 2);
   const usable = Math.max(top.w - dia - 80, 0);
   const exhaust = spigots.map((s, i) => ({
@@ -788,10 +808,12 @@ export function buildLayout(
         ? BUILD.supplyChamber.depthType2 /* ТИП 2: камера чуть вперёд → больше зона ② */
         : BUILD.supplyPlenumDepth
     : 0;
-  /* У ЗПВО скос — наружные грани; frontRise только у пристенного ЗПВП */
+  /* У ЗПВО скос — наружные грани; frontRise у ЗПВП ТИП 1 = bottomRise ЗВП (L=¼V) */
   const frontRise =
     traits.supply && !traits.island
-      ? Math.min(supplyFrontRise(profile, dims.h), dims.h - BUILD.gutter - 80)
+      ? profile === 'triangle'
+        ? supplyFrontRise(profile, dims.h)
+        : Math.min(supplyFrontRise(profile, dims.h), dims.h - BUILD.gutter - 80)
       : 0;
 
   const spigots0 = layoutSpigots(top.w, top.d, pick, { island: traits.island });
