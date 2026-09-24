@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { HoodDiagram } from '@/components/hood-diagram';
 import { HoverZoom } from '@/components/hover-zoom';
+import { PageBackdrop } from '@/components/page-backdrop';
 import { hoodFamilies, complianceProducts, priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { norms } from '@/lib/site';
@@ -36,7 +38,8 @@ const TRACKS = [
 export function HomePageContent() {
   return (
     <>
-      <section className="band band-shop page-hero">
+      <section className="band band-shop page-hero band--backdrop">
+        <PageBackdrop theme="shop" />
         <div className="wrap hero">
           <div className="hero__copy">
             <p className="lbl">
@@ -55,9 +58,17 @@ export function HomePageContent() {
               <Link href="/catalog" className="btn btn-ghost">Смотреть каталог</Link>
             </div>
           </div>
-          <div className="hero__visual hero__visual--zoom" aria-hidden={false}>
+          <div className="hero__visual hero__visual--photo hero__visual--zoom">
             <HoverZoom>
-              <HoodDiagram compact />
+              <Image
+                src="/backdrops/home-hero-hood.webp"
+                alt="Пирамидальный вытяжной зонт из нержавеющей стали на производстве"
+                width={1152}
+                height={864}
+                priority
+                className="hero__photo"
+                sizes="(max-width: 960px) 100vw, 48vw"
+              />
             </HoverZoom>
           </div>
         </div>
@@ -91,9 +102,10 @@ export function HomePageContent() {
         </div>
       </section>
 
-      <section className="band band-deep">
+      <section className="band band-deep band--backdrop">
+        <PageBackdrop theme="fire" />
         <div className="wrap">
-          <div className="head">
+          <div className="head backdrop-copy">
             <p className="lbl">Открытый огонь</p>
             <h2>Мангал и тандыр — с 1 июля 2025 по новым правилам</h2>
             <p className="muted">
@@ -179,10 +191,11 @@ export function HomePageContent() {
         </div>
       </section>
 
-      <section className="band band-deep">
+      <section className="band band-deep band--backdrop">
+        <PageBackdrop theme="draft" />
         <div className="wrap">
           <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-            <div>
+            <div className="backdrop-copy">
               <p className="lbl">Производство по чертежам заказчика</p>
               <h2 className="mt-4">Зонт под место,<br />а не место под зонт</h2>
               <p className="muted mt-5 max-w-[52ch] leading-relaxed">
@@ -191,30 +204,20 @@ export function HomePageContent() {
               </p>
               <div className="mt-7 flex flex-wrap gap-3">
                 <Link href="/nestandartnyy-zont" className="btn">Зонт по вашему чертежу</Link>
-                <Link href="/configurator" className="btn btn-ghost">Посчитать габарит</Link>
+                <Link href="/contacts" className="btn btn-ghost">Задать вопрос</Link>
               </div>
+              <p className="lbl mt-8">Соберите изделие — пришлём чертёж и цену</p>
+              <p className="muted mt-2 max-w-[52ch] leading-relaxed">
+                Конфигурация прикрепляется к заявке автоматически: повторять размеры не нужно.
+                Гидрофильтр — от {rub(priceFrom('ГФ') ?? 120000)}, зонт с гидрозатвором — от{' '}
+                {rub(priceFrom('ЗВПГ') ?? 45000)}.
+              </p>
             </div>
             <div className="hero__visual hero__visual--zoom">
               <HoverZoom>
                 <HoodDiagram island compact />
               </HoverZoom>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="band band-shop">
-        <div className="wrap flex flex-wrap items-center justify-between gap-8">
-          <div className="max-w-[52ch]">
-            <h2>Соберите изделие — пришлём чертёж и цену</h2>
-            <p className="muted mt-4 leading-relaxed">
-              Конфигурация прикрепляется к заявке автоматически: повторять размеры не нужно.
-              Гидрофильтр — от {rub(priceFrom('ГФ') ?? 120000)}, зонт с гидрозатвором — от {rub(priceFrom('ЗВПГ') ?? 45000)}.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/configurator" className="btn">Открыть конфигуратор</Link>
-            <Link href="/contacts" className="btn btn-ghost">Задать вопрос</Link>
           </div>
         </div>
       </section>

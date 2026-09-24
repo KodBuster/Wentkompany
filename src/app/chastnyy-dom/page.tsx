@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Process } from '@/components/process';
 import { Cases, hasCases } from '@/components/cases';
 import { CallLink } from '@/components/call-link';
+import { PageBackdrop } from '@/components/page-backdrop';
 import { priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { site } from '@/lib/site';
@@ -102,9 +103,10 @@ const faqJsonLd = {
 export default function ChastnyyDomPage() {
   return (
     <>
-      <section className="band band-shop page-hero">
+      <section className="band band-shop page-hero band--backdrop">
+        <PageBackdrop theme="home" />
         <div className="wrap">
-          <div className="max-w-[52ch]">
+          <div className="backdrop-copy max-w-[52ch]">
             <p className="lbl">Частный дом · беседка · летняя кухня</p>
             <h1>
               Мангал в доме —<br />

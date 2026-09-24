@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { PageBackdrop } from '@/components/page-backdrop';
 import { families, products, generatedAt } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 
@@ -13,9 +14,10 @@ export const metadata: Metadata = {
 
 export default function CatalogPage() {
   return (
-    <section className="band band-shop page-hero">
+    <section className="band band-shop page-hero band--backdrop">
+      <PageBackdrop theme="shop" />
       <div className="wrap">
-        <div className="head" style={{ marginBottom: '1.25rem' }}>
+        <div className="head backdrop-copy" style={{ marginBottom: '1.25rem' }}>
           <p className="lbl">Каталог · {products.length} позиций</p>
           <h1>Изделия и типоразмеры</h1>
           <p className="muted mt-2 leading-relaxed">
@@ -46,11 +48,11 @@ export default function CatalogPage() {
           ))}
         </div>
 
-        <div className="head mt-14">
+        <div className="head backdrop-copy mt-14">
           <p className="lbl">Прайс</p>
           <h2>Все позиции с ценой</h2>
         </div>
-        <div className="scroll-x border" style={{ borderColor: 'var(--hair)' }}>
+        <div className="scroll-x border backdrop-ink-table" style={{ borderColor: 'var(--hair)' }}>
           <table className="spec" style={{ minWidth: 720 }}>
             <thead>
               <tr>
@@ -78,7 +80,7 @@ export default function CatalogPage() {
             </tbody>
           </table>
         </div>
-        <p className="lbl mt-4">
+        <p className="lbl backdrop-ink mt-4">
           Данные каталога — выгрузка от {generatedAt}. Стоимость носит информационный характер
           и не является публичной офертой.
         </p>

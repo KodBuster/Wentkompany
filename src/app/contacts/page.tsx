@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { LeadForm } from '@/components/lead-form';
+import { PageBackdrop } from '@/components/page-backdrop';
 import { site } from '@/lib/site';
 
 export const metadata: Metadata = {
@@ -20,27 +21,30 @@ export default async function ContactsPage({
   const isQuote = mode === 'quote';
 
   return (
-    <section className="band band-shop page-hero">
+    <section className="band band-shop page-hero band--backdrop">
+      <PageBackdrop theme="steel" />
       <div className="wrap grid gap-10 lg:grid-cols-[1fr_420px]">
         <div>
-          <div className="head">
-            <p className="lbl">Заявка</p>
-            <h1>
-              {isOrder
-                ? 'Оформим заказ по вашей сборке'
-                : isQuote
-                  ? 'Посчитаем точную цену по вводным'
-                  : 'Проверим объект и пришлём расчёт'}
-            </h1>
-            <p className="muted mt-6 leading-relaxed">
-              {isOrder
-                ? 'Конфигурация уже в заявке. Нужен пакет документов: чертёж, КП и спецификация — производство подтвердит срок и сумму.'
-                : isQuote
-                  ? 'Приложите эскизы, чертежи и пояснения — производство пересчитает по вашим вводным, а не только по типовому габариту.'
-                  : 'Опишите задачу — ответим с ориентиром по сроку и цене. Для объектов с открытым огнём приложим схему тракта по пп. 5.28–5.33 и спецификацию комплекта.'}
-            </p>
+          <div className="backdrop-copy">
+            <div className="head">
+              <p className="lbl">Заявка</p>
+              <h1>
+                {isOrder
+                  ? 'Оформим заказ по вашей сборке'
+                  : isQuote
+                    ? 'Посчитаем точную цену по вводным'
+                    : 'Проверим объект и пришлём расчёт'}
+              </h1>
+              <p className="muted mt-6 leading-relaxed">
+                {isOrder
+                  ? 'Конфигурация уже в заявке. Нужен пакет документов: чертёж, КП и спецификация — производство подтвердит срок и сумму.'
+                  : isQuote
+                    ? 'Приложите эскизы, чертежи и пояснения — производство пересчитает по вашим вводным, а не только по типовому габариту.'
+                    : 'Опишите задачу — ответим с ориентиром по сроку и цене. Для объектов с открытым огнём приложим схему тракта по пп. 5.28–5.33 и спецификацию комплекта.'}
+              </p>
+            </div>
           </div>
-          <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))' }}>
+          <div className="tiles mt-8" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))' }}>
             <div className="tile">
               <span className="lbl">Телефон</span>
               <a href={site.phoneHref} className="num text-lg no-underline">{site.phone}</a>

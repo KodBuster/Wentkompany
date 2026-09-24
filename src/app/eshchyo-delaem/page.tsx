@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import data from '@/data/neutral.json';
 import { CallLink } from '@/components/call-link';
+import { PageBackdrop } from '@/components/page-backdrop';
 import { site } from '@/lib/site';
 
 /**
@@ -35,22 +36,25 @@ const groups = data.groups;
 export default function NeutralPage() {
   return (
     <>
-      <section className="band band-shop page-hero">
+      <section className="band band-shop page-hero band--backdrop">
+        <PageBackdrop theme="steel" />
         <div className="wrap">
-          <p className="lbl">Нейтральное оборудование</p>
-          <h1>Ещё делаем<br />из нержавейки</h1>
-          <p className="muted mt-6 max-w-[62ch] text-lg">
-            Основное производство — вентиляция: зонты, гидрозонты и гидрофильтры. Но тот же цех,
-            та же сталь и та же аргонодуговая сварка позволяют делать и нейтральное оборудование
-            для кухни и зала — по размерам заказчика.
-          </p>
-          <p className="hint mt-5 max-w-[62ch]">
-            Готовых типоразмеров и прайса здесь нет: каждая вещь считается по вашему чертежу или
-            эскизу. Ниже — примеры выполненных работ.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/contacts" className="btn">Запросить расчёт</Link>
-            <Link href="/catalog" className="btn btn-ghost">Каталог вентиляции</Link>
+          <div className="backdrop-copy">
+            <p className="lbl">Нейтральное оборудование</p>
+            <h1>Ещё делаем<br />из нержавейки</h1>
+            <p className="muted mt-6 max-w-[62ch] text-lg">
+              Основное производство — вентиляция: зонты, гидрозонты и гидрофильтры. Но тот же цех,
+              та же сталь и та же аргонодуговая сварка позволяют делать и нейтральное оборудование
+              для кухни и зала — по размерам заказчика.
+            </p>
+            <p className="hint mt-5 max-w-[62ch]">
+              Готовых типоразмеров и прайса здесь нет: каждая вещь считается по вашему чертежу или
+              эскизу. Ниже — примеры выполненных работ.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/contacts" className="btn">Запросить расчёт</Link>
+              <Link href="/catalog" className="btn btn-ghost">Каталог вентиляции</Link>
+            </div>
           </div>
         </div>
       </section>

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { LeadForm } from '@/components/lead-form';
 import { CallLink } from '@/components/call-link';
 import { HoodDiagram } from '@/components/hood-diagram';
+import { PageBackdrop } from '@/components/page-backdrop';
 import { priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { site } from '@/lib/site';
@@ -133,13 +134,15 @@ const faqJsonLd = {
 export default function CustomHoodPage() {
   return (
     <>
-      <section className="band band-shop page-hero">
+      <section className="band band-shop page-hero band--backdrop">
+        <PageBackdrop theme="shop" />
         <div className="wrap">
-          <p className="lbl">Производство по чертежам и эскизам заказчика</p>
-          <h1>
-            Зонт под место,<br />
-            <span style={{ color: 'var(--color-extract)' }}>а не место под зонт</span>
-          </h1>
+          <div className="backdrop-copy">
+            <p className="lbl">Производство по чертежам и эскизам заказчика</p>
+            <h1>
+              Зонт под место,<br />
+              <span style={{ color: 'var(--color-extract)' }}>а не место под зонт</span>
+            </h1>
           <p className="muted mt-6 max-w-[58ch] text-lg">
             Ниша нетиповой ширины, скошенная стена, колонна посреди зоны, вывод тракта вбок —
             всё это делается. Изделие варится под конкретное место, а чертёж вы согласуете
@@ -153,6 +156,7 @@ export default function CustomHoodPage() {
             Если меняется только размер, а форма обычная — считайте сразу в конфигураторе:
             расход, патрубки, чертёж и предварительная цена появятся на экране.
           </p>
+          </div>
         </div>
       </section>
 

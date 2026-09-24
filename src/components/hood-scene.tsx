@@ -21,6 +21,75 @@ export type ViewMode = 'solid' | 'xray' | 'explode';
 const MM = 0.001;
 const DEG = Math.PI / 180;
 
+/**
+ * Нейтральный задник вьюпорта: слои «цех / сталь / блик» с лёгким параллаксом.
+ * Не зал и не фото кухни — атмосфера без перехвата внимания у зонта.
+ */
+function SceneAtmosphere() {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const farRef = useRef<HTMLDivElement>(null);
+  const midRef = useRef<HTMLDivElement>(null);
+  const glowRef = useRef<HTMLDivElement>(null);
+  const preferReduced = useRef(false);
+
+  useEffect(() => {
+    preferReduced.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const root = rootRef.current?.parentElement;
+    if (!root || preferReduced.current) return;
+
+    let raf = 0;
+    let tx = 0;
+    let ty = 0;
+    let cx = 0;
+    let cy = 0;
+
+    const onMove = (e: PointerEvent) => {
+      const r = root.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) return;
+      /* Нормализованный сдвиг курсора от центра, ±1 */
+      tx = ((e.clientX - r.left) / r.width - 0.5) * 2;
+      ty = ((e.clientY - r.top) / r.height - 0.5) * 2;
+    };
+
+    const onLeave = () => {
+      tx = 0;
+      ty = 0;
+    };
+
+    const tick = () => {
+      cx += (tx - cx) * 0.06;
+      cy += (ty - cy) * 0.06;
+      if (farRef.current) {
+        farRef.current.style.transform = `translate3d(${cx * -6}px, ${cy * -4}px, 0) scale(1.06)`;
+      }
+      if (midRef.current) {
+        midRef.current.style.transform = `translate3d(${cx * 10}px, ${cy * 7}px, 0) scale(1.04)`;
+      }
+      if (glowRef.current) {
+        glowRef.current.style.transform = `translate3d(${cx * 14}px, ${cy * 10}px, 0)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+
+    root.addEventListener('pointermove', onMove, { passive: true });
+    root.addEventListener('pointerleave', onLeave);
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      root.removeEventListener('pointermove', onMove);
+      root.removeEventListener('pointerleave', onLeave);
+    };
+  }, []);
+
+  return (
+    <div ref={rootRef} className="hood-scene-atmosphere" aria-hidden>
+      <div ref={farRef} className="hood-scene-atmosphere-far" />
+      <div ref={midRef} className="hood-scene-atmosphere-mid" />
+      <div ref={glowRef} className="hood-scene-atmosphere-glow" />
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Окружение: процедурная карта отражений вместо HDR с внешнего CDN.    */
 /* ------------------------------------------------------------------ */
@@ -1992,6 +2061,7 @@ export function HoodScene({
         setFitNonce((n) => n + 1);
       }}
     >
+      <SceneAtmosphere />
       {!framed && (
         <div className="hood-scene-boot" aria-hidden>
           Собираем ракурс…
@@ -2007,6 +2077,8 @@ export function HoodScene({
           height: '100%',
           opacity: framed ? 1 : 0,
           transition: framed ? 'opacity 0.12s ease-out' : 'none',
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         <StudioEnvironment />

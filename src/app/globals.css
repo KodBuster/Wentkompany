@@ -98,6 +98,37 @@
 
   .band { padding-block: clamp(2rem, 4vw, 3.25rem); position: relative; }
 
+  /* Якоря пунктов СП — не прячутся под sticky-шапкой */
+  .clause-anchor {
+    scroll-margin-top: 5.5rem;
+  }
+  @keyframes clause-flash {
+    0% {
+      box-shadow: 0 0 0 0 rgba(184, 92, 56, 0);
+      background: var(--color-sheet);
+    }
+    18% {
+      box-shadow:
+        0 0 0 2px var(--color-extract),
+        0 0 28px rgba(184, 92, 56, 0.28);
+      background: rgba(184, 92, 56, 0.1);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(184, 92, 56, 0);
+      background: var(--color-sheet);
+    }
+  }
+  .clause-anchor.is-flash {
+    animation: clause-flash 1.65s var(--ease-out) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .clause-anchor.is-flash {
+      animation: none;
+      box-shadow: 0 0 0 2px var(--color-extract);
+      background: rgba(184, 92, 56, 0.08);
+    }
+  }
+
   /* Первый экран: плотный старт под шапкой (0.5rem), без «пустого» поля */
   .page-hero {
     padding-top: var(--page-a);
@@ -132,6 +163,192 @@
   }
   .band-paper .lbl { color: var(--color-steel-600); }
   .band-paper .muted { color: var(--color-steel-300); }
+
+  /* Атмосферный задник секции (фото + вуаль + параллакс) */
+  .band--backdrop {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .band--backdrop > .wrap,
+  .band--backdrop > .cfg-shell {
+    position: relative;
+    z-index: 1;
+  }
+  .page-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  /* С backdrop не красим band своим градиентом — иначе плюс вуаль = белёсо */
+  .band--backdrop.band-shop,
+  .band--backdrop.band-deep,
+  .band--backdrop.band-paper {
+    background: var(--color-steel-900);
+  }
+
+  .page-backdrop__photo {
+    position: absolute;
+    inset: -8%;
+    background-size: cover;
+    background-position: center;
+    will-change: transform;
+    filter: contrast(1.16) saturate(1.02) brightness(0.98);
+    opacity: 1;
+  }
+  .page-backdrop__veil {
+    position: absolute;
+    inset: 0;
+  }
+  /*
+   * Вуаль сильнее слева (читаемость заголовка), справа почти прозрачная —
+   * кристаллик задника у hero-фото, без молочной каши.
+   */
+  .page-backdrop__veil--shop {
+    background:
+      linear-gradient(
+        100deg,
+        rgba(255, 252, 248, 0.78) 0%,
+        rgba(255, 252, 248, 0.52) 34%,
+        rgba(255, 252, 248, 0.14) 58%,
+        rgba(255, 252, 248, 0.05) 100%
+      ),
+      linear-gradient(180deg, transparent 0%, rgba(235, 228, 220, 0.18) 100%),
+      radial-gradient(70% 55% at 100% 0%, rgba(184, 92, 56, 0.08), transparent 55%);
+  }
+  .page-backdrop__veil--kitchen {
+    background:
+      linear-gradient(
+        100deg,
+        rgba(255, 252, 248, 0.74) 0%,
+        rgba(255, 252, 248, 0.48) 36%,
+        rgba(255, 252, 248, 0.12) 60%,
+        rgba(255, 252, 248, 0.04) 100%
+      ),
+      linear-gradient(180deg, transparent 0%, rgba(232, 224, 214, 0.2) 100%),
+      radial-gradient(70% 50% at 0% 100%, rgba(61, 122, 140, 0.06), transparent 55%);
+  }
+  .page-backdrop__veil--home {
+    background:
+      linear-gradient(
+        100deg,
+        rgba(255, 250, 244, 0.72) 0%,
+        rgba(255, 250, 244, 0.45) 36%,
+        rgba(255, 250, 244, 0.1) 60%,
+        rgba(255, 250, 244, 0.04) 100%
+      ),
+      linear-gradient(180deg, transparent 0%, rgba(236, 226, 214, 0.2) 100%);
+  }
+  .page-backdrop__veil--steel {
+    background:
+      linear-gradient(
+        100deg,
+        rgba(255, 252, 248, 0.76) 0%,
+        rgba(255, 252, 248, 0.5) 38%,
+        rgba(255, 252, 248, 0.12) 62%,
+        rgba(255, 252, 248, 0.05) 100%
+      ),
+      linear-gradient(180deg, transparent 0%, rgba(245, 240, 234, 0.16) 100%),
+      radial-gradient(60% 50% at 80% 20%, rgba(61, 122, 140, 0.05), transparent 60%);
+  }
+  /* Тёплый дым слева + лёгкий янтарный отблеск от очага справа */
+  .page-backdrop__veil--fire {
+    background:
+      linear-gradient(
+        100deg,
+        rgba(255, 250, 244, 0.8) 0%,
+        rgba(255, 250, 244, 0.52) 36%,
+        rgba(255, 248, 242, 0.14) 60%,
+        rgba(255, 248, 242, 0.05) 100%
+      ),
+      linear-gradient(180deg, transparent 0%, rgba(236, 226, 214, 0.2) 100%),
+      radial-gradient(65% 55% at 88% 70%, rgba(184, 92, 56, 0.12), transparent 58%);
+  }
+  /* Бумажный тон чертёжной доски — чуть теплее слева под текст */
+  .page-backdrop__veil--draft {
+    background:
+      linear-gradient(
+        100deg,
+        rgba(255, 252, 248, 0.82) 0%,
+        rgba(255, 252, 248, 0.55) 34%,
+        rgba(255, 252, 248, 0.16) 58%,
+        rgba(255, 252, 248, 0.06) 100%
+      ),
+      linear-gradient(180deg, transparent 0%, rgba(232, 224, 214, 0.22) 100%),
+      radial-gradient(55% 50% at 90% 30%, rgba(61, 122, 140, 0.05), transparent 55%);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .page-backdrop__photo {
+      transform: none !important;
+      will-change: auto;
+    }
+  }
+
+  /*
+   * Дым по геометрии букв (не прямоугольник):
+   * мягкое светлое гало повторяет силуэт глифов и слегка перекрывает задник.
+   */
+  .band--backdrop .hero__copy,
+  .band--backdrop .backdrop-copy {
+    position: relative;
+    z-index: 1;
+    max-width: 58ch;
+  }
+  .band--backdrop .hero__copy .lbl,
+  .band--backdrop .backdrop-copy .lbl,
+  .band--backdrop .hero__copy .muted,
+  .band--backdrop .backdrop-copy .muted,
+  .band--backdrop .hero__copy .hint,
+  .band--backdrop .backdrop-copy .hint {
+    color: var(--color-steel-200);
+    text-shadow:
+      0 0 0.35em rgba(245, 240, 234, 0.88),
+      0 0 0.7em rgba(245, 240, 234, 0.78),
+      0 0 1.25em rgba(245, 240, 234, 0.58),
+      0 0 2em rgba(245, 240, 234, 0.4),
+      0 1px 0 rgba(245, 240, 234, 0.72);
+    filter:
+      drop-shadow(0 0 6px rgba(245, 240, 234, 0.7))
+      drop-shadow(0 0 14px rgba(245, 240, 234, 0.42));
+  }
+  .band--backdrop .hero__copy h1,
+  .band--backdrop .backdrop-copy h1,
+  .band--backdrop .backdrop-copy h2 {
+    color: var(--color-steel-100);
+    text-shadow:
+      0 0 0.4em rgba(245, 240, 234, 0.62),
+      0 0 1.1em rgba(245, 240, 234, 0.36);
+  }
+  /* Тот же дым для произвольных подписей и ячеек прайса на заднике */
+  .band--backdrop .backdrop-ink {
+    color: var(--color-steel-200);
+    text-shadow:
+      0 0 0.35em rgba(245, 240, 234, 0.88),
+      0 0 0.7em rgba(245, 240, 234, 0.78),
+      0 0 1.25em rgba(245, 240, 234, 0.58),
+      0 0 2em rgba(245, 240, 234, 0.4),
+      0 1px 0 rgba(245, 240, 234, 0.72);
+  }
+  .band--backdrop .backdrop-ink-table {
+    position: relative;
+    z-index: 1;
+  }
+  .band--backdrop .backdrop-ink-table .spec th,
+  .band--backdrop .backdrop-ink-table .spec td,
+  .band--backdrop .backdrop-ink-table .spec a {
+    color: var(--color-steel-100);
+    text-shadow:
+      0 0 0.35em rgba(245, 240, 234, 0.9),
+      0 0 0.7em rgba(245, 240, 234, 0.78),
+      0 0 1.25em rgba(245, 240, 234, 0.55),
+      0 0 2em rgba(245, 240, 234, 0.38),
+      0 1px 0 rgba(245, 240, 234, 0.75);
+  }
+  .band--backdrop .backdrop-ink-table .spec th {
+    color: var(--color-steel-200);
+  }
 
   .hero {
     display: grid;
@@ -176,6 +393,19 @@
     pointer-events: none;
   }
   .hero__visual > * { position: relative; z-index: 1; width: 100%; }
+  .hero__visual--photo {
+    padding: 0;
+    min-height: 300px;
+    background: var(--color-steel-850);
+  }
+  .hero__visual--photo::before { display: none; }
+  .hero__photo {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+  }
 
   /* Лупа: главная (hero) и галерея каталога — только мышь / fine pointer */
   @media (hover: hover) and (pointer: fine) {
@@ -303,6 +533,53 @@
   }
   .badge-warn { border-color: var(--color-warn); color: var(--color-warn); background: rgba(216, 164, 38, 0.12); }
   .badge-crit { border-color: var(--color-crit); color: #B91C1C; background: rgba(210, 64, 46, 0.16); font-weight: 500; }
+
+  /* Подсказка пункта СП у курсора (чек-лист результата) */
+  .clause-tip-hit {
+    cursor: help;
+    position: relative;
+  }
+  .clause-tip {
+    position: fixed;
+    z-index: 80;
+    width: min(300px, calc(100vw - 24px));
+    padding: 0.75rem 0.85rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--hair);
+    background: var(--color-sheet);
+    box-shadow: var(--lift);
+    pointer-events: none;
+  }
+  .clause-tip--above {
+    transform: translateY(-100%);
+  }
+  /* По клику: можно выделить и скопировать текст */
+  .clause-tip--interactive {
+    pointer-events: auto;
+    user-select: text;
+    cursor: text;
+  }
+  .clause-tip--interactive .clause-tip__text {
+    cursor: text;
+  }
+  .clause-tip__title {
+    margin: 0.2rem 0 0.45rem;
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--color-steel-100);
+  }
+  .clause-tip__text {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--color-steel-300);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .clause-tip { transition: none; }
+  }
   .cfg-alerts {
     padding: 0.65rem 0.7rem;
     border: 1px solid rgba(210, 64, 46, 0.45);
@@ -449,6 +726,37 @@
     min-height: 300px;
   }
   .cfg-viewport-zoom { width: 100%; height: 100%; }
+
+  /* Полоса атмосферы под 3D/чертежом — только средняя колонка */
+  .cfg-stage-art {
+    flex: 0 0 auto;
+    margin: 0.55rem 0.75rem 0;
+    height: clamp(72px, 12vw, 110px);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid rgba(90, 78, 68, 0.14);
+    position: relative;
+  }
+  .cfg-stage-art__img {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center 40%;
+    opacity: 0.85;
+    filter: saturate(0.9) contrast(1.08) brightness(1.02);
+  }
+  .cfg-stage-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 252, 248, 0.18) 0%,
+      rgba(235, 228, 220, 0.32) 100%
+    );
+    pointer-events: none;
+  }
+
   @media (max-width: 1180px) {
     .cfg-shell { grid-template-columns: 1fr; }
     .cfg-stage { order: -1; }
@@ -458,13 +766,68 @@
     }
   }
 
-  /* Корень 3D-сцены и справка по мыши (светлая — читается на тёмном cfg-stage) */
-  .hood-scene-root { position: relative; width: 100%; height: 100%; min-height: inherit; }
+  /* Корень 3D-сцены и справка по мыши */
+  .hood-scene-root { position: relative; width: 100%; height: 100%; min-height: inherit; overflow: hidden; }
+
+  /* Задник: тёплый цех + намёк на шлифованную сталь, параллакс от курсора */
+  .hood-scene-atmosphere {
+    position: absolute; inset: 0; z-index: 0;
+    pointer-events: none; overflow: hidden;
+  }
+  .hood-scene-atmosphere-far,
+  .hood-scene-atmosphere-mid,
+  .hood-scene-atmosphere-glow {
+    position: absolute; inset: -12%;
+    will-change: transform;
+  }
+  .hood-scene-atmosphere-far {
+    background:
+      radial-gradient(ellipse 90% 70% at 42% 28%, rgba(255, 252, 247, 0.95) 0%, transparent 58%),
+      radial-gradient(ellipse 70% 55% at 78% 72%, rgba(61, 122, 140, 0.07) 0%, transparent 55%),
+      linear-gradient(168deg, #f3eee6 0%, #e5ddd3 46%, #d2c7bb 100%);
+  }
+  .hood-scene-atmosphere-mid {
+    opacity: 0.42;
+    background-image:
+      repeating-linear-gradient(
+        90deg,
+        rgba(90, 78, 68, 0.045) 0 1px,
+        transparent 1px 56px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        rgba(90, 78, 68, 0.03) 0 1px,
+        transparent 1px 56px
+      ),
+      repeating-linear-gradient(
+        180deg,
+        transparent 0 2px,
+        rgba(255, 255, 255, 0.12) 2px 3px,
+        transparent 3px 5px
+      );
+    mask-image: radial-gradient(ellipse 75% 70% at 50% 45%, #000 20%, transparent 78%);
+    -webkit-mask-image: radial-gradient(ellipse 75% 70% at 50% 45%, #000 20%, transparent 78%);
+  }
+  .hood-scene-atmosphere-glow {
+    background:
+      radial-gradient(circle 42% at 58% 22%, rgba(255, 248, 238, 0.55) 0%, transparent 62%),
+      radial-gradient(circle 28% at 22% 68%, rgba(184, 92, 56, 0.06) 0%, transparent 70%);
+    mix-blend-mode: soft-light;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hood-scene-atmosphere-far,
+    .hood-scene-atmosphere-mid,
+    .hood-scene-atmosphere-glow {
+      transform: none !important;
+      will-change: auto;
+    }
+  }
+
   .hood-scene-boot {
-    position: absolute; inset: 0; z-index: 1;
+    position: absolute; inset: 0; z-index: 2;
     display: flex; align-items: center; justify-content: center;
     font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em;
-    text-transform: uppercase; color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase; color: rgba(60, 50, 42, 0.45);
     pointer-events: none; user-select: none;
   }
   .hood-scene-help {
@@ -732,6 +1095,16 @@
   }
   .site-nav-link:hover { color: var(--color-steel-100); }
   .site-nav-link:hover::after { right: 0; }
+  /* Текущая страница: темнее текст + медная черта (шапка sticky — видно и внизу) */
+  .site-nav-link.is-active,
+  .site-nav-link[aria-current="page"] {
+    color: var(--color-steel-100);
+    font-weight: 600;
+  }
+  .site-nav-link.is-active::after,
+  .site-nav-link[aria-current="page"]::after {
+    right: 0;
+  }
 
   .site-footer-link {
     display: block;
