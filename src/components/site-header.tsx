@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { CallLink } from '@/components/call-link';
 import { MobileNav } from '@/components/mobile-nav';
+import { SiteNavLinks } from '@/components/site-nav-links';
 
 const links = [
   { href: '/normy-mchs', label: 'Нормы МЧС' },
@@ -25,13 +26,7 @@ export function SiteHeader() {
         >
           WENT<span style={{ color: 'var(--color-extract)' }}>KOMPANY</span>
         </Link>
-        <nav className="ml-auto hidden gap-5 text-sm lg:flex">
-          {links.map((l) => (
-            <Link key={l.href} href={l.href} className="site-nav-link">
-              {l.label}
-            </Link>
-          ))}
-        </nav>
+        <SiteNavLinks links={links} />
         <CallLink className="num hidden text-sm no-underline text-steel-300 transition-colors duration-200 hover:text-steel-100 sm:block" />
         <MobileNav links={links} />
         <Link href="/configurator" className="btn hidden sm:inline-flex">

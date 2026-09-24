@@ -7,6 +7,7 @@ import './fonts.css';
 import './globals.css';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
+import { ScrollRestore } from '@/components/scroll-restore';
 import { site } from '@/lib/site';
 import { Metrika } from '@/components/metrika';
 
@@ -58,6 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <Metrika />
+        <ScrollRestore />
         <SiteHeader />
         <main>{children}</main>
         <SiteFooter />

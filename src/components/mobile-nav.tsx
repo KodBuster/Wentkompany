@@ -49,11 +49,18 @@ export function MobileNav({ links }: { links: { href: string; label: string }[] 
       {open && (
         <div id="mobile-nav" className="nav-sheet lg:hidden">
           <nav aria-label="Основная навигация">
-            {links.map((l) => (
-              <Link key={l.href} href={l.href} aria-current={pathname === l.href ? 'page' : undefined}>
-                {l.label}
-              </Link>
-            ))}
+            {links.map((l) => {
+              const active = pathname === l.href || pathname.startsWith(`${l.href}/`);
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
           </nav>
           <a
             href={site.phoneHref}
