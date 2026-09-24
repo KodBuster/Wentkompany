@@ -10,10 +10,11 @@ import { GOALS, track } from '@/lib/analytics';
  * компонент безопасно живёт и в карточке товара, и в конфигураторе.
  */
 
-export type ExportKind = 'pdf' | 'quote' | 'dxf' | 'ifc';
+export type ExportKind = 'pdf' | 'svg' | 'quote' | 'dxf' | 'ifc';
 
 const LABELS: Record<ExportKind, string> = {
   pdf: 'Чертёж PDF',
+  svg: 'Скачать SVG',
   quote: 'КП с ценой',
   dxf: 'DXF для CAD',
   ifc: 'IFC для BIM',
@@ -29,7 +30,7 @@ interface Props {
 }
 
 export function ExportButtons({
-  slug, dims, material = '430', options = [], kinds = ['pdf', 'quote', 'dxf', 'ifc'], className = 'cfg-dl',
+  slug, dims, material = '430', options = [], kinds = ['pdf', 'svg', 'quote', 'dxf', 'ifc'], className = 'cfg-dl',
 }: Props) {
   const [busy, setBusy] = useState<ExportKind | null>(null);
   const [error, setError] = useState('');

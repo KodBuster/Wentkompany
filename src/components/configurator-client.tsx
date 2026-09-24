@@ -429,9 +429,9 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
   ];
 
   return (
-    <div className="cfg-shell">
+    <div className={`cfg-shell${view === 'draft' ? ' cfg-shell--draft' : ''}`}>
       {/* ---------------- левая панель ---------------- */}
-      <aside className="cfg-pane">
+      <aside className="cfg-pane cfg-pane--controls">
         <div className="cfg-group">
           <span className="lbl">Семейство</span>
           <div className="cfg-chips">
@@ -673,7 +673,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
       </div>
 
       {/* ---------------- правая панель ---------------- */}
-      <aside className="cfg-pane">
+      <aside className="cfg-pane cfg-pane--aside">
         <div className="cfg-group">
           <span className="lbl">Ориентировочная цена</span>
           <div className="cfg-price">
@@ -731,9 +731,6 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
         <div className="cfg-group">
           <span className="lbl">Выгрузка</span>
           <ExportButtons slug={model.slug} dims={dims} material={material} options={options} />
-          <button type="button" className="cfg-ghost-btn mt-2" onClick={() => setView('draft')}>
-            Чертёж на экране
-          </button>
           <p className="hint mt-2">
             IFC4: тело, патрубки, материал, количества и набор свойств конфигурации.
           </p>

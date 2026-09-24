@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import {
   buildSheet, toSheet, STAMP_BOX,
   type DrawingInput, type Point, type Polyline, type View, type Dimension,
@@ -72,34 +72,15 @@ function DimLine({ view, dim, scale }: { view: View; dim: Dimension; scale: numb
 
 export function HoodDrawing({ input }: { input: DrawingInput }) {
   const sheet = useMemo(() => buildSheet(input), [input]);
-  const svgRef = useRef<SVGSVGElement>(null);
 
   const stampX = sheet.width - sheet.margin.other - STAMP_BOX.width;
   const stampY = sheet.height - sheet.margin.other - STAMP_BOX.height;
   const rowH = STAMP_BOX.height / 4;
 
-  function downloadSvg() {
-    const node = svgRef.current;
-    if (!node) return;
-    const source = new XMLSerializer().serializeToString(node);
-    const blob = new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n${source}`], {
-      type: 'image/svg+xml;charset=utf-8',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${sheet.designation}.svg`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
   return (
     <div className="drawing-wrap">
       <HoverZoom className="drawing-zoom" scale={1.55} maxScale={2.5}>
         <svg
-          ref={svgRef}
           viewBox={`0 0 ${sheet.width} ${sheet.height}`}
           preserveAspectRatio="xMidYMin meet"
           xmlns="http://www.w3.org/2000/svg"
@@ -218,14 +199,6 @@ export function HoodDrawing({ input }: { input: DrawingInput }) {
         <span className="lbl">
           Лист {sheet.format} · масштаб {sheet.scaleLabel} · {sheet.designation}
         </span>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          onClick={downloadSvg}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          Скачать SVG
-        </button>
       </div>
     </div>
   );

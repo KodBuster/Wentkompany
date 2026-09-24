@@ -783,6 +783,33 @@
     /* Не растягивать сцену под высоту длинных боковых колонок */
     align-items: start;
   }
+  /* Чертёж: обе боковые панели скрыты — лист на всю ширину.
+   * SVG/PDF качаются из 3D: сервер собирает файл по текущим габаритам. */
+  .cfg-shell--draft {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .cfg-shell--draft > .cfg-pane {
+    display: none;
+  }
+  .cfg-shell--draft .cfg-stage {
+    align-self: stretch;
+  }
+  .cfg-shell--draft .cfg-viewport {
+    aspect-ratio: 297 / 210;
+    min-height: clamp(380px, 62vh, 760px);
+  }
+  .cfg-shell--draft .drawing-wrap {
+    padding: 0.45rem 0.55rem;
+  }
+  .cfg-shell--draft .cfg-viewport .drawing-sheet {
+    width: 100%;
+    height: auto;
+    max-height: calc(100% - 0.15rem);
+  }
+  .cfg-shell--draft .cfg-stage-art {
+    display: none;
+  }
   .cfg-pane {
     background: var(--color-sheet);
     padding: 1.1rem;

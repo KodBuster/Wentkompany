@@ -5,10 +5,11 @@ import { buildDxf, translit } from '@/lib/dxf';
 import { buildDrawingPdf, buildQuotePdf } from '@/lib/pdf';
 import { buildIfc } from '@/lib/ifc';
 import { buildSheet } from '@/lib/drawing';
+import { buildDrawingSvg } from '@/lib/svg-drawing';
 import { site } from '@/lib/site';
 
 /**
- * Выгрузка конфигурации: чертёж PDF, DXF и коммерческое предложение.
+ * Выгрузка конфигурации: чертёж PDF/SVG, DXF и коммерческое предложение.
  *
  * Клиент присылает только выбор пользователя — модель, габариты, опции.
  * Цена, расход и состав пересчитываются здесь, на сервере, из каталога:
@@ -23,7 +24,7 @@ const LIMITS = {
   h: [300, 700],
 } as const;
 
-const KINDS = ['pdf', 'dxf', 'quote', 'ifc'] as const;
+const KINDS = ['pdf', 'svg', 'dxf', 'quote', 'ifc'] as const;
 type Kind = (typeof KINDS)[number];
 
 const OPTIONS = [
@@ -112,6 +113,17 @@ export async function POST(request: Request) {
   const designation = buildSheet(input).designation;
 
   try {
+    if (kind === 'svg') {
+      const { svg, designation: name } = buildDrawingSvg(input);
+      return new NextResponse(svg, {
+        headers: {
+          'Content-Type': 'image/svg+xml; charset=utf-8',
+          'Content-Disposition': contentDisposition(`${name}.svg`),
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+
     if (kind === 'ifc') {
       const ifc = buildIfc({ ...input, designation });
       return new NextResponse(ifc, {
