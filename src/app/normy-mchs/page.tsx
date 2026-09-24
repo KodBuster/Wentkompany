@@ -4,6 +4,8 @@ import { ComplianceCheck } from '@/components/compliance-check';
 import { TractScheme } from '@/components/tract-scheme';
 import { HydroChoice } from '@/components/hydro-choice';
 import { AutomationModes } from '@/components/automation-modes';
+import { PageBackdrop } from '@/components/page-backdrop';
+import { ClauseAnchorFlash } from '@/components/clause-anchor-flash';
 import { complianceProducts } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { norms, site } from '@/lib/site';
@@ -99,9 +101,11 @@ const faqJsonLd = {
 export default function NormyPage() {
   return (
     <>
-      <section className="band band-shop page-hero">
+      <ClauseAnchorFlash />
+      <section className="band band-shop page-hero band--backdrop">
+        <PageBackdrop theme="fire" />
         <div className="wrap">
-          <div className="max-w-[62ch]">
+          <div className="backdrop-copy max-w-[62ch]">
             <p className="lbl">
               {norms.change} к {norms.sp} · {norms.order} · в силе с {norms.inForce}
             </p>
@@ -112,7 +116,7 @@ export default function NormyPage() {
             <p className="muted mt-6 text-lg leading-relaxed">
               Раздел 5 свода правил дополнен пунктами {norms.clauses}: впервые прямо урегулировано удаление
               продуктов горения от мангалов, тандыров и других аппаратов на твёрдом топливе.
-              Ниже — что требуется и чем это закрывается.
+              Ниже — что требуется и как выполнить данные требования.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="#check" className="btn">Проверить объект по чек-листу</Link>
@@ -142,13 +146,22 @@ export default function NormyPage() {
             <p className="lbl">Требования</p>
             <h2>Шесть пунктов, которые проверяют на приёмке</h2>
             <p className="muted">
-              Формулировки приведены по действующей редакции {norms.sp} с {norms.change}. Перед выпуском проекта
-              сверяйтесь с первоисточником — правоприменительная практика ещё формируется.
+              Формулировки приведены по действующей редакции{' '}
+              <a
+                href={norms.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--color-supply)' }}
+              >
+                {norms.sp} с {norms.change}
+              </a>
+              . Перед выпуском проекта сверяйтесь с первоисточником — правоприменительная практика ещё
+              формируется.
             </p>
           </div>
           <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))' }}>
             {CLAUSES.map((c) => (
-              <article key={c.id} className="tile">
+              <article key={c.id} id={`clause-${c.id}`} className="tile clause-anchor">
                 <span className="lbl" style={{ color: 'var(--color-extract)' }}>п. {c.id}</span>
                 <h3>{c.title}</h3>
                 <p className="muted text-sm">{c.text}</p>
@@ -223,7 +236,7 @@ export default function NormyPage() {
         <div className="wrap">
           <div className="head">
             <p className="lbl">Пункт 5.30 · автоматика</p>
-            <h2>Датчики и сигнализация — чем это закрывается</h2>
+            <h2>Датчики и сигнализация — как это выполняется</h2>
             <p className="muted">
               Норма требует датчиков температуры на входах в фильтр, сигнализаторов срабатывания
               при 95 % от максимальной рабочей температуры и при падении давления воды, сигнала

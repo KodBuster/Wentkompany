@@ -21,4 +21,6 @@ export const norms = {
   change: 'Изменение № 3',
   inForce: '01.07.2025',
   clauses: '5.28–5.33',
+  /** Первоисточник на docs.cntd.ru */
+  sourceUrl: 'https://docs.cntd.ru/document/1312658782',
 } as const;

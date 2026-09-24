@@ -28,8 +28,8 @@ export function TractScheme() {
       <path d="M470 96 L470 44 M462 56 L470 44 L478 56" stroke="#F4703C" strokeWidth="2.4" fill="none" />
       <text x="440" y="34" fontFamily="IBM Plex Mono, monospace" fontSize="11" fill="#7F919C">оголовок</text>
 
-      {/* EI 45 */}
-      <rect x="250" y="76" width="86" height="20" fill="#141F26" stroke="#F4703C" />
+      {/* EI 45 — рамка шире текста, с запасом по краям */}
+      <rect x="248" y="76" width="118" height="20" fill="#141F26" stroke="#F4703C" />
       <text x="256" y="90" fontFamily="IBM Plex Mono, monospace" fontSize="11" fill="#F4703C">EI 45 · п. 5.32</text>
 
       {/* вентилятор */}
@@ -37,13 +37,13 @@ export function TractScheme() {
       <path d="M392 96 h16 M400 88 v16" stroke="#C8D3DA" strokeWidth="1.4" />
       <text x="368" y="134" fontFamily="IBM Plex Mono, monospace" fontSize="10" fill="#7F919C">п. 5.33 · 2,0 ч / 400 °C</text>
 
-      {/* щит автоматики */}
-      <rect x="250" y="170" width="150" height="60" fill="#141F26" stroke="#D2402E" />
-      <text x="262" y="192" fontFamily="IBM Plex Mono, monospace" fontSize="11" fill="#D2402E">ЩИТ АВТОМАТИКИ</text>
-      <text x="262" y="210" fontFamily="IBM Plex Mono, monospace" fontSize="10" fill="#7F919C">п. 5.30 · 1-я категория</text>
-      <text x="262" y="224" fontFamily="IBM Plex Mono, monospace" fontSize="10" fill="#7F919C">сигнал ≥ 85 дБ / 1 м</text>
-      <path d="M210 186 L250 186" stroke="#5E7280" strokeDasharray="3 3" />
-      <path d="M325 170 L325 106" stroke="#5E7280" strokeDasharray="3 3" />
+      {/* щит автоматики — одинаковый внутренний отступ слева и справа */}
+      <rect x="248" y="170" width="168" height="60" fill="#141F26" stroke="#D2402E" />
+      <text x="260" y="192" fontFamily="IBM Plex Mono, monospace" fontSize="11" fill="#D2402E">ЩИТ АВТОМАТИКИ</text>
+      <text x="260" y="210" fontFamily="IBM Plex Mono, monospace" fontSize="10" fill="#7F919C">п. 5.30 · 1-я категория</text>
+      <text x="260" y="224" fontFamily="IBM Plex Mono, monospace" fontSize="10" fill="#7F919C">сигнал ≥ 85 дБ / 1 м</text>
+      <path d="M210 186 L248 186" stroke="#5E7280" strokeDasharray="3 3" />
+      <path d="M332 170 L332 106" stroke="#5E7280" strokeDasharray="3 3" />
     </svg>
   );
 }

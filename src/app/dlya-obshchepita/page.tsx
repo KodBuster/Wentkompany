@@ -5,6 +5,7 @@ import { ComplianceCheck } from '@/components/compliance-check';
 import { Process } from '@/components/process';
 import { Cases, hasCases } from '@/components/cases';
 import { CallLink } from '@/components/call-link';
+import { PageBackdrop } from '@/components/page-backdrop';
 import { priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { norms, site } from '@/lib/site';
@@ -50,7 +51,15 @@ const KIT = [
     role: 'Улавливание над аппаратом',
     item: 'Зонт с гидрозатвором ЗВПГ или ЗВОГ',
     price: priceFrom('ЗВПГ'),
-    note: 'Закрывает пп. 5.28 и 5.30 одним изделием: улавливание и гашение искры внутри зонта.',
+    note: (
+      <>
+        Закрывает{' '}
+        <Link href="/normy-mchs#clause-5.28" style={{ color: 'var(--color-supply)' }}>пп. 5.28</Link>
+        {' '}и{' '}
+        <Link href="/normy-mchs#clause-5.30" style={{ color: 'var(--color-supply)' }}>5.30</Link>
+        {' '}одним изделием: улавливание и гашение искры внутри зонта.
+      </>
+    ),
     href: '/catalog/zvpg',
   },
   {
@@ -64,7 +73,12 @@ const KIT = [
     role: 'Контроль и сигнализация',
     item: 'Щит управления и диспетчеризации',
     price: null,
-    note: 'Датчики температуры, сигнализаторы давления воды, световой и звуковой сигнал — прямая формулировка п. 5.30.',
+    note: (
+      <>
+        Датчики температуры, сигнализаторы давления воды, световой и звуковой сигнал — прямая формулировка{' '}
+        <Link href="/normy-mchs#clause-5.30" style={{ color: 'var(--color-supply)' }}>п. 5.30</Link>.
+      </>
+    ),
     href: '/catalog/avt',
   },
   {
@@ -116,9 +130,10 @@ const faqJsonLd = {
 export default function ObshchepitPage() {
   return (
     <>
-      <section className="band band-shop page-hero">
+      <section className="band band-shop page-hero band--backdrop">
+        <PageBackdrop theme="kitchen" />
         <div className="wrap">
-          <div className="max-w-[58ch]">
+          <div className="backdrop-copy max-w-[58ch]">
             <p className="lbl">Ресторан · кафе · столовая · тёмная кухня</p>
             <h1>
               Кухня работает.<br />
