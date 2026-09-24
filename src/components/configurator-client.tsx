@@ -635,13 +635,6 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
             />
           )}
         </div>
-        {/* Атмосфера под сценой — не конкурирует с 3D, только заполняет колонку */}
-        <div className="cfg-stage-art" aria-hidden>
-          <div
-            className="cfg-stage-art__img"
-            style={{ backgroundImage: 'url(/backdrops/cfg-stage-strip.webp)' }}
-          />
-        </div>
         <div className="cfg-status">
           <span>
             МОДЕЛЬ <b>{model.article}</b>
@@ -669,6 +662,13 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
           <span>
             ЕДИНИЦЫ <b>мм</b>
           </span>
+        </div>
+        {/* Атмосфера под строкой статуса — заполняет низ средней колонки */}
+        <div className="cfg-stage-art" aria-hidden>
+          <div
+            className="cfg-stage-art__img"
+            style={{ backgroundImage: 'url(/backdrops/cfg-stage-strip.webp)' }}
+          />
         </div>
       </div>
 

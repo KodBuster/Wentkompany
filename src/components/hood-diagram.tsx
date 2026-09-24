@@ -8,6 +8,7 @@
 'use client';
 
 import { useId } from 'react';
+import { DimInfoTip } from '@/components/dim-info-tip';
 
 interface Props {
   /** островное исполнение: подвес на потолок, захват по периметру */
@@ -126,11 +127,15 @@ export function HoodDiagram({
   };
   /* Точка K — левый край основания врезки на крыше */
   const collarK: Pt = [297, 169];
-  /* Размер «Ширина» чуть выше врезки, без прислонения */
-  const lengthY = 98;
+  /* Ширина — по фронту проёма захвата (низ), не по узкой крыше */
+  const widthY = 328;
 
   return (
-    <figure className={className} style={{ margin: 0 }}>
+    <figure
+      className={['hood-diagram', className].filter(Boolean).join(' ')}
+      style={{ margin: 0 }}
+    >
+      <DimInfoTip />
       <svg
         viewBox="0 0 660 420"
         role="img"
@@ -355,8 +360,9 @@ export function HoodDiagram({
           fill="none"
           vectorEffect="non-scaling-stroke"
         >
+          {/* Ширина: фронт нижнего проёма B.fl→B.fr */}
           <path
-            d={`M196,${lengthY} L396,${lengthY}`}
+            d={`M${B.fl[0]},${widthY} L${B.fr[0]},${widthY}`}
             markerStart={`url(#${tipStart})`}
             markerEnd={`url(#${tip})`}
           />
@@ -373,8 +379,8 @@ export function HoodDiagram({
             markerEnd={`url(#${tip})`}
           />
           <g stroke="var(--color-steel-400)" strokeWidth="1.3">
-            <path d={`M196,182 L196,${lengthY}`} />
-            <path d={`M396,182 L396,${lengthY}`} />
+            <path d={`M${B.fl[0]},${B.fl[1]} L${B.fl[0]},${widthY}`} />
+            <path d={`M${B.fr[0]},${B.fr[1]} L${B.fr[0]},${widthY}`} />
             <path d={`M${B.fr[0]},${B.fr[1]} L${B.fr[0] + 28},${B.fr[1] + 28}`} />
             <path d={`M${B.br[0]},${B.br[1]} L${B.br[0] + 28},${B.br[1] + 28}`} />
             <path d={`M${T.br[0]},${T.br[1]} L588,${T.br[1]}`} />
@@ -390,7 +396,7 @@ export function HoodDiagram({
           strokeWidth="3.5"
           paintOrder="stroke fill"
         >
-          <text x="296" y={lengthY - 10} textAnchor="middle">
+          <text x={(B.fl[0] + B.fr[0]) / 2} y={widthY + 18} textAnchor="middle">
             Ширина
           </text>
           <text
@@ -428,10 +434,10 @@ export function HoodDiagram({
         >
           {/* Врезка → точка K (основание патрубка), одна горизонталь */}
           <path d={`M${labelStub.collar},${collarK[1]} H${collarK[0]}`} />
-          {/* Фильтры: вниз снаружи проёма, горизонталь в первую кассету */}
-          <path d={`M${Math.min(labelStub.filters, 155)},260 V278 H208`} />
-          {/* Ванночка: полка вдоль низа, вверх к кромке лотка */}
-          <path d={`M${labelStub.tray},378 H150 V312`} />
+          {/* Фильтры: хвостик чуть левее и выше, горизонталь в первую кассету */}
+          <path d={`M${Math.min(labelStub.filters, 148)},248 V266 H208`} />
+          {/* Ванночка: прямая полка к кромке лотка, без Г-образного излома */}
+          <path d={`M${labelStub.tray},312 H150`} />
           {supply && <path d="M612,104 H530 V128" />}
           {supply && <path d="M612,348 H430 V302" />}
         </g>
@@ -447,13 +453,13 @@ export function HoodDiagram({
           <text x={labelL} y={collarK[1] + 4} textAnchor="start">
             Врезка присоединительная
           </text>
-          <text x={labelL} y="252" textAnchor="start">
+          <text x={labelL} y="240" textAnchor="start">
             Лабиринтные фильтры
           </text>
-          <text x={labelL} y="268" textAnchor="start">
+          <text x={labelL} y="256" textAnchor="start">
             (жироуловители)
           </text>
-          <text x={labelL} y="378" textAnchor="start">
+          <text x={labelL} y="316" textAnchor="start">
             Ванночка
           </text>
           {supply && (

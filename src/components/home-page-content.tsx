@@ -58,18 +58,16 @@ export function HomePageContent() {
               <Link href="/catalog" className="btn btn-ghost">Смотреть каталог</Link>
             </div>
           </div>
-          <div className="hero__visual hero__visual--photo hero__visual--zoom">
-            <HoverZoom>
-              <Image
-                src="/backdrops/home-hero-hood.webp"
-                alt="Пирамидальный вытяжной зонт из нержавеющей стали на производстве"
-                width={1152}
-                height={864}
-                priority
-                className="hero__photo"
-                sizes="(max-width: 960px) 100vw, 48vw"
-              />
-            </HoverZoom>
+          <div className="hero__visual hero__visual--photo">
+            <Image
+              src="/backdrops/home-hero-hood.webp"
+              alt="Пирамидальный вытяжной зонт из нержавеющей стали на производстве"
+              width={1152}
+              height={864}
+              priority
+              className="hero__photo"
+              sizes="(max-width: 960px) 100vw, 48vw"
+            />
           </div>
         </div>
       </section>

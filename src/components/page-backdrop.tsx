@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 
 /** Тема задника страницы / hero-секции. */
-export type BackdropTheme = 'shop' | 'kitchen' | 'home' | 'steel' | 'fire' | 'draft';
+export type BackdropTheme = 'shop' | 'kitchen' | 'home' | 'steel' | 'fire' | 'draft' | 'clean';
 
 const SRC: Record<BackdropTheme, string> = {
   shop: '/backdrops/backdrop-shop.webp',
@@ -12,6 +12,7 @@ const SRC: Record<BackdropTheme, string> = {
   steel: '/backdrops/backdrop-steel.webp',
   fire: '/backdrops/backdrop-fire.webp',
   draft: '/backdrops/backdrop-draft.webp',
+  clean: '/backdrops/backdrop-clean.webp',
 };
 
 /**

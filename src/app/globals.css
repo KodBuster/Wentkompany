@@ -279,9 +279,27 @@
       linear-gradient(180deg, transparent 0%, rgba(232, 224, 214, 0.22) 100%),
       radial-gradient(55% 50% at 90% 30%, rgba(61, 122, 140, 0.05), transparent 55%);
   }
+  /* Чистка канала: светлее слева под заголовок, металл/щетка читаются справа */
+  .page-backdrop__veil--clean {
+    background:
+      linear-gradient(
+        100deg,
+        rgba(255, 252, 248, 0.84) 0%,
+        rgba(255, 252, 248, 0.58) 32%,
+        rgba(255, 252, 248, 0.2) 56%,
+        rgba(255, 252, 248, 0.08) 100%
+      ),
+      linear-gradient(180deg, transparent 0%, rgba(232, 224, 214, 0.22) 100%),
+      radial-gradient(60% 50% at 85% 55%, rgba(61, 122, 140, 0.07), transparent 58%);
+  }
   @media (prefers-reduced-motion: reduce) {
     .page-backdrop__photo {
       transform: none !important;
+      will-change: auto;
+    }
+    .cfg-stage-art__img {
+      animation: none;
+      transform: translate3d(calc((-100% + 100cqw) * 0.35), 0, 0) scale(1.1);
       will-change: auto;
     }
   }
@@ -577,6 +595,74 @@
     line-height: 1.45;
     color: var(--color-steel-300);
   }
+  /* (i) на схеме зонта — справка по Ш/Г/В */
+  .hood-diagram {
+    position: relative;
+  }
+  .hood-diagram > .dim-info-tip {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    z-index: 6;
+    width: 1.85rem;
+    height: 1.85rem;
+  }
+  .dim-info-tip {
+    display: inline-grid;
+    place-items: center;
+    box-sizing: border-box;
+    width: 1.85rem;
+    height: 1.85rem;
+    padding: 0;
+    border: 1.5px solid color-mix(in srgb, var(--color-extract) 70%, var(--color-steel-200));
+    border-radius: 999px;
+    background: #fff;
+    color: var(--color-extract);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-style: italic;
+    font-weight: 600;
+    line-height: 1;
+    cursor: help;
+    box-shadow:
+      0 0 0 3px rgba(255, 252, 248, 0.92),
+      0 4px 12px rgba(40, 28, 18, 0.14);
+  }
+  .dim-info-tip:hover,
+  .dim-info-tip[aria-expanded='true'] {
+    color: #fff;
+    background: var(--color-extract);
+    border-color: var(--color-extract-deep);
+  }
+  .dim-info-tip__panel.clause-tip {
+    width: min(400px, calc(100vw - 24px));
+    max-height: min(70vh, 420px);
+    overflow: auto;
+    background:
+      linear-gradient(165deg, #FFF6EC 0%, #F3E0CC 100%);
+    border: 1px solid color-mix(in srgb, var(--color-extract) 38%, var(--hair-l));
+    border-left: 3px solid var(--color-extract);
+    box-shadow:
+      0 16px 40px rgba(40, 28, 18, 0.18),
+      0 2px 0 rgba(255, 255, 255, 0.55) inset;
+  }
+  .dim-info-tip__list {
+    margin: 0.7rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.65rem;
+  }
+  .dim-info-tip__list li {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--color-steel-300);
+  }
+  .dim-info-tip__list strong {
+    color: var(--color-steel-100);
+    font-weight: 600;
+  }
   @media (prefers-reduced-motion: reduce) {
     .clause-tip { transition: none; }
   }
@@ -711,6 +797,8 @@
     min-width: 0;
     width: 100%;
     min-height: 0;
+    /* Тянемся по высоте боковых панелей — низ занимает atmosphere */
+    align-self: stretch;
   }
   .cfg-viewport {
     flex: 0 0 auto;
@@ -727,23 +815,36 @@
   }
   .cfg-viewport-zoom { width: 100%; height: 100%; }
 
-  /* Полоса атмосферы под 3D/чертежом — только средняя колонка */
+  /* Полоса атмосферы под строкой статуса — крупнее, заполняет остаток колонки */
   .cfg-stage-art {
-    flex: 0 0 auto;
-    margin: 0.55rem 0.75rem 0;
-    height: clamp(72px, 12vw, 110px);
-    border-radius: var(--radius-sm);
+    flex: 1 1 auto;
+    margin: 0.55rem 0.75rem 0.85rem;
+    min-height: clamp(140px, 22vw, 240px);
+    border-radius: var(--radius-md);
     overflow: hidden;
     border: 1px solid rgba(90, 78, 68, 0.14);
     position: relative;
+    container-type: size;
   }
+  /*
+   * Эталон шире полосы: слой по высоте кадра, ширина — как у фото (8/3),
+   * без cover-кропа боков. Двигаем весь слой — видно всю панораму.
+   */
   .cfg-stage-art__img {
     position: absolute;
-    inset: 0;
+    top: -8%;
+    height: 116%;
+    width: auto;
+    aspect-ratio: 16 / 9;
+    left: 0;
     background-size: cover;
-    background-position: center 40%;
-    opacity: 0.85;
-    filter: saturate(0.9) contrast(1.08) brightness(1.02);
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.9;
+    filter: saturate(0.88) contrast(1.06) brightness(1.03);
+    transform-origin: 50% 50%;
+    will-change: transform;
+    animation: cfg-stage-drift 32s ease-in-out infinite;
   }
   .cfg-stage-art::after {
     content: "";
@@ -751,10 +852,43 @@
     inset: 0;
     background: linear-gradient(
       180deg,
-      rgba(255, 252, 248, 0.18) 0%,
-      rgba(235, 228, 220, 0.32) 100%
+      rgba(255, 252, 248, 0.22) 0%,
+      rgba(235, 228, 220, 0.28) 100%
     );
     pointer-events: none;
+  }
+  /*
+   * Две синусоиды в противофазе, стык на краях:
+   * туда y = sin(2πx), обратно y = −sin(2πx). Зум чуть выше — запас по Y.
+   */
+  @keyframes cfg-stage-drift {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1.1);
+    }
+    12.5% {
+      transform: translate3d(calc((-100% + 100cqw) * 0.25), 6.5%, 0) scale(1.14);
+    }
+    25% {
+      transform: translate3d(calc((-100% + 100cqw) * 0.5), 0, 0) scale(1.11);
+    }
+    37.5% {
+      transform: translate3d(calc((-100% + 100cqw) * 0.75), -6.5%, 0) scale(1.15);
+    }
+    50% {
+      transform: translate3d(calc(-100% + 100cqw), 0, 0) scale(1.1);
+    }
+    62.5% {
+      transform: translate3d(calc((-100% + 100cqw) * 0.75), 6.5%, 0) scale(1.14);
+    }
+    75% {
+      transform: translate3d(calc((-100% + 100cqw) * 0.5), 0, 0) scale(1.11);
+    }
+    87.5% {
+      transform: translate3d(calc((-100% + 100cqw) * 0.25), -6.5%, 0) scale(1.15);
+    }
+    100% {
+      transform: translate3d(0, 0, 0) scale(1.1);
+    }
   }
 
   @media (max-width: 1180px) {

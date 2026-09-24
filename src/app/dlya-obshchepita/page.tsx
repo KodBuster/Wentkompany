@@ -221,12 +221,13 @@ export default function ObshchepitPage() {
         </div>
       </section>
 
-      <section className="band band-deep" id="okupaemost">
+      <section className="band band-deep band--backdrop" id="okupaemost">
+        <PageBackdrop theme="clean" />
         <div className="wrap">
-          <div className="head">
+          <div className="head backdrop-copy">
             <p className="lbl">Окупаемость</p>
             <h2>Считаем на чистках канала, а не на страхе перед штрафом</h2>
-            <p>
+            <p className="muted">
               Эффективная фильтрация сокращает число чисток воздуховода. Всё остальное — риск
               возгорания, простой кухни, санкции при проверке — мы намеренно не переводим в рубли:
               такую цифру нечем подтвердить.
