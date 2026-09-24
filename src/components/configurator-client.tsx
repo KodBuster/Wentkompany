@@ -474,12 +474,12 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
         {(['w', 'd', 'h'] as const).map((key) => (
           <DimSlider
             key={key}
-            label={key === 'w' ? 'Ширина W' : key === 'd' ? 'Глубина D' : 'Высота короба H'}
+            label={key === 'w' ? 'Ширина W' : key === 'd' ? 'Глубина D (вылет)' : 'Высота короба H'}
             value={dims[key]}
             min={LIMITS[key].min}
             max={LIMITS[key].max}
             step={LIMITS[key].step}
-            ariaLabel={key === 'w' ? 'Ширина, мм' : key === 'd' ? 'Глубина, мм' : 'Высота короба, мм'}
+            ariaLabel={key === 'w' ? 'Ширина, мм' : key === 'd' ? 'Глубина (вылет), мм' : 'Высота короба, мм'}
             onChange={(v) => setDims((s) => ({ ...s, [key]: v }))}
           />
         ))}
@@ -634,6 +634,13 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
               fitRequest={sceneFit}
             />
           )}
+        </div>
+        {/* Атмосфера под сценой — не конкурирует с 3D, только заполняет колонку */}
+        <div className="cfg-stage-art" aria-hidden>
+          <div
+            className="cfg-stage-art__img"
+            style={{ backgroundImage: 'url(/backdrops/cfg-stage-strip.webp)' }}
+          />
         </div>
         <div className="cfg-status">
           <span>

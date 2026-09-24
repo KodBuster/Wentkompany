@@ -126,7 +126,7 @@ export function HoodDiagram({
   };
   /* Точка K — левый край основания врезки на крыше */
   const collarK: Pt = [297, 169];
-  /* Размер «Длина» чуть выше врезки, без прислонения */
+  /* Размер «Ширина» чуть выше врезки, без прислонения */
   const lengthY = 98;
 
   return (
@@ -360,7 +360,7 @@ export function HoodDiagram({
             markerStart={`url(#${tipStart})`}
             markerEnd={`url(#${tip})`}
           />
-          {/* Вылет: параллельно ребру B.fr→B.br, вынесен наружу */}
+          {/* Глубина (вылет): параллельно ребру B.fr→B.br, вынесен наружу */}
           <path
             d={`M${B.fr[0] + 28},${B.fr[1] + 28} L${B.br[0] + 28},${B.br[1] + 28}`}
             markerStart={`url(#${tipStart})`}
@@ -391,15 +391,20 @@ export function HoodDiagram({
           paintOrder="stroke fill"
         >
           <text x="296" y={lengthY - 10} textAnchor="middle">
-            Длина
+            Ширина
           </text>
           <text
-            x={(B.fr[0] + B.br[0]) / 2 + 52}
-            y={(B.fr[1] + B.br[1]) / 2 + 48}
+            x={(B.fr[0] + B.br[0]) / 2 + 58}
+            y={(B.fr[1] + B.br[1]) / 2 + 42}
             textAnchor="middle"
             dominantBaseline="middle"
           >
-            Вылет
+            <tspan x={(B.fr[0] + B.br[0]) / 2 + 58} dy="-0.35em">
+              Глубина
+            </tspan>
+            <tspan x={(B.fr[0] + B.br[0]) / 2 + 58} dy="1.2em" fontSize="11.5" fontWeight="500">
+              (вылет)
+            </tspan>
           </text>
           <text
             x="594"
