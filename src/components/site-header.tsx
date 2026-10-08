@@ -24,7 +24,7 @@ export function SiteHeader() {
           href="/"
           className="font-[family-name:var(--font-display)] text-xl font-bold uppercase whitespace-nowrap no-underline tracking-wide transition-opacity duration-200 hover:opacity-90"
         >
-          WENT<span style={{ color: 'var(--color-extract)' }}>KOMPANY</span>
+          WENT<span style={{ color: 'var(--color-extract)' }}>BUSTER</span>
         </Link>
         <SiteNavLinks links={links} />
         <CallLink className="num hidden text-sm no-underline text-steel-300 transition-colors duration-200 hover:text-steel-100 sm:block" />

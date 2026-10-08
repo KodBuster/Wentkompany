@@ -82,10 +82,10 @@ export function buildIfc(input: IfcInput): string {
   const guid = (part: string) => ifcGuid(`${designation}|${material}|${part}`);
 
   /* ---------- владелец и единицы ---------- */
-  const person = s.add(`IFCPERSON($,$,${str('WENTKOMPANY')},$,$,$,$,$)`);
-  const org = s.add(`IFCORGANIZATION($,${str('WENTKOMPANY')},$,$,$)`);
+  const person = s.add(`IFCPERSON($,$,${str('WENTBUSTER')},$,$,$,$,$)`);
+  const org = s.add(`IFCORGANIZATION($,${str('WENTBUSTER')},$,$,$)`);
   const personOrg = s.add(`IFCPERSONANDORGANIZATION(${person},${org},$)`);
-  const app = s.add(`IFCAPPLICATION(${org},${str('0.6')},${str('WENTKOMPANY Configurator')},${str('WKCFG')})`);
+  const app = s.add(`IFCAPPLICATION(${org},${str('0.6')},${str('WENTBUSTER Configurator')},${str('WBCFG')})`);
   const owner = s.add(`IFCOWNERHISTORY(${personOrg},${app},$,.ADDED.,$,$,$,${Math.floor(Date.now() / 1000)})`);
 
   const unitLength = s.add('IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.)');
@@ -224,7 +224,7 @@ export function buildIfc(input: IfcInput): string {
     props.push(prop('ТребованияНорм', text('СП 7.13130.2013, пп. 5.28–5.33: щит автоматики, воздуховод EI 45')));
   }
   const pset = s.add(
-    `IFCPROPERTYSET(${str(guid('pset'))},${owner},${str('Pset_WENTKOMPANY_Configuration')},$,(${props.join(',')}))`,
+    `IFCPROPERTYSET(${str(guid('pset'))},${owner},${str('Pset_WENTBUSTER_Configuration')},$,(${props.join(',')}))`,
   );
   s.add(`IFCRELDEFINESBYPROPERTIES(${str(guid('rel-pset'))},${owner},$,$,(${element}),${pset})`);
 
@@ -246,8 +246,8 @@ export function buildIfc(input: IfcInput): string {
     'ISO-10303-21;',
     'HEADER;',
     `FILE_DESCRIPTION((${str('ViewDefinition [ReferenceView_V1.2]')}),${str('2;1')});`,
-    `FILE_NAME(${str(`${designation}.ifc`)},${str(stamp)},(${str('WENTKOMPANY Configurator')}),` +
-      `(${str('WENTKOMPANY')}),${str('WENTKOMPANY Configurator 0.6')},${str('WENTKOMPANY')},${str('')});`,
+    `FILE_NAME(${str(`${designation}.ifc`)},${str(stamp)},(${str('WENTBUSTER Configurator')}),` +
+      `(${str('WENTBUSTER')}),${str('WENTBUSTER Configurator 0.6')},${str('WENTBUSTER')},${str('')});`,
     `FILE_SCHEMA((${str('IFC4')}));`,
     'ENDSEC;',
     'DATA;',

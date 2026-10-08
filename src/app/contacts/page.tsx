@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { LeadForm } from '@/components/lead-form';
+import { MessengerLinks } from '@/components/messenger-links';
 import { PageBackdrop } from '@/components/page-backdrop';
 import { site } from '@/lib/site';
 
@@ -63,6 +64,9 @@ export default async function ContactsPage({
             </div>
           </div>
           <p className="lbl mt-6">Реквизиты и адрес производства подставим из карточки компании.</p>
+          <div className="mt-6">
+            <MessengerLinks />
+          </div>
         </div>
         <LeadForm configuration={cfg} mode={mode} />
       </div>

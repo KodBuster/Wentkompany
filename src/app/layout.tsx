@@ -14,15 +14,15 @@ import { Metrika } from '@/components/metrika';
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
   title: {
-    default: 'WENTKOMPANY — гидрозонты, гидрофильтры и вытяжные зонты',
-    template: '%s · WENTKOMPANY',
+    default: 'WENTBUSTER — гидрозонты, гидрофильтры и вытяжные зонты',
+    template: '%s · WENTBUSTER',
   },
   description: site.description,
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
     siteName: site.name,
-    title: 'WENTKOMPANY — гидрозонты, гидрофильтры и вытяжные зонты',
+    title: 'WENTBUSTER — гидрозонты, гидрофильтры и вытяжные зонты',
     description: site.description,
   },
   robots: { index: true, follow: true },

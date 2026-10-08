@@ -17,11 +17,34 @@ function jumpTo(y: number) {
 /**
  * Скролл при «Назад» после ухода в каталог (и др. страницы без якоря).
  * Позицию пишем в sessionStorage в момент клика по внутренней ссылке —
- * до того, как Next обнулит window.scrollY. Штатный scrollRestoration не трогаем.
+ * до того, как Next обнулит window.scrollY.
+ *
+ * history.scrollRestoration = 'manual': Ctrl+F5 / reload не поднимает
+ * страницу на старый scrollY под sticky-шапку (заголовок «уезжал» вверх).
  */
 export function ScrollRestore() {
   const pathname = usePathname();
   const pendingPop = useRef(false);
+
+  useEffect(() => {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+
+    /* Жёсткое обновление: всегда с чистого верха, без «хвоста» прошлой позиции */
+    const nav = performance.getEntriesByType('navigation')[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+    if (nav?.type === 'reload') {
+      jumpTo(0);
+      const raf = requestAnimationFrame(() => jumpTo(0));
+      const t = window.setTimeout(() => jumpTo(0), 0);
+      return () => {
+        cancelAnimationFrame(raf);
+        window.clearTimeout(t);
+      };
+    }
+  }, []);
 
   useEffect(() => {
     const onPopState = () => {

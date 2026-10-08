@@ -58,7 +58,7 @@
 ```ts
 phone: '+7 495 000-00-00',
 phoneHref: 'tel:+74950000000',   // без пробелов и скобок
-email: 'info@wentkompany.ru',
+email: 'info@wentbuster.ru',
 ```
 
 `phoneHref` должен совпадать с `phone` по цифрам — по нему звонят с телефона.

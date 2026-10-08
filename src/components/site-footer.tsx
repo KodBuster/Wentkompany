@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { site } from '@/lib/site';
 import { hoodFamilies } from '@/lib/catalog';
 import { CallLink } from '@/components/call-link';
+import { MessengerLinks } from '@/components/messenger-links';
 
 export function SiteFooter() {
   return (
@@ -10,7 +11,7 @@ export function SiteFooter() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <span className="font-[family-name:var(--font-display)] text-xl font-bold uppercase tracking-wide">
-              WENT<span style={{ color: 'var(--color-extract)' }}>KOMPANY</span>
+              WENT<span style={{ color: 'var(--color-extract)' }}>BUSTER</span>
             </span>
             <p className="muted mt-4 text-sm leading-relaxed max-w-[36ch]">{site.description}</p>
           </div>
@@ -40,7 +41,8 @@ export function SiteFooter() {
             <CallLink className="site-footer-link" />
             <a href={`mailto:${site.email}`} className="site-footer-link">{site.email}</a>
             <p className="mb-1.5 text-sm text-steel-400">{site.address}</p>
-            <p className="text-sm text-steel-400">{site.hours}</p>
+            <p className="mb-3 text-sm text-steel-400">{site.hours}</p>
+            <MessengerLinks variant="icons" />
           </div>
         </div>
         <div

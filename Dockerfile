@@ -1,4 +1,4 @@
-# Сборка сайта WENTKOMPANY.
+# Сборка сайта WENTBUSTER.
 # Многоступенчатый образ: в финальный слой едет только standalone-сборка,
 # без исходников и dev-зависимостей. Итог — около 200 МБ вместо полутора гигабайт.
 
@@ -17,7 +17,7 @@ COPY . .
 # Публичные переменные вшиваются в бандл на этапе сборки, а не в рантайме.
 # Timeweb: передаются build-args из docker-compose.
 # Amvera: переменные панели на сборке недоступны — читаем amvera.build.env из git.
-ARG NEXT_PUBLIC_SITE_URL=https://wentkompany.ru
+ARG NEXT_PUBLIC_SITE_URL=https://wentbuster.ru
 ARG NEXT_PUBLIC_YM_ID=
 ARG ENABLE_HSTS=0
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL

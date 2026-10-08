@@ -1,8 +1,8 @@
 {
-  "name": "wentkompany",
+  "name": "wentbuster",
   "version": "0.3.0",
   "private": true,
-  "description": "WENTKOMPANY — производство гидрозонтов, гидрофильтров и вытяжных зонтов",
+  "description": "WENTBUSTER — производство гидрозонтов, гидрофильтров и вытяжных зонтов",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

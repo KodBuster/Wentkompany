@@ -18,7 +18,7 @@ export default function CatalogPage() {
       <PageBackdrop theme="shop" />
       <div className="wrap">
         <div className="head backdrop-copy" style={{ marginBottom: '1.25rem' }}>
-          <p className="lbl">Каталог · {products.length} позиций</p>
+          <p className="lbl">Каталог</p>
           <h1>Изделия и типоразмеры</h1>
           <p className="muted mt-2 leading-relaxed">
             Цены — для эталонного типоразмера в формате «высота / ширина / глубина» с жироуловителями.

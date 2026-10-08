@@ -41,7 +41,7 @@
 Отредактируйте `amvera.build.env` в корне репозитория:
 
 ```bash
-NEXT_PUBLIC_SITE_URL=https://wentkompany.ru
+NEXT_PUBLIC_SITE_URL=https://wentbuster.ru
 NEXT_PUBLIC_YM_ID=12345678
 ENABLE_HSTS=0
 ```
@@ -73,7 +73,7 @@ curl https://<ваш-домен-amvera>/api/health
 
 ## 5. Свой домен
 
-1. В Amvera: **Домены** → добавить `wentkompany.ru` и `www.wentkompany.ru`.
+1. В Amvera: **Домены** → добавить `wentbuster.ru` и `www.wentbuster.ru`.
 2. У регистратора: CNAME или A-запись по инструкции Amvera.
 3. Дождаться SSL (Amvera выпускает сертификат автоматически).
 4. Убедиться, что в `amvera.build.env` указан финальный `NEXT_PUBLIC_SITE_URL`.

@@ -676,6 +676,127 @@
   .cfg-alerts .badge { width: 100%; white-space: normal; text-align: left; }
   .badge-info { border-color: var(--color-supply); color: var(--color-supply); background: rgba(61, 122, 140, 0.12); }
 
+  /* Мессенджеры на контактах — заготовки со значками */
+  .messenger-links {
+    max-width: 36rem;
+  }
+  .messenger-links__list {
+    margin: 0.65rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+  .messenger-links__sticky {
+    --sticky-x: 0px;
+    --sticky-y: 0px;
+    --sticky-scale: 1;
+    transform: translate3d(var(--sticky-x), var(--sticky-y), 0) scale(var(--sticky-scale));
+    transition: transform 0.18s var(--ease-out);
+    will-change: transform;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .messenger-links__sticky {
+      transition: none;
+      transform: none !important;
+    }
+  }
+  .messenger-links__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.6rem;
+    padding: 0.45rem 0.85rem 0.45rem 0.55rem;
+    border: 1px solid var(--hair);
+    border-radius: var(--radius-md);
+    background: var(--color-sheet);
+    color: var(--color-steel-100);
+    text-decoration: none;
+    box-shadow: var(--lift);
+    transition:
+      border-color 0.22s var(--ease-out),
+      color 0.22s var(--ease-out),
+      transform 0.18s var(--ease-out);
+  }
+  a.messenger-links__item:hover {
+    border-color: color-mix(in srgb, var(--messenger-brand) 55%, var(--hair));
+    color: var(--color-steel-100);
+  }
+  .messenger-links__item--pending {
+    cursor: default;
+  }
+  .messenger-links__icon {
+    display: inline-grid;
+    place-items: center;
+    width: 2.85rem;
+    height: 2.85rem;
+    flex: 0 0 auto;
+    line-height: 0;
+    filter:
+      saturate(1.35) contrast(1.12) brightness(1.04)
+      drop-shadow(0 3px 8px color-mix(in srgb, var(--messenger-brand) 55%, transparent));
+  }
+  .messenger-links__img,
+  .messenger-links__badge {
+    display: block;
+    width: 2.85rem;
+    height: 2.85rem;
+    border-radius: 0.65rem;
+  }
+  .messenger-links__label {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .messenger-links__soon {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-steel-500);
+  }
+  /* Футер: только значки-приложения на прозрачном фоне */
+  .messenger-links--icons .messenger-links__list {
+    margin: 0;
+    gap: 0.7rem;
+  }
+  .messenger-links__icon-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 2.85rem;
+    height: 2.85rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-decoration: none;
+    filter:
+      saturate(1.4) contrast(1.14) brightness(1.05)
+      drop-shadow(0 3px 10px color-mix(in srgb, var(--messenger-brand) 60%, transparent));
+    transition:
+      transform 0.18s var(--ease-out),
+      filter 0.2s var(--ease-out);
+  }
+  a.messenger-links__icon-btn:hover {
+    filter:
+      saturate(1.5) contrast(1.16) brightness(1.06)
+      drop-shadow(0 6px 14px color-mix(in srgb, var(--messenger-brand) 70%, transparent));
+  }
+  .messenger-links__icon-btn--pending {
+    cursor: default;
+  }
+  .messenger-links__glyph {
+    display: inline-grid;
+    place-items: center;
+    line-height: 0;
+  }
+  .messenger-links__glyph .messenger-links__img,
+  .messenger-links__glyph .messenger-links__badge {
+    width: 2.85rem;
+    height: 2.85rem;
+  }
+
   .tiles {
     display: grid;
     gap: 0.9rem;

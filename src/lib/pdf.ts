@@ -223,7 +223,7 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
   let y = 22;
 
   // шапка
-  drawText(ctx, 'WENTKOMPANY', [left, y], 6, INK, { bold: true });
+  drawText(ctx, 'WENTBUSTER', [left, y], 6, INK, { bold: true });
   drawText(ctx, new Date().toLocaleDateString('ru-RU'), [right, y], 3.4, THIN, { align: 'right' });
   y += 6;
   drawText(ctx, company.phone + ' · ' + company.email, [left, y], 3.2, THIN);

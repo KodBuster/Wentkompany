@@ -541,7 +541,7 @@ export function buildSheet(input: DrawingInput): Sheet {
     { label: 'Масса, кг', value: ru(calc.mass) },
     { label: 'Масштаб', value: scaleLabel(scale) },
     { label: 'Лист', value: '1 из 1' },
-    { label: 'Организация', value: 'WENTKOMPANY' },
+    { label: 'Организация', value: 'WENTBUSTER' },
     { label: 'Статус', value: 'Предварительно' },
   ];
 

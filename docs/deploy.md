@@ -38,7 +38,7 @@ cp .env.example .env
 
 | Переменная | Значение |
 | --- | --- |
-| `NEXT_PUBLIC_SITE_URL` | `https://wentkompany.ru` |
+| `NEXT_PUBLIC_SITE_URL` | `https://wentbuster.ru` |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | куда падают заявки |
 | `CRM_WEBHOOK_URL` | приёмник CRM, если есть |
 | `NEXT_PUBLIC_YM_ID` | номер счётчика Метрики |
@@ -63,7 +63,7 @@ curl -I http://127.0.0.1:3000/   # ожидаем 200
 ```nginx
 server {
     listen 80;
-    server_name wentkompany.ru www.wentkompany.ru;
+    server_name wentbuster.ru www.wentbuster.ru;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -88,10 +88,10 @@ server {
 
 ## 6. Домен и сертификат
 
-1. A-запись `wentkompany.ru` и `www` → IP сервера.
-2. Дождаться распространения DNS (`dig wentkompany.ru +short`).
-3. `certbot --nginx -d wentkompany.ru -d www.wentkompany.ru`
-4. Проверить, что `https://wentkompany.ru` открывается и редирект с http работает.
+1. A-запись `wentbuster.ru` и `www` → IP сервера.
+2. Дождаться распространения DNS (`dig wentbuster.ru +short`).
+3. `certbot --nginx -d wentbuster.ru -d www.wentbuster.ru`
+4. Проверить, что `https://wentbuster.ru` открывается и редирект с http работает.
 5. Только теперь `ENABLE_HSTS=1` в `.env` и пересборка. Заголовок заставляет браузеры
    ходить только по https целый год — включать его до рабочего сертификата опасно.
 
@@ -108,8 +108,8 @@ npm run check:redirects      # прогонит все 28 старых адре�
 - заявка с формы дошла в Telegram;
 - заявка **с приложенным чертежом** (фото или PDF) дошла в Telegram вместе с файлом —
   если файл не доходит, а заявка доходит, проверьте `client_max_body_size` в nginx;
-- `https://wentkompany.ru/sitemap.xml` и `/robots.txt` отдаются;
-- старый адрес вида `https://wentkompany.ru/product/...` уводит на новую карточку.
+- `https://wentbuster.ru/sitemap.xml` и `/robots.txt` отдаются;
+- старый адрес вида `https://wentbuster.ru/product/...` уводит на новую карточку.
 
 Затем:
 
