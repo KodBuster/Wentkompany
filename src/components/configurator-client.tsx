@@ -710,6 +710,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
             <Row k="Расход воздуха" v={`${ru(calc.airflow)} м³/ч`} />
             <Row k="Патрубки" v={`${calc.ducts.count} × Ø${calc.ducts.diameter}`} />
             <Row k="Скорость в патрубке" v={`${dec(calc.ducts.velocity)} м/с`} />
+            <Row k="Площадь захвата" v={`${dec(calc.captureArea, 2)} м²`} />
             <Row k="Периметр захвата" v={`${dec(calc.perimeter)} м`} />
             <Row k="Площадь стали" v={`${dec(calc.area)} м²`} />
             <Row k="Масса, ориентир" v={`${ru(calc.mass)} кг`} />

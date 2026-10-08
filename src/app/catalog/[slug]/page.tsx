@@ -281,6 +281,7 @@ function ProductView({ slug }: { slug: string }) {
                     <tr><th>Расход воздуха, расчёт</th><td style={{ color: 'var(--color-supply)' }}>{ru(c.airflow)} м³/ч</td></tr>
                     <tr><th>Патрубки</th><td style={{ color: 'var(--color-supply)' }}>{c.ducts.count} × Ø{c.ducts.diameter}</td></tr>
                     <tr><th>Скорость в патрубке</th><td style={{ color: 'var(--color-supply)' }}>{dec(c.ducts.velocity)} м/с</td></tr>
+                    <tr><th>Площадь захвата</th><td style={{ color: 'var(--color-supply)' }}>{dec(c.captureArea, 2)} м²</td></tr>
                     <tr><th>Периметр захвата</th><td style={{ color: 'var(--color-supply)' }}>{dec(c.perimeter)} м</td></tr>
                     <tr><th>Площадь стали</th><td style={{ color: 'var(--color-supply)' }}>{dec(c.area)} м²</td></tr>
                     <tr><th>Масса, ориентир</th><td style={{ color: 'var(--color-supply)' }}>{ru(c.mass)} кг</td></tr>

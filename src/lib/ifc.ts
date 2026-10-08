@@ -213,6 +213,7 @@ export function buildIfc(input: IfcInput): string {
     prop('РасходВоздуха_м3ч', real(Math.round(calc.airflow))),
     prop('Патрубки', text(`${calc.ducts.count} × Ø${calc.ducts.diameter}`)),
     prop('СкоростьВПатрубке_мс', real(Number(calc.ducts.velocity.toFixed(2)))),
+    prop('ПлощадьЗахвата_м2', real(Number(calc.captureArea.toFixed(3)))),
     prop('ПериметрЗахвата_м', real(Number(calc.perimeter.toFixed(2)))),
     prop('Жироуловители_шт', real(layout.filters.reduce((acc, r) => acc + r.count, 0))),
     prop('Гидрозатвор', bool(traits.hydro)),

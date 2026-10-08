@@ -1,14 +1,14 @@
 /**
  * Расчётное ядро конфигуратора.
  *
- * ВАЖНО про статус формул (этап 1 закрывается после сверки с производством):
- *  - расход воздуха считается по геометрии захвата, а не по тепловыделению
- *    оборудования; коэффициенты скорости подобраны так, чтобы попадать
- *    в табличные значения линеек, и подлежат сверке;
- *  - цена нестандартного габарита — ОЦЕНКА по площади материала;
- *    реальную формулу пересчёта производство пока не предоставило;
- *  - масса — ориентир по площади листа 0,8 мм с коэффициентом на
- *    жироуловители, рамы и крепёж.
+ * Расход воздуха — по формуле производства:
+ *   L = 3600 · 0,4 · S_захвата, м³/ч
+ * где S_захвата = W·D в м² (площадь проёма зонта в плане).
+ * Не по тепловыделению оборудования и не по периметру × высоте сечения.
+ *
+ * Цена нестандартного габарита — ОЦЕНКА по площади материала.
+ * Масса — ориентир по площади листа 0,8 мм с коэффициентом на
+ * жироуловители, рамы и крепёж.
  * Всё, что помечено estimate: true, на сайте показывается с бейджем
  * «предварительная оценка» и не выдаётся за прайс.
  */
@@ -27,11 +27,8 @@ export interface Dims {
   d: number;
 }
 
-/** Скорость в открытом сечении захвата, м/с. */
-const CAPTURE_VELOCITY = { hydro: 0.4, island: 0.35, wall: 0.3 } as const;
-
-/** Расчётная высота открытого сечения по периметру зонта, м. */
-const CAPTURE_HEIGHT = 0.4;
+/** Скорость в сечении захвата по методике производства, м/с. */
+const CAPTURE_VELOCITY = 0.4;
 
 /** Рабочая скорость в патрубке, м/с. */
 const DUCT_VELOCITY = 8;
@@ -52,21 +49,21 @@ const PRICE_EXPONENT = 0.6;
 /** Оценочная надбавка за AISI 304 — до подтверждения производством. */
 const AISI304_FACTOR = 1.18;
 
-/** Периметр захвата, м. Пристенный зонт открыт с трёх сторон. */
+/** Площадь захвата (проём зонта в плане), м². */
+export function captureArea(dims: Dims): number {
+  return (dims.w / 1000) * (dims.d / 1000);
+}
+
+/** Периметр захвата, м. Пристенный зонт открыт с трёх сторон. Справочно. */
 export function capturePerimeter(dims: Dims, traits: FamilyTraits): number {
   const w = dims.w / 1000;
   const d = dims.d / 1000;
   return traits.island ? 2 * (w + d) : w + 2 * d;
 }
 
-/** Расход удаляемого воздуха, м³/ч. */
-export function airflow(dims: Dims, traits: FamilyTraits): number {
-  const v = traits.hydro
-    ? CAPTURE_VELOCITY.hydro
-    : traits.island
-      ? CAPTURE_VELOCITY.island
-      : CAPTURE_VELOCITY.wall;
-  return 3600 * v * capturePerimeter(dims, traits) * CAPTURE_HEIGHT;
+/** Расход удаляемого воздуха, м³/ч. Формула производства: L = 3600 · 0,4 · S. */
+export function airflow(dims: Dims, _traits?: FamilyTraits): number {
+  return 3600 * CAPTURE_VELOCITY * captureArea(dims);
 }
 
 export interface DuctPick {
@@ -131,6 +128,9 @@ export function price(
 }
 
 export interface Calculation {
+  /** Площадь захвата W×D, м² — входит в формулу расхода. */
+  captureArea: number;
+  /** Периметр открытого контура, м — справочно. */
   perimeter: number;
   airflow: number;
   ducts: DuctPick;
@@ -160,6 +160,7 @@ export function calculate(
   }
 
   return {
+    captureArea: captureArea(dims),
     perimeter: capturePerimeter(dims, traits),
     airflow: air,
     ducts,
