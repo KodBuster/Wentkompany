@@ -70,16 +70,21 @@ function DimLine({ view, dim, scale }: { view: View; dim: Dimension; scale: numb
   );
 }
 
-export function HoodDrawing({ input }: { input: DrawingInput }) {
+export function HoodDrawing({
+  input,
+  compact = false,
+}: {
+  input: DrawingInput;
+  /** Превью на главной: без зума и подписи листа */
+  compact?: boolean;
+}) {
   const sheet = useMemo(() => buildSheet(input), [input]);
 
   const stampX = sheet.width - sheet.margin.other - STAMP_BOX.width;
   const stampY = sheet.height - sheet.margin.other - STAMP_BOX.height;
   const rowH = STAMP_BOX.height / 4;
 
-  return (
-    <div className="drawing-wrap">
-      <HoverZoom className="drawing-zoom" scale={1.55} maxScale={2.5}>
+  const svg = (
         <svg
           viewBox={`0 0 ${sheet.width} ${sheet.height}`}
           preserveAspectRatio="xMidYMin meet"
@@ -193,13 +198,25 @@ export function HoodDrawing({ input }: { input: DrawingInput }) {
           })}
         </g>
       </svg>
-      </HoverZoom>
+  );
 
-      <div className="drawing-actions">
-        <span className="lbl">
-          Лист {sheet.format} · масштаб {sheet.scaleLabel} · {sheet.designation}
-        </span>
-      </div>
+  return (
+    <div className={`drawing-wrap${compact ? ' drawing-wrap--compact' : ''}`}>
+      {compact ? (
+        <div className="drawing-zoom drawing-zoom--static">{svg}</div>
+      ) : (
+        <HoverZoom className="drawing-zoom" scale={1.55} maxScale={2.5}>
+          {svg}
+        </HoverZoom>
+      )}
+
+      {!compact && (
+        <div className="drawing-actions">
+          <span className="lbl">
+            Лист {sheet.format} · масштаб {sheet.scaleLabel} · {sheet.designation}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
-  families, products, familyBySlug, productBySlug, productsOf, traitsOf, shortName,
+  families, products, familyBySlug, productBySlug, productsOf, traitsOf, shortName, schemeOf,
 } from '@/lib/catalog';
-import { calculate, rub, ru, dec } from '@/lib/calc';
+import { calculate, rub, ru, dec, defaultMaterialGrade } from '@/lib/calc';
 import { HoodDiagram } from '@/components/hood-diagram';
 
 /** Линейки коробчатой формы, к которым подходит схема с выносками.
@@ -20,6 +20,7 @@ import { HydroChoice } from '@/components/hydro-choice';
 import { AutomationModes } from '@/components/automation-modes';
 import { HoodDrawing } from '@/components/hood-drawing';
 import { ExportButtons } from '@/components/export-buttons';
+import { ClauseRichText, ClauseTipBadge } from '@/components/clause-tip';
 import { site } from '@/lib/site';
 
 export function generateStaticParams() {
@@ -69,7 +70,7 @@ function FamilyView({ slug }: { slug: string }) {
       <div className="wrap">
         <nav className="lbl mb-3 flex flex-wrap gap-2">
           <Link href="/" className="no-underline">Главная</Link><span>/</span>
-          <Link href="/catalog" className="no-underline">Каталог</Link><span>/</span>
+          <Link href="/#catalog" className="no-underline">Каталог</Link><span>/</span>
           <span>{family.code}</span>
         </nav>
 
@@ -85,7 +86,8 @@ function FamilyView({ slug }: { slug: string }) {
 
         {traits.hydro && (
           <p className="badge badge-crit mb-6">
-            Изделие для открытого огня: применяется вместе со щитом автоматики по п. 5.30 —{' '}
+            Изделие для открытого огня: применяется вместе со щитом автоматики по{' '}
+            <ClauseTipBadge clauseId="5.30" label="п. 5.30" /> —{' '}
             <Link href="/normy-mchs" className="underline">разбор требований</Link>
           </p>
         )}
@@ -96,18 +98,32 @@ function FamilyView({ slug }: { slug: string }) {
           {items.map((p) => {
             const c = p.base ? calculate(p.base, traits, p.base, p.price) : null;
             return (
-              <Link key={p.id} href={`/catalog/${p.slug}`} className="tile no-underline">
-                <span className="lbl">{shortName(p)}</span>
-                <h3>{p.name.replace(/\s*\([^)]*\)\s*$/, '')}</h3>
+              <article key={p.id} className="tile">
+                <Link href={`/catalog/${p.slug}`} className="no-underline">
+                  <span className="lbl">{shortName(p)}</span>
+                  <h3>{p.name.replace(/\s*\([^)]*\)\s*$/, '')}</h3>
+                </Link>
                 <dl className="mt-1 flex flex-col gap-1.5 text-sm">
                   <Row k="Габарит H/W/D" v={p.base ? `${p.base.h}/${p.base.w}/${p.base.d} мм` : '—'} />
                   {c && <Row k="Расход, расчёт" v={`${ru(c.airflow)} м³/ч`} />}
                   {c && <Row k="Патрубки" v={`${c.ducts.count} × Ø${c.ducts.diameter}`} />}
                 </dl>
-                <span className="num mt-auto border-t pt-3 text-xl" style={{ borderColor: 'var(--hair)' }}>
-                  {p.price ? rub(p.price) : 'по запросу'}
-                </span>
-              </Link>
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t pt-3" style={{ borderColor: 'var(--hair)' }}>
+                  <span className="num text-xl">{p.price ? rub(p.price) : 'по запросу'}</span>
+                  {p.base ? (
+                    <Link
+                      href={`/contacts?mode=order&slug=${encodeURIComponent(p.slug)}`}
+                      className="btn"
+                    >
+                      Заказать
+                    </Link>
+                  ) : (
+                    <Link href={`/catalog/${p.slug}`} className="btn btn-ghost">
+                      Подробнее
+                    </Link>
+                  )}
+                </div>
+              </article>
             );
           })}
         </div>
@@ -143,7 +159,7 @@ function FamilyView({ slug }: { slug: string }) {
           >
             Собрать по своим размерам
           </Link>
-          <Link href="/catalog" className="btn btn-ghost">Весь каталог</Link>
+          <Link href="/#catalog" className="btn btn-ghost">Весь каталог</Link>
         </div>
       </div>
     </section>
@@ -156,7 +172,8 @@ function ProductView({ slug }: { slug: string }) {
   const p = productBySlug(slug)!;
   const traits = traitsOf(p.family);
   const family = families.find((f) => f.code === p.family);
-  const c = p.base ? calculate(p.base, traits, p.base, p.price) : null;
+  const material = defaultMaterialGrade(traits.hydro);
+  const c = p.base ? calculate(p.base, traits, p.base, p.price, material) : null;
   const related = productsOf(p.family).filter((x) => x.id !== p.id).slice(0, 3);
 
   const jsonLd = {
@@ -184,7 +201,7 @@ function ProductView({ slug }: { slug: string }) {
       <div className="wrap">
         <nav className="lbl mb-3 flex flex-wrap gap-2">
           <Link href="/" className="no-underline">Главная</Link><span>/</span>
-          <Link href="/catalog" className="no-underline">Каталог</Link><span>/</span>
+          <Link href="/#catalog" className="no-underline">Каталог</Link><span>/</span>
           {family && (<><Link href={`/catalog/${family.slug}`} className="no-underline">{family.code}</Link><span>/</span></>)}
           <span>
             {p.type
@@ -212,35 +229,44 @@ function ProductView({ slug }: { slug: string }) {
               {p.price && <span className="badge">цена для эталонного типоразмера</span>}
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
+              {p.base && (
+                <Link
+                  href={`/contacts?mode=order&slug=${encodeURIComponent(p.slug)}`}
+                  className="btn"
+                >
+                  Заказать
+                </Link>
+              )}
               {CONFIGURABLE.includes(p.family) ? (
                 <>
                   <Link
                     href={`/configurator?slug=${encodeURIComponent(p.slug)}${
                       p.base ? `&h=${p.base.h}&w=${p.base.w}&d=${p.base.d}` : ''
                     }`}
-                    className="btn"
+                    className={p.base ? 'btn btn-ghost' : 'btn'}
                   >
                     Открыть в конфигураторе
                   </Link>
-                  <Link href="/contacts" className="btn btn-ghost">Запросить расчёт</Link>
+                  {!p.base && <Link href="/contacts" className="btn btn-ghost">Запросить расчёт</Link>}
                 </>
               ) : (
                 <>
-                  <Link href="/contacts" className="btn">Запросить расчёт</Link>
+                  {!p.base && <Link href="/contacts" className="btn">Запросить расчёт</Link>}
                   <Link href="/normy-mchs" className="btn btn-ghost">Требования МЧС</Link>
                 </>
               )}
             </div>
-            {p.price !== null && (
-              <p className="lbl mt-6 max-w-[60ch] leading-relaxed">
-                Скидка 10 % на первый заказ по промокоду {site.promo}. Стоимость носит информационный
-                характер и не является публичной офертой.
-              </p>
-            )}
           </div>
 
           <div className="flex flex-col gap-4">
-            {p.images.length > 0 && <ProductGallery images={p.images} alt={p.name} />}
+            {(p.images.length > 0 || schemeOf(p)) && (
+              <ProductGallery
+                images={p.images}
+                alt={p.name}
+                schemeSrc={schemeOf(p)}
+                schemeLabel="Схема"
+              />
+            )}
             <div className="scroll-x border" style={{ borderColor: 'var(--hair)', background: 'var(--color-steel-900)' }}>
               <table className="spec">
                 <tbody>
@@ -251,7 +277,12 @@ function ProductView({ slug }: { slug: string }) {
                   )}
                   {p.family !== 'АВТ' && (
                     <>
-                      <tr><th>Материал</th><td>{p.materials.join(' · ')}</td></tr>
+                      <tr>
+                        <th>Материал</th>
+                        <td>
+                          <MaterialsList materials={p.materials} hydro={traits.hydro} />
+                        </td>
+                      </tr>
                       {HOODS.includes(p.family) && (
                         <tr>
                           <th>Жироуловители</th>
@@ -295,19 +326,6 @@ function ProductView({ slug }: { slug: string }) {
           </div>
         </div>
 
-        {BOX_HOODS.includes(p.family) && p.images.length === 0 && p.base && (
-          <>
-            <div className="head mt-14">
-              <p className="lbl">Устройство</p>
-              <h2>Как называются узлы</h2>
-              <p>Термины из этой схемы используются в спецификации, в чертеже и в разговоре с монтажником.</p>
-            </div>
-            <div className="border p-6" style={{ borderColor: 'var(--hair)', background: 'var(--color-steel-900)' }}>
-              <HoodDiagram island={traits.island} supply={traits.supply} />
-            </div>
-          </>
-        )}
-
         {c && p.base && (
           <>
             <div className="head mt-14"><p className="lbl">Чертёж</p><h2>Эталонный типоразмер в трёх проекциях</h2></div>
@@ -319,16 +337,22 @@ function ProductView({ slug }: { slug: string }) {
                   calc: c,
                   article: p.article,
                   productName: family?.title ?? p.name,
-                  material: '430',
+                  material,
                 }}
               />
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
               <p className="lbl">
-                Чертёж строится из тех же параметров, что и 3D-модель. Для своих габаритов соберите
-                изделие в конфигураторе — лист, спецификация и цена пересчитаются.
+                Чертёж строится из тех же параметров, что и 3D-модель. Для сборки изделия по
+                собственным габаритам — используйте конфигуратор, спецификация и цена
+                пересчитаются.
               </p>
-              <ExportButtons slug={p.slug} dims={p.base} className="export-row" />
+              <ExportButtons
+                slug={p.slug}
+                dims={p.base}
+                material={material}
+                className="export-row"
+              />
             </div>
           </>
         )}
@@ -352,13 +376,13 @@ function ProductView({ slug }: { slug: string }) {
             <div className="head mt-14"><p className="lbl">Нормы</p><h2>Требования к этому изделию</h2></div>
             <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
               {[
-                ['п. 5.28', 'Удаление продуктов горения через дымоотвод наружу или самостоятельный дымовой канал от этого зонта.'],
-                ['п. 5.30', 'Датчики температуры, сигнализаторы 95 % от максимальной температуры и падения давления воды, питание по 1-й категории, сигнал ≥ 85 дБ на 1 м.'],
-                ['п. 5.31', 'Гидрозатвор внутри зонта — участка «зонт → отдельный фильтр» не возникает.'],
-                ['п. 5.32', 'Воздуховод после изделия до оголовка не ниже EI 45 по ГОСТ Р 53299.'],
-              ].map(([id, text]) => (
+                ['5.28', 'п. 5.28', 'Удаление продуктов горения через дымоотвод наружу или самостоятельный дымовой канал от этого зонта.'],
+                ['5.30', 'п. 5.30', 'Датчики температуры, сигнализаторы 95 % от максимальной температуры и падения давления воды, питание по 1-й категории, сигнал ≥ 85 дБ на 1 м.'],
+                ['5.31', 'п. 5.31', 'Гидрозатвор внутри зонта — участка «зонт → отдельный фильтр» не возникает.'],
+                ['5.32', 'п. 5.32', 'Воздуховод после изделия до оголовка не ниже EI 45 по ГОСТ Р 53299.'],
+              ].map(([id, label, text]) => (
                 <div key={id} className="tile">
-                  <span className="lbl" style={{ color: 'var(--color-extract)' }}>{id}</span>
+                  <ClauseTipBadge clauseId={id} label={label} />
                   <p className="muted text-sm">{text}</p>
                 </div>
               ))}
@@ -368,7 +392,9 @@ function ProductView({ slug }: { slug: string }) {
             <div className="head mt-14">
               <p className="lbl">Выбор решения</p>
               <h2>Гидрозонт или гидрофильтр</h2>
-              <p>Оба закрывают п. 5.30. Разница — в том, сколько аппаратов на линии и есть ли место над очагом.</p>
+              <p>
+                <ClauseRichText text="Оба соответствуют п. 5.30. Разница — в том, сколько аппаратов на линии и есть ли место над очагом." />
+              </p>
             </div>
             <HydroChoice />
           </>
@@ -409,6 +435,29 @@ function ProductView({ slug }: { slug: string }) {
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       </div>
     </section>
+  );
+}
+
+/**
+ * Список марок: по умолчанию — жирным (304 для гидро, 430 для сухих).
+ * Дефолт ставится первым в строке.
+ */
+function MaterialsList({ materials, hydro }: { materials: string[]; hydro: boolean }) {
+  const grade = defaultMaterialGrade(hydro);
+  const ordered = [...materials].sort((a, b) => {
+    const aDef = a.includes(grade) ? 0 : 1;
+    const bDef = b.includes(grade) ? 0 : 1;
+    return aDef - bDef;
+  });
+  return (
+    <>
+      {ordered.map((m, i) => (
+        <span key={m}>
+          {i > 0 ? ' · ' : null}
+          {m.includes(grade) ? <strong>{m}</strong> : m}
+        </span>
+      ))}
+    </>
   );
 }
 

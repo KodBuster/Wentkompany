@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { calculate, type Dims } from '@/lib/calc';
+import { calculate, resolveMaterialGrade, type Dims } from '@/lib/calc';
 import { productBySlug, productsOf, traitsOf, familyByCode } from '@/lib/catalog';
 import { buildDxf, translit } from '@/lib/dxf';
 import { buildDrawingPdf, buildQuotePdf } from '@/lib/pdf';
@@ -11,7 +11,8 @@ import { site } from '@/lib/site';
 /**
  * Выгрузка конфигурации: чертёж PDF/SVG, DXF и коммерческое предложение.
  *
- * Клиент присылает только выбор пользователя — модель, габариты, опции.
+ * Клиент присылает выбор — модель, габариты, опции, опционально марку стали.
+ * Без марки берётся дефолт линейки (304 для гидро, 430 для сухих).
  * Цена, расход и состав пересчитываются здесь, на сервере, из каталога:
  * подменить цену в КП со стороны браузера нельзя.
  */
@@ -88,13 +89,14 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const material = body.material === '304' ? '304' : '430';
   const options = Array.isArray(body.options)
     ? body.options.filter((o): o is string => typeof o === 'string' && OPTIONS.includes(o))
     : [];
 
   const traits = traitsOf(product.family);
   const family = familyByCode(product.family);
+  /* Без явного выбора — марка по умолчанию для линейки (304 гидро / 430 сухой). */
+  const material = resolveMaterialGrade(body.material, traits.hydro);
 
   /* Базовая цена — из каталога, а не из запроса. */
   const basePrice = product.price ?? productsOf(product.family).find((p) => p.price)?.price ?? null;
@@ -157,7 +159,6 @@ export async function POST(request: Request) {
               phone: site.phone,
               email: site.email,
               address: site.address,
-              promo: site.promo,
             },
             leadTimeDays: '10–14 рабочих дней (уточняется производством)',
           });

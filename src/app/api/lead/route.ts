@@ -9,10 +9,9 @@ import { checkUpload } from '@/lib/upload';
  * Без них роут не падает: пишет в лог и отвечает успехом, чтобы форма
  * работала на стенде до настройки интеграций.
  *
- * Форма приходит как multipart/form-data: к заявке можно приложить чертёж
- * или эскиз. Файл нигде не сохраняется — он уходит в Telegram вместе с
- * заявкой и забывается. Так на сервере не копятся чужие чертежи, нечего
- * взламывать и нечего хранить по 152-ФЗ.
+ * Форма приходит как multipart/form-data: к заявке можно приложить до
+ * трёх чертежей/эскизов (поле drawing, несколько значений). Файлы нигде
+ * не сохраняются — уходят в Telegram и забываются.
  *
  * JSON тоже принимается — форма без файла отправляет его по-прежнему.
  */
@@ -33,6 +32,7 @@ interface Lead {
 const RATE = new Map<string, { count: number; reset: number }>();
 const LIMIT = 5;
 const WINDOW_MS = 10 * 60 * 1000;
+const MAX_FILES = 3;
 
 function rateLimited(ip: string): boolean {
   const now = Date.now();
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 
   const type = request.headers.get('content-type') || '';
   let body: Lead;
-  let file: File | null = null;
+  let rawFiles: File[] = [];
 
   try {
     if (type.includes('multipart/form-data')) {
@@ -64,8 +64,10 @@ export async function POST(request: Request) {
       body = Object.fromEntries(
         [...form.entries()].filter(([, v]) => typeof v === 'string'),
       ) as Lead;
-      const f = form.get('drawing');
-      if (f instanceof File && f.size > 0) file = f;
+      rawFiles = form
+        .getAll('drawing')
+        .filter((v): v is File => v instanceof File && v.size > 0)
+        .slice(0, MAX_FILES);
     } else {
       body = (await request.json()) as Lead;
     }
@@ -92,15 +94,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Заполните имя и телефон' }, { status: 400 });
   }
 
-  // Файл проверяем по первым байтам: заявленный тип подделывается тривиально
-  let upload: Awaited<ReturnType<typeof checkUpload>> | null = null;
-  if (file) {
-    upload = await checkUpload(file);
-    if (!upload.ok) {
-      return NextResponse.json({ error: upload.error }, { status: 400 });
+  // Файлы проверяем по первым байтам: заявленный тип подделывается тривиально
+  const uploads: NonNullable<Awaited<ReturnType<typeof checkUpload>> & { ok: true }>[] = [];
+  for (const file of rawFiles) {
+    const checked = await checkUpload(file);
+    if (!checked.ok) {
+      return NextResponse.json({ error: checked.error }, { status: 400 });
     }
+    uploads.push(checked as typeof checked & { ok: true });
   }
 
+  const fileNames = uploads.map((u) => u.filename).filter(Boolean) as string[];
   const text =
     `🔧 Заявка с сайта\n` +
     `Имя: ${lead.name}\n` +
@@ -108,7 +112,9 @@ export async function POST(request: Request) {
     `Объект: ${lead.object || '—'}\n` +
     `Задача: ${lead.task || '—'}\n` +
     (lead.configuration ? `Конфигурация: ${lead.configuration}\n` : '') +
-    (upload ? `Файл: ${upload.filename}\n` : '') +
+    (fileNames.length
+      ? `Файлы (${fileNames.length}): ${fileNames.join(', ')}\n`
+      : '') +
     `Страница: ${lead.page || '/'}`;
 
   const tasks: Promise<unknown>[] = [];
@@ -116,45 +122,38 @@ export async function POST(request: Request) {
   const chat = process.env.TELEGRAM_CHAT_ID;
 
   if (token && chat) {
-    if (upload?.bytes && upload.meta) {
-      // Файл и заявка одним сообщением: подпись Telegram ограничена 1024
-      // символами, поэтому длинный текст уходит отдельным сообщением следом.
+    // Сначала текст заявки, затем каждый файл отдельным сообщением
+    tasks.push(
+      fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true }),
+      }),
+    );
+    for (const upload of uploads) {
+      if (!upload.bytes || !upload.meta || !upload.filename) continue;
       const form = new FormData();
       form.set('chat_id', chat);
-      form.set('caption', text.slice(0, 1024));
       form.set(
         'document',
         new Blob([new Uint8Array(upload.bytes)], { type: upload.meta.mime }),
         upload.filename,
       );
       tasks.push(fetch(`https://api.telegram.org/bot${token}/sendDocument`, { method: 'POST', body: form }));
-      if (text.length > 1024) {
-        tasks.push(
-          fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true }),
-          }),
-        );
-      }
-    } else {
-      tasks.push(
-        fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true }),
-        }),
-      );
     }
   }
 
   if (process.env.CRM_WEBHOOK_URL) {
-    // В CRM уходит только текст заявки: файл живёт в Telegram у менеджера
+    // В CRM уходит только текст заявки: файлы живут в Telegram у менеджера
     tasks.push(
       fetch(process.env.CRM_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...lead, drawing: upload?.filename ?? null }),
+        body: JSON.stringify({
+          ...lead,
+          drawing: fileNames[0] ?? null,
+          drawings: fileNames,
+        }),
       }),
     );
   }
@@ -162,7 +161,7 @@ export async function POST(request: Request) {
   if (tasks.length === 0) {
     console.info('[lead] интеграции не настроены, заявка только в логе:', {
       ...lead,
-      drawing: upload ? `${upload.filename} (${upload.bytes!.length} Б)` : null,
+      drawings: uploads.map((u) => `${u.filename} (${u.bytes!.length} Б)`),
     });
     return NextResponse.json({ ok: true, delivered: 'log' });
   }
@@ -176,4 +175,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true, delivered: results.length - failed.length });
 }
-

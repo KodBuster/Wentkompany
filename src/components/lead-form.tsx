@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type DragEvent } from 'react';
 import { GOALS, track } from '@/lib/analytics';
 
 type Status = 'idle' | 'sending' | 'ok' | 'error';
@@ -17,12 +17,26 @@ const OBJECTS = [
 /** Что принимаем от заказчика: фото, PDF и DXF. Проверяется ещё раз на сервере. */
 const ACCEPT = '.jpg,.jpeg,.png,.webp,.heic,.pdf,.dxf,image/*,application/pdf';
 const MAX_MB = 10;
+/** Сколько файлов можно приложить к одной заявке. */
+const MAX_FILES = 3;
+
+const ALLOWED_EXT = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'pdf', 'dxf']);
 
 /** Мелкий файл в мегабайтах выглядит как «0.0 МБ» — показываем килобайты. */
 const fileSize = (bytes: number) =>
   bytes < 1024 * 1024
     ? `${Math.max(1, Math.round(bytes / 1024))} КБ`
     : `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} МБ`;
+
+function isAllowedFile(f: File) {
+  if (f.type.startsWith('image/') || f.type === 'application/pdf') return true;
+  const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
+  return ALLOWED_EXT.has(ext);
+}
+
+function sameFile(a: File, b: File) {
+  return a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
+}
 
 export function LeadForm({
   configuration,
@@ -34,12 +48,15 @@ export function LeadForm({
 }) {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
-  const [drawing, setDrawing] = useState<File | null>(null);
-  const [drawingSent, setDrawingSent] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [filesSent, setFilesSent] = useState(0);
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const dragDepth = useRef(0);
 
   const isOrder = mode === 'order';
   const isQuote = mode === 'quote';
+  const canAddMore = files.length < MAX_FILES;
 
   const cfgLabel = isOrder
     ? 'Заказ по конфигурации'
@@ -54,10 +71,10 @@ export function LeadForm({
       : 'Например: тандыр и мангал во встроенном помещении, потолок 3,2 м, приёмка в ноябре';
 
   const fileHint = isQuote
-    ? `Приложите эскизы, чертежи или фото узла — PDF, DXF или фото до ${MAX_MB} МБ. Файл уходит менеджеру вместе с заявкой и на сервере не сохраняется.`
+    ? `До ${MAX_FILES} файлов: эскизы, чертежи, PDF, DXF или фото (каждый до ${MAX_MB} МБ). Уходит менеджеру вместе с заявкой, на сервере не сохраняется.`
     : isOrder
-      ? `По желанию — план кухни или фото места монтажа (до ${MAX_MB} МБ). Конфигурация уже в заявке; файл на сервере не сохраняется.`
-      : `Фото, PDF или DXF до ${MAX_MB} МБ. Подойдёт эскиз от руки с размерами — файл уходит менеджеру вместе с заявкой и на сервере не сохраняется.`;
+      ? `По желанию — до ${MAX_FILES} файлов: план кухни, фото места (каждый до ${MAX_MB} МБ). Конфигурация уже в заявке; файлы на сервере не сохраняются.`
+      : `До ${MAX_FILES} файлов: фото, PDF или DXF (каждый до ${MAX_MB} МБ). Подойдёт эскиз от руки — уходит менеджеру, на сервере не сохраняется.`;
 
   const submitLabel = isOrder
     ? 'Отправить заказ'
@@ -65,15 +82,82 @@ export function LeadForm({
       ? 'Запросить точную цену'
       : 'Отправить заявку';
 
-  function pickFile(f: File | null) {
-    if (f && f.size > MAX_MB * 1024 * 1024) {
-      setError(`Файл больше ${MAX_MB} МБ. Пришлите чертёж почтой или в мессенджере.`);
-      if (fileRef.current) fileRef.current.value = '';
-      setDrawing(null);
-      return;
+  /** Синхронизируем input с списком — FormData подхватит все файлы. */
+  function syncInput(next: File[]) {
+    if (!fileRef.current) return;
+    const dt = new DataTransfer();
+    next.forEach((f) => dt.items.add(f));
+    fileRef.current.files = dt.files;
+  }
+
+  function addFiles(incoming: FileList | File[] | null) {
+    if (!incoming || incoming.length === 0) return;
+    const list = Array.from(incoming);
+    const next = [...files];
+    const problems: string[] = [];
+
+    for (const f of list) {
+      if (next.length >= MAX_FILES) {
+        problems.push(`Можно приложить не больше ${MAX_FILES} файлов.`);
+        break;
+      }
+      if (f.size > MAX_MB * 1024 * 1024) {
+        problems.push(`«${f.name}» больше ${MAX_MB} МБ.`);
+        continue;
+      }
+      if (!isAllowedFile(f)) {
+        problems.push(`«${f.name}» — нужен фото, PDF или DXF.`);
+        continue;
+      }
+      if (next.some((x) => sameFile(x, f))) continue;
+      next.push(f);
     }
+
+    setFiles(next);
+    syncInput(next);
+    setError(problems[0] ?? '');
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  function removeFile(index: number) {
+    const next = files.filter((_, i) => i !== index);
+    setFiles(next);
+    syncInput(next);
     setError('');
-    setDrawing(f);
+  }
+
+  function clearFiles() {
+    setFiles([]);
+    syncInput([]);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  function onDragEnter(e: DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current += 1;
+    setDragOver(true);
+  }
+
+  function onDragLeave(e: DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragOver(false);
+  }
+
+  function onDragOver(e: DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  }
+
+  function onDrop(e: DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current = 0;
+    setDragOver(false);
+    addFiles(e.dataTransfer.files);
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -95,14 +179,21 @@ export function LeadForm({
         fd.set('configuration', `${prefix}${configuration}`);
       }
       if (mode) fd.set('leadMode', mode);
-      if (!drawing) fd.delete('drawing');
+      fd.delete('drawing');
+      files.forEach((f) => fd.append('drawing', f));
       const res = await fetch('/api/lead', { method: 'POST', body: fd });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Не удалось отправить заявку');
       setStatus('ok');
-      track(GOALS.leadSent, { withConfiguration: Boolean(configuration), withDrawing: Boolean(drawing), mode: mode ?? 'plain' });
-      setDrawingSent(Boolean(drawing));
+      track(GOALS.leadSent, {
+        withConfiguration: Boolean(configuration),
+        withDrawing: files.length > 0,
+        fileCount: files.length,
+        mode: mode ?? 'plain',
+      });
+      setFilesSent(files.length);
       form.reset();
-      setDrawing(null);
+      clearFiles();
+      setDragOver(false);
     } catch (err) {
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Не удалось отправить заявку');
@@ -116,8 +207,12 @@ export function LeadForm({
         <p className="muted mt-2 text-sm">
           Свяжемся в течение рабочего дня. Если вопрос срочный — позвоните, ответим быстрее.
         </p>
-        {drawingSent && (
-          <p className="hint mt-3">Чертёж ушёл вместе с заявкой — на сервере он не сохраняется.</p>
+        {filesSent > 0 && (
+          <p className="hint mt-3">
+            {filesSent === 1
+              ? 'Файл ушёл вместе с заявкой — на сервере он не сохраняется.'
+              : `${filesSent} файла ушли вместе с заявкой — на сервере они не сохраняются.`}
+          </p>
         )}
         <button type="button" className="btn btn-ghost mt-4" onClick={() => setStatus('idle')}>
           Отправить ещё одну
@@ -175,57 +270,86 @@ export function LeadForm({
         />
       </label>
 
+      {/* Зона вложения: до MAX_FILES файлов, кнопка + drag-and-drop */}
       <div
-        className="field"
+        className={`lead-attach${dragOver ? ' lead-attach--over' : ''}`}
         style={
           isQuote
             ? {
-                border: '1px solid rgba(184,92,56,.35)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '0.75rem',
-                background: 'rgba(184,92,56,.06)',
+                borderColor: dragOver ? 'var(--color-extract)' : 'rgba(184,92,56,.45)',
+                background: dragOver ? 'rgba(184,92,56,.16)' : 'rgba(184,92,56,.08)',
               }
-            : undefined
+            : {
+                borderColor: dragOver ? 'var(--color-supply)' : 'rgba(88,180,220,.4)',
+                background: dragOver ? 'rgba(88,180,220,.16)' : 'rgba(88,180,220,.08)',
+              }
         }
+        onDragEnter={onDragEnter}
+        onDragLeave={onDragLeave}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
       >
-        <span className="lbl">
-          {isQuote ? 'Эскизы и чертежи для пересчёта' : 'Чертёж или эскиз'}
+        <span
+          className="lead-attach__title"
+          style={{ color: isQuote ? 'var(--color-extract)' : 'var(--color-supply)' }}
+        >
+          Приложить чертёж или эскиз, или иной документ
         </span>
-        {/* Нативную кнопку прячем: её надпись зависит от языка системы
-            и на русской странице легко оказывается «Choose File». */}
+        <p className="lead-attach__drop">
+          {dragOver
+            ? 'Отпустите файлы здесь'
+            : canAddMore
+              ? `Перетащите фото или PDF сюда — или выберите кнопкой (до ${MAX_FILES})`
+              : `Уже ${MAX_FILES} файла — уберите лишний, чтобы добавить другой`}
+        </p>
+        {/* Нативную кнопку прячем: её надпись зависит от языка системы */}
         <input
           ref={fileRef}
           id="lead-drawing"
           type="file"
           name="drawing"
           accept={ACCEPT}
+          multiple
           className="sr-only"
-          onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
+          disabled={!canAddMore}
+          onChange={(e) => {
+            addFiles(e.target.files);
+          }}
         />
-        <div className="flex flex-wrap items-center gap-3">
-          <label htmlFor="lead-drawing" className="btn btn-ghost cursor-pointer">
-            {drawing ? 'Выбрать другой' : isQuote ? 'Приложить файл' : 'Выбрать файл'}
-          </label>
-          {drawing && (
-            <>
-              <span className="num text-sm" style={{ color: 'var(--color-supply)' }}>
-                {drawing.name} · {fileSize(drawing.size)}
-              </span>
-              <button
-                type="button"
-                className="cfg-ghost-btn"
-                style={{ width: 'auto' }}
-                onClick={() => {
-                  if (fileRef.current) fileRef.current.value = '';
-                  setDrawing(null);
-                }}
-              >
-                Убрать
-              </button>
-            </>
+        <div className="lead-attach__row">
+          {canAddMore && (
+            <label htmlFor="lead-drawing" className="btn cursor-pointer lead-attach__btn">
+              {files.length === 0 ? 'Выбрать файл' : 'Добавить ещё файл'}
+            </label>
+          )}
+          {files.length > 0 && (
+            <span className="lbl" style={{ color: 'var(--color-steel-400)' }}>
+              {files.length} из {MAX_FILES}
+            </span>
           )}
         </div>
-        <span className="hint">{fileHint}</span>
+
+        {files.length > 0 && (
+          <ul className="lead-attach__list">
+            {files.map((f, i) => (
+              <li key={`${f.name}-${f.size}-${f.lastModified}-${i}`} className="lead-attach__item">
+                <span className="num text-sm" style={{ color: 'var(--color-supply)' }}>
+                  {f.name} · {fileSize(f.size)}
+                </span>
+                <button
+                  type="button"
+                  className="cfg-ghost-btn"
+                  style={{ width: 'auto' }}
+                  onClick={() => removeFile(i)}
+                >
+                  Убрать
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <span className="hint lead-attach__hint">{fileHint}</span>
       </div>
 
       {/* honeypot для ботов — скрыт от людей и скринридеров */}

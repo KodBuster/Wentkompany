@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { ClauseTipBadge } from '@/components/clause-tip';
 import { GOALS, track } from '@/lib/analytics';
 
 interface Item {
@@ -15,35 +15,6 @@ interface Item {
   /** что предлагаем, если ответ «нет» */
   fix: string;
 }
-
-/** Краткие формулировки пунктов — те же смыслы, что в блоке «Шесть пунктов» выше. */
-const CLAUSE_TIP: Record<string, { title: string; text: string }> = {
-  '5.28': {
-    title: 'Схема удаления',
-    text:
-      'Удаление продуктов горения предусматривается через дымоотвод наружу или в самостоятельный дымовой канал от вытяжного зонта над оборудованием. Прокладка дымоотводов через другие помещения не допускается.',
-  },
-  '5.29': {
-    title: 'Противопожарные разрывы',
-    text:
-      'Пол по периметру аппарата — из негорючих материалов шириной не менее 500 мм. До предметов из горючих материалов и мест хранения топлива — не менее 3,0 м; ближе только в закрытых металлических ящиках и шкафах, но не ближе 500 мм.',
-  },
-  '5.30': {
-    title: 'Гидрофильтры и обвязка',
-    text:
-      'Датчики температуры на входах в гидрофильтр. Световые и звуковые сигнализаторы при 95 % от максимальной рабочей температуры и при падении давления воды, не далее 2 м от аппарата. Электроснабжение — по 1-й категории. Звуковой сигнал не менее 85 дБ на 1 м.',
-  },
-  '5.32': {
-    title: 'Тракт после гидрофильтра',
-    text:
-      'Воздуховоды на участке после гидрофильтра до оголовка — с пределом огнестойкости не менее EI 45 по ГОСТ Р 53299. Подключение к ним выбросов общеобменной и местной вентиляции не допускается.',
-  },
-  '5.33': {
-    title: 'Вентиляторы',
-    text:
-      'При применении вентиляторов для повышения тяги — предел огнестойкости не менее 2,0 ч при 400 °C, электроснабжение по 1-й категории надёжности.',
-  },
-};
 
 const ITEMS: Item[] = [
   {
@@ -111,108 +82,6 @@ const ITEMS: Item[] = [
 ];
 
 type Answer = 'yes' | 'no' | null;
-
-/** Розовый бейдж пункта: курсор «?»; по клику — текст нормы (можно копировать). */
-function ClauseTipBadge({ clauseId, label }: { clauseId: string; label: string }) {
-  const tip = CLAUSE_TIP[clauseId];
-  const hitRef = useRef<HTMLSpanElement>(null);
-  const tipRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
-  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: Event) => {
-      const t = e.target as Node | null;
-      if (hitRef.current?.contains(t)) return;
-      if (tipRef.current?.contains(t)) return;
-      setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  if (!tip) {
-    return <span className="badge badge-crit">{label}</span>;
-  }
-
-  const tipW = 300;
-  const tipH = 168;
-  const gap = 14;
-
-  let left = 0;
-  let top = 0;
-  let placeAbove = false;
-  if (anchor) {
-    left = anchor.x + gap;
-    if (left + tipW > window.innerWidth - 12) {
-      left = anchor.x - tipW - gap;
-    }
-    placeAbove = window.innerHeight - anchor.y < tipH + 28;
-    top = placeAbove ? anchor.y - gap : anchor.y + gap;
-  }
-
-  return (
-    <>
-      <span
-        ref={hitRef}
-        className="badge badge-crit clause-tip-hit"
-        role="button"
-        tabIndex={0}
-        aria-expanded={open}
-        aria-label={`${label}: ${tip.title}. Нажмите, чтобы прочитать формулировку.`}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (open) {
-            setOpen(false);
-            return;
-          }
-          setAnchor({ x: e.clientX, y: e.clientY });
-          setOpen(true);
-        }}
-        onKeyDown={(e) => {
-          if (e.key !== 'Enter' && e.key !== ' ') return;
-          e.preventDefault();
-          const r = hitRef.current?.getBoundingClientRect();
-          if (!r) return;
-          if (open) {
-            setOpen(false);
-            return;
-          }
-          setAnchor({ x: r.left + r.width / 2, y: r.bottom });
-          setOpen(true);
-        }}
-      >
-        {label}
-      </span>
-      {open &&
-        anchor &&
-        createPortal(
-          <div
-            ref={tipRef}
-            className={`clause-tip clause-tip--interactive${placeAbove ? ' clause-tip--above' : ''}`}
-            style={{ left, top }}
-            role="dialog"
-            aria-label={`п. ${clauseId}: ${tip.title}`}
-          >
-            <p className="lbl" style={{ color: 'var(--color-extract)' }}>
-              п. {clauseId}
-            </p>
-            <p className="clause-tip__title">{tip.title}</p>
-            <p className="clause-tip__text">{tip.text}</p>
-          </div>,
-          document.body,
-        )}
-    </>
-  );
-}
 
 export function ComplianceCheck() {
   const [answers, setAnswers] = useState<Record<string, Answer>>({});

@@ -1,28 +1,20 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
-import data from '@/data/neutral.json';
 import { CallLink } from '@/components/call-link';
 import { PageBackdrop } from '@/components/page-backdrop';
+import { neutralFullName, neutralItems } from '@/lib/neutral';
 import { site } from '@/lib/site';
 
 /**
- * Нейтральное оборудование.
- *
- * Одна страница-галерея, а не карточки товаров: у этих изделий нет ни
- * артикулов, ни прайса — они делаются по размерам заказчика. Пять «барных
- * станций» с одинаковым описанием, как было на старом сайте, — это дубли,
- * которые ничего не добавляют ни человеку, ни поиску.
- *
- * Раздел намеренно скромный и стоит в стороне от основного пути: сайт
- * читается как производитель вентиляции под требования МЧС, а нейтралка —
- * ответ на вопрос «а это тоже сделаете?».
+ * Оглавление нейтралки: карточки позиций.
+ * Галерея каждой позиции — на своей странице /eshchyo-delaem/[slug].
  */
 
 export const metadata: Metadata = {
   title: 'Нейтральное оборудование из нержавеющей стали на заказ',
   description:
-    'Барные станции, шкафы для мусора и урны из нержавеющей стали по размерам заказчика. ' +
+    'Барные станции (типы 1–5), шкафы для мусора и урны из нержавеющей стали по размерам заказчика. ' +
     'Изготовление на собственном производстве вместе с вентиляционным оборудованием.',
   alternates: { canonical: '/eshchyo-delaem' },
   openGraph: {
@@ -31,9 +23,7 @@ export const metadata: Metadata = {
   },
 };
 
-const groups = data.groups;
-
-export default function NeutralPage() {
+export default function NeutralIndexPage() {
   return (
     <>
       <section className="band band-shop page-hero band--backdrop">
@@ -41,57 +31,73 @@ export default function NeutralPage() {
         <div className="wrap">
           <div className="backdrop-copy">
             <p className="lbl">Нейтральное оборудование</p>
-            <h1>Ещё делаем<br />из нержавейки</h1>
+            <h1>
+              Ещё делаем
+              <br />
+              из нержавейки
+            </h1>
             <p className="muted mt-6 max-w-[62ch] text-lg">
               Основное производство — вентиляция: зонты, гидрозонты и гидрофильтры. Но тот же цех,
               та же сталь и та же аргонодуговая сварка позволяют делать и нейтральное оборудование
               для кухни и зала — по размерам заказчика.
             </p>
             <p className="hint mt-5 max-w-[62ch]">
-              Готовых типоразмеров и прайса здесь нет: каждая вещь считается по вашему чертежу или
-              эскизу. Ниже — примеры выполненных работ.
+              Готовых типоразмеров и прайса здесь нет. Откройте позицию — там только её фото и
+              описание.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/contacts" className="btn">Запросить расчёт</Link>
-              <Link href="/catalog" className="btn btn-ghost">Каталог вентиляции</Link>
+              <Link href="/contacts" className="btn">
+                Запросить расчёт
+              </Link>
+              <Link href="/#catalog" className="btn btn-ghost">
+                Каталог вентиляции
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {groups.map((g, i) => (
-        <section key={g.slug} id={g.slug} className={`band ${i % 2 === 0 ? 'band-deep' : 'band-shop'}`}>
-          <div className="wrap">
-            <div className="head">
-              <p className="lbl">Примеры работ</p>
-              <h2>{g.title}</h2>
-              <p className="muted">{g.lead}</p>
-            </div>
-            {/* auto-fill + верхняя граница ячейки: одна фотография не растягивается
-                на всю полосу, как это было бы с auto-fit */}
-            <div
-              className="grid gap-2"
-              style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(230px,300px))', justifyContent: 'start' }}
-            >
-              {g.photos.map((src) => (
-                <div
-                  key={src}
-                  className="relative aspect-[4/3] overflow-hidden border"
-                  style={{ borderColor: 'var(--hair)', background: 'var(--color-steel-850)' }}
-                >
-                  <Image
-                    src={src}
-                    alt={`${g.title} из нержавеющей стали — пример исполнения`}
-                    fill
-                    sizes="(max-width: 900px) 100vw, 320px"
-                    style={{ objectFit: 'contain' }}
-                  />
-                </div>
-              ))}
-            </div>
+      <section className="band band-deep">
+        <div className="wrap">
+          <div className="head">
+            <p className="lbl">Позиции</p>
+            <h2>Что делаем на заказ</h2>
           </div>
-        </section>
-      ))}
+          <div className="home-catalog__types home-catalog__types--neutral">
+            {neutralItems.map((item) => (
+              <article key={item.slug} className="home-catalog__type home-catalog__type--neutral">
+                <Link
+                  href={`/eshchyo-delaem/${item.slug}`}
+                  className="home-catalog__visuals no-underline"
+                >
+                  <span className="home-catalog__photo">
+                    <Image
+                      src={item.photos[0]}
+                      alt={neutralFullName(item)}
+                      width={640}
+                      height={480}
+                      className="home-catalog__img"
+                      sizes="(max-width: 860px) 100vw, 280px"
+                    />
+                  </span>
+                </Link>
+                <div className="home-catalog__body">
+                  <Link href={`/eshchyo-delaem/${item.slug}`} className="no-underline">
+                    <span className="lbl">{item.label}</span>
+                    <h3 className="home-catalog__type-title">{item.title}</h3>
+                  </Link>
+                  <p className="muted text-sm leading-relaxed">{item.lead}</p>
+                  <div className="home-catalog__cta">
+                    <Link href={`/eshchyo-delaem/${item.slug}`} className="btn home-catalog__btn">
+                      Подробнее
+                    </Link>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section className="band band-paper">
         <div className="wrap">
@@ -105,10 +111,6 @@ export default function NeutralPage() {
             <li>Марка стали: AISI 430 как стандарт, AISI 304 — где важна стойкость к влаге и химии.</li>
             <li>Сколько штук и к какому сроку.</li>
           </ol>
-          <p className="mt-5 max-w-[70ch] text-sm">
-            Эскиза от руки с размерами обычно достаточно. Если изделие едет вместе с вентиляцией
-            на один объект — считаем и везём одним комплектом.
-          </p>
         </div>
       </section>
 
@@ -121,7 +123,9 @@ export default function NeutralPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link href="/contacts" className="btn">Оставить заявку</Link>
+            <Link href="/contacts" className="btn">
+              Оставить заявку
+            </Link>
             <CallLink className="btn btn-ghost num" label={site.phone} />
           </div>
         </div>

@@ -34,7 +34,7 @@ export function SiteFooter() {
             <Link href="/eshchyo-delaem" className="site-footer-link">Нейтральное оборудование</Link>
             <Link href="/normy-mchs" className="site-footer-link">Требования СП 7.13130 · Изм. № 3</Link>
             <Link href="/configurator" className="site-footer-link">Конфигуратор и выгрузка</Link>
-            <Link href="/catalog" className="site-footer-link">Типоразмеры и цены</Link>
+            <Link href="/#catalog" className="site-footer-link">Типоразмеры и цены</Link>
           </div>
           <div>
             <h2 className="mb-4 text-sm text-steel-300 normal-case tracking-normal">Контакты</h2>

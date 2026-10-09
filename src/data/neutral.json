@@ -1,37 +1,87 @@
 {
-  "comment": "Нейтральное оборудование из нержавеющей стали. Это не типоразмеры с артикулами и прайсом, а примеры работ по размерам заказчика — поэтому одна страница-галерея, а не карточки товаров. Фото временные: вырезаны из карточек старого сайта.",
-  "groups": [
+  "comment": "Нейтральное оборудование — отдельные позиции. Барные станции — тип 1…5; урна и шкаф отдельно. Без прайса, по размерам заказчика.",
+  "items": [
     {
-      "slug": "barnye-stancii",
-      "title": "Барные станции",
-      "lead": "Мойка, отсеки под лёд и бутылки, перфорированная вставка, ополаскиватель. Делаются под конкретную стойку: встраиваемые в столешницу, на открытой раме или с закрытой тумбой.",
+      "slug": "barnaya-stanciya-1",
+      "kind": "bar",
+      "label": "На заказ",
+      "title": "Барная станция · тип 1",
+      "lead": "Из нержавеющей стали по размерам заказчика, разных видов.",
       "photos": [
-        "/nejtralnoe/barnaya-stanciya-1-1.webp",
-        "/nejtralnoe/barnaya-stanciya-1-2.webp",
-        "/nejtralnoe/barnaya-stanciya-3-1.webp",
-        "/nejtralnoe/barnaya-stanciya-4-1.webp",
-        "/nejtralnoe/barnaya-stanciya-4-3.webp",
-        "/nejtralnoe/barnaya-stanciya-4-4.webp",
-        "/nejtralnoe/barnaya-stanciya-5-1.webp",
-        "/nejtralnoe/barnaya-stanciya-5-2.webp",
-        "/nejtralnoe/barnaya-stanciya-5-3.webp"
+        "/nejtralnoe/barnaya-stanciya-1-1.jpg",
+        "/nejtralnoe/barnaya-stanciya-1-2.jpg"
       ]
     },
     {
-      "slug": "shkafy-dlya-musora",
-      "title": "Шкафы для мусора",
-      "lead": "Закрытый корпус под бак, откидная крышка, при необходимости — колёса. Ставятся в зоне мойки и на линии раздачи, где открытый бак не годится по санитарным требованиям.",
+      "slug": "barnaya-stanciya-2",
+      "kind": "bar",
+      "label": "На заказ",
+      "title": "Барная станция · тип 2",
+      "lead": "Из нержавеющей стали по размерам заказчика, разных видов.",
       "photos": [
-        "/nejtralnoe/shkaf-dlya-musora-1.webp",
-        "/nejtralnoe/shkaf-dlya-musora-2.webp",
-        "/nejtralnoe/shkaf-dlya-musora-3.webp"
+        "/nejtralnoe/barnaya-stanciya-2-1.jpg",
+        "/nejtralnoe/barnaya-stanciya-2-2.jpg",
+        "/nejtralnoe/barnaya-stanciya-2-3.jpg",
+        "/nejtralnoe/barnaya-stanciya-2-4.jpg"
       ]
     },
     {
-      "slug": "urny",
-      "title": "Урны",
-      "lead": "Для зала, входной группы и летней веранды: с крышкой и открытые, под размер помещения и под нужный объём вкладыша.",
-      "photos": ["/nejtralnoe/urna-1.webp"]
+      "slug": "barnaya-stanciya-3",
+      "kind": "bar",
+      "label": "На заказ",
+      "title": "Барная станция · тип 3",
+      "lead": "Из нержавеющей стали по размерам заказчика, разных видов.",
+      "photos": ["/nejtralnoe/barnaya-stanciya-3-1.jpg"]
+    },
+    {
+      "slug": "barnaya-stanciya-4",
+      "kind": "bar",
+      "label": "На заказ",
+      "title": "Барная станция · тип 4",
+      "lead": "Из нержавеющей стали по размерам заказчика, разных видов.",
+      "photos": [
+        "/nejtralnoe/barnaya-stanciya-4-1.jpg",
+        "/nejtralnoe/barnaya-stanciya-4-2.jpg",
+        "/nejtralnoe/barnaya-stanciya-4-3.jpg",
+        "/nejtralnoe/barnaya-stanciya-4-4.jpg"
+      ]
+    },
+    {
+      "slug": "barnaya-stanciya-5",
+      "kind": "bar",
+      "label": "На заказ",
+      "title": "Барная станция · тип 5",
+      "lead": "Из нержавеющей стали по размерам заказчика, разных видов.",
+      "photos": [
+        "/nejtralnoe/barnaya-stanciya-5-1.jpg",
+        "/nejtralnoe/barnaya-stanciya-5-2.jpg",
+        "/nejtralnoe/barnaya-stanciya-5-3.jpg",
+        "/nejtralnoe/barnaya-stanciya-5-4.jpg"
+      ]
+    },
+    {
+      "slug": "urna",
+      "kind": "other",
+      "label": "На заказ",
+      "title": "Урна из нержавеющей стали",
+      "lead": "Урны изготавливаются из нержавеющей стали по размерам заказчика, разных видов.",
+      "photos": [
+        "/nejtralnoe/urna-1.jpg",
+        "/nejtralnoe/urna-2.png",
+        "/nejtralnoe/urna-3.png"
+      ]
+    },
+    {
+      "slug": "shkaf-dlya-musora",
+      "kind": "other",
+      "label": "На заказ",
+      "title": "Шкаф для мусора из нержавеющей стали",
+      "lead": "Шкафы для мусора изготавливаются из нержавеющей стали по размерам заказчика, разных видов.",
+      "photos": [
+        "/nejtralnoe/shkaf-dlya-musora-1.jpg",
+        "/nejtralnoe/shkaf-dlya-musora-2.jpg",
+        "/nejtralnoe/shkaf-dlya-musora-3.jpg"
+      ]
     }
   ]
 }

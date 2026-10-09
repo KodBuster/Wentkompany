@@ -26,8 +26,13 @@ export interface Product {
   features: string[];
   description: string;
   images: string[];
+  /** Статичная схемка-съёмка (под фото на главной и второй кадр галереи) */
+  schemeImage?: string | null;
   legacyUrl: string;
 }
+
+/** Путь к схемке-съёмке типа, если есть. */
+export const schemeOf = (p: Product) => p.schemeImage || null;
 
 export const families = data.families as FamilyRecord[];
 export const products = data.products as Product[];
@@ -51,6 +56,11 @@ export const complianceProducts = products.filter(
 /** Линейки зонтов для профессиональной кухни без открытого огня. */
 export const hoodFamilies = families.filter((f) =>
   ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ПИР'].includes(f.code),
+);
+
+/** Каталог на главной: обычные зонты, гидрозатвор, ПИР/ГФ/АВТ. */
+export const homeCatalogFamilies = families.filter((f) =>
+  ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'ЗВОГ', 'ПИР', 'ГФ', 'АВТ'].includes(f.code),
 );
 
 export const priceFrom = (code: string) => familyByCode(code)?.priceFrom ?? null;

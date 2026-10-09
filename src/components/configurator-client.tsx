@@ -10,10 +10,19 @@ import {
 } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { calculate, ru, rub, dec, type Dims, type FamilyTraits } from '@/lib/calc';
+import {
+  calculate,
+  ru,
+  rub,
+  dec,
+  defaultMaterialGrade,
+  type Dims,
+  type FamilyTraits,
+} from '@/lib/calc';
 import { buildLayout } from '@/lib/geometry';
 import { HoodDrawing } from './hood-drawing';
 import { ExportButtons } from './export-buttons';
+import { ClauseRichText } from '@/components/clause-tip';
 import type { ViewMode } from './hood-scene';
 import { GOALS, track } from '@/lib/analytics';
 
@@ -326,7 +335,10 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
 
   const [dims, setDims] = useState<Dims>(() => resolveInitialDims(model, initialDims));
   const [mount, setMount] = useState(DEFAULT_MOUNT);
-  const [material, setMaterial] = useState<'430' | '304'>('430');
+  /* 304 — гидроконтур; 430 — обычный зонт без воды */
+  const [material, setMaterial] = useState<'430' | '304'>(() =>
+    defaultMaterialGrade(family.hydro),
+  );
   const [options, setOptions] = useState<string[]>([]);
   const [mode, setMode] = useState<ViewMode>('solid');
   const [view, setView] = useState<'3d' | 'draft'>('3d');
@@ -377,8 +389,10 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
 
   function selectModel(slug: string) {
     const next = models.find((m) => m.slug === slug)!;
+    const nextFamily = families.find((f) => f.code === next.family)!;
     setModelSlug(slug);
     setDims({ h: next.h, w: next.w, d: next.d });
+    setMaterial(defaultMaterialGrade(nextFamily.hydro));
   }
 
   /** Жёсткий сброс к состоянию при входе + вернуть зонт в кадр */
@@ -529,7 +543,11 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
             ))}
           </div>
           <p className="hint">
-            AISI 304 — для влажных зон и гидроконтура. Надбавка оценочная, уточняется у производства.
+            По умолчанию: AISI {defaultMaterialGrade(traits.hydro)}
+            {traits.hydro
+              ? ' — нержавейка для водяных сред и гидроконтура.'
+              : ' — стандарт для зонтов без воды; 304 — если важна стойкость к влаге.'}{' '}
+            Надбавка за 304 оценочная, уточняется у производства.
           </p>
         </div>
 
@@ -698,7 +716,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
                     : 'badge badge-warn'
                 }
               >
-                {w}
+                <ClauseRichText text={w} />
               </span>
             ))}
           </div>

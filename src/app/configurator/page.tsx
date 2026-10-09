@@ -76,7 +76,7 @@ export default async function ConfiguratorPage({
             Цена вне типоразмера считается предварительно, от площади изделия. Точную подтверждаем
             расчётом — пришлите конфигурацию, ответим с окончательной суммой и сроком.
           </p>
-          <Link href="/catalog" className="btn btn-ghost">Каталог с ценами</Link>
+          <Link href="/#catalog" className="btn btn-ghost">Каталог с ценами</Link>
         </div>
       </div>
     </section>

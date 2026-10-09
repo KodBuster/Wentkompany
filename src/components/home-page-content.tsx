@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { HoodDiagram } from '@/components/hood-diagram';
+import { HomeCatalog } from '@/components/home-catalog';
 import { HoverZoom } from '@/components/hover-zoom';
 import { PageBackdrop } from '@/components/page-backdrop';
-import { hoodFamilies, complianceProducts, priceFrom } from '@/lib/catalog';
+import { complianceProducts, priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { norms } from '@/lib/site';
 
@@ -55,7 +56,7 @@ export function HomePageContent() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/configurator" className="btn">Собрать зонт</Link>
-              <Link href="/catalog" className="btn btn-ghost">Смотреть каталог</Link>
+              <Link href="/#catalog" className="btn btn-ghost">Смотреть каталог</Link>
             </div>
           </div>
           <div className="hero__visual hero__visual--photo">
@@ -126,33 +127,14 @@ export function HomePageContent() {
         </div>
       </section>
 
-      <section className="band band-paper">
+      {/* Без фото: сосед сверху уже с backdrop — черезстрочная полоса */}
+      <section id="catalog" className="band band-catalog">
         <div className="wrap">
           <div className="head">
             <p className="lbl">Каталог</p>
-            <h2>Линейки зонтов для профессиональной кухни</h2>
-            <p>Базовые цены для эталонного типоразмера с жироуловителями.</p>
+            <h2>Каталог: зонты, гидрофильтр и автоматика</h2>
           </div>
-          <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))' }}>
-            {hoodFamilies.map((f) => (
-              <Link key={f.slug} href={`/catalog/${f.slug}`} className="tile no-underline">
-                <span className="lbl">{f.code}</span>
-                <h3>{f.title}</h3>
-                <p className="muted text-sm leading-relaxed">
-                  {f.island ? 'Островное исполнение' : 'Пристенное исполнение'}
-                  {f.supply ? ' · с притоком' : ''}
-                  {f.hydro ? ' · с гидрозатвором' : ''}
-                </p>
-                <span
-                  className="num mt-auto border-t pt-3 text-lg"
-                  style={{ borderColor: 'var(--hair-l)', color: 'var(--color-steel-100)' }}
-                >
-                  {f.priceFrom ? `от ${rub(f.priceFrom)}` : 'по запросу'}
-                  <span className="lbl ml-2">{f.count}&nbsp;шт</span>
-                </span>
-              </Link>
-            ))}
-          </div>
+          <HomeCatalog />
         </div>
       </section>
 

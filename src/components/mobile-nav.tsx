@@ -50,12 +50,16 @@ export function MobileNav({ links }: { links: { href: string; label: string }[] 
         <div id="mobile-nav" className="nav-sheet lg:hidden">
           <nav aria-label="Основная навигация">
             {links.map((l) => {
-              const active = pathname === l.href || pathname.startsWith(`${l.href}/`);
+              const active =
+                l.href === '/#catalog' || l.href.startsWith('/#')
+                  ? pathname.startsWith('/catalog')
+                  : pathname === l.href || pathname.startsWith(`${l.href}/`);
               return (
                 <Link
                   key={l.href}
                   href={l.href}
                   aria-current={active ? 'page' : undefined}
+                  onClick={() => setOpen(false)}
                 >
                   {l.label}
                 </Link>

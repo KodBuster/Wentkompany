@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ClauseRichText } from '@/components/clause-tip';
 import { priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 
@@ -45,7 +46,11 @@ export function HydroChoice({ compact = false }: { compact?: boolean }) {
             Один очаг, место над ним есть
           </h3>
           <ul className="muted flex list-disc flex-col gap-2 pl-4 text-sm">
-            {HYDRO_HOOD.map((t) => <li key={t}>{t}</li>)}
+            {HYDRO_HOOD.map((t) => (
+              <li key={t}>
+                <ClauseRichText text={t} />
+              </li>
+            ))}
           </ul>
           <div className="mt-auto flex flex-wrap items-baseline gap-3 border-t pt-3" style={{ borderColor: 'var(--hair)' }}>
             <span className="num text-lg">{hood ? `от ${rub(hood)}` : 'по запросу'}</span>
@@ -59,7 +64,11 @@ export function HydroChoice({ compact = false }: { compact?: boolean }) {
             Несколько аппаратов или зонт уже стоит
           </h3>
           <ul className="muted flex list-disc flex-col gap-2 pl-4 text-sm">
-            {HYDRO_FILTER.map((t) => <li key={t}>{t}</li>)}
+            {HYDRO_FILTER.map((t) => (
+              <li key={t}>
+                <ClauseRichText text={t} />
+              </li>
+            ))}
           </ul>
           <div className="mt-auto flex flex-wrap items-baseline gap-3 border-t pt-3" style={{ borderColor: 'var(--hair)' }}>
             <span className="num text-lg">{filter ? `от ${rub(filter)}` : 'по запросу'}</span>
@@ -70,10 +79,14 @@ export function HydroChoice({ compact = false }: { compact?: boolean }) {
 
       {!compact && (
         <p className="hint mt-4 max-w-[76ch]">
-          Оба решения соответствуют п. 5.30 и оба требуют щита с датчиками температуры и
-          сигнализаторами давления воды. Разница — в границах применимости, а не в качестве
-          очистки: если сомневаетесь, пришлите состав горячей линии и высоту потолка,
-          посчитаем оба варианта и покажем разницу в деньгах.
+          <ClauseRichText
+            text={
+              'Оба решения соответствуют п. 5.30 и оба требуют щита с датчиками температуры и ' +
+              'сигнализаторами давления воды. Разница — в границах применимости, а не в качестве ' +
+              'очистки: если сомневаетесь, пришлите состав горячей линии и высоту потолка, ' +
+              'посчитаем оба варианта и покажем разницу в деньгах.'
+            }
+          />
         </p>
       )}
     </div>

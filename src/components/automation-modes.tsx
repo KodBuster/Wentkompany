@@ -9,9 +9,12 @@
  * дополнительная опция, а то, чем требование п. 5.30 закрывается физически.
  */
 
+import { ClauseTipBadge } from '@/components/clause-tip';
+
 const MODES = [
   {
     n: '01',
+    clauseId: '5.30',
     clause: 'п. 5.30',
     title: 'Падение давления воды',
     text:
@@ -21,6 +24,7 @@ const MODES = [
   },
   {
     n: '02',
+    clauseId: '5.30',
     clause: 'п. 5.30',
     title: 'Дублирование по температуре',
     text:
@@ -30,6 +34,7 @@ const MODES = [
   },
   {
     n: '03',
+    clauseId: '5.30',
     clause: 'п. 5.30',
     title: 'Блокировка повторного пуска',
     text:
@@ -45,7 +50,7 @@ export function AutomationModes() {
         <article key={m.n} className="tile">
           <div className="flex items-baseline gap-3">
             <span className="num text-2xl" style={{ color: 'var(--color-steel-500)' }}>{m.n}</span>
-            <span className="lbl" style={{ color: 'var(--color-extract)' }}>{m.clause}</span>
+            <ClauseTipBadge clauseId={m.clauseId} label={m.clause} />
           </div>
           <h3 style={{ textTransform: 'none', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '1.05rem' }}>
             {m.title}

@@ -30,7 +30,7 @@ interface Props {
 }
 
 export function ExportButtons({
-  slug, dims, material = '430', options = [], kinds = ['pdf', 'svg', 'quote', 'dxf', 'ifc'], className = 'cfg-dl',
+  slug, dims, material, options = [], kinds = ['pdf', 'svg', 'quote', 'dxf', 'ifc'], className = 'cfg-dl',
 }: Props) {
   const [busy, setBusy] = useState<ExportKind | null>(null);
   const [error, setError] = useState('');
@@ -39,10 +39,17 @@ export function ExportButtons({
     setBusy(kind);
     setError('');
     try {
+      /* Без material сервер подставит дефолт линейки (304 / 430). */
       const res = await fetch('/api/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, slug, dims, material, options }),
+        body: JSON.stringify({
+          kind,
+          slug,
+          dims,
+          ...(material ? { material } : {}),
+          options,
+        }),
       });
       if (!res.ok) {
         const info = await res.json().catch(() => ({}));

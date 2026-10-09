@@ -39,7 +39,7 @@ const SITUATIONS = [
     tag: 'Домашняя кухня без огня',
     title: 'Плита, гриль, пароконвектомат',
     text: 'Когда открытого огня нет, гидрозатвор избыточен: достаточно вытяжного или приточно-вытяжного зонта с жироулавливающими фильтрами.',
-    href: '/catalog',
+    href: '/#catalog',
     cta: 'Смотреть типоразмеры',
   },
 ];
@@ -171,7 +171,7 @@ export default function ChastnyyDomPage() {
           </div>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/configurator" className="btn">Открыть конфигуратор</Link>
-            <Link href="/catalog" className="btn btn-ghost">Типоразмеры и цены</Link>
+            <Link href="/#catalog" className="btn btn-ghost">Типоразмеры и цены</Link>
           </div>
         </div>
       </section>

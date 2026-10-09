@@ -49,6 +49,20 @@ const PRICE_EXPONENT = 0.6;
 /** Оценочная надбавка за AISI 304 — до подтверждения производством. */
 const AISI304_FACTOR = 1.18;
 
+/**
+ * Марка по умолчанию: 304 — для гидроконтура и водяных сред,
+ * 430 — для обычных зонтов без воды.
+ */
+export function defaultMaterialGrade(hydro: boolean): '430' | '304' {
+  return hydro ? '304' : '430';
+}
+
+/** Явный выбор клиента или дефолт по типу линейки. */
+export function resolveMaterialGrade(raw: unknown, hydro: boolean): '430' | '304' {
+  if (raw === '304' || raw === '430') return raw;
+  return defaultMaterialGrade(hydro);
+}
+
 /** Площадь захвата (проём зонта в плане), м². */
 export function captureArea(dims: Dims): number {
   return (dims.w / 1000) * (dims.d / 1000);
@@ -105,19 +119,22 @@ export interface PriceResult {
 /**
  * Цена изделия. Совпадение с эталонным типоразмером → прайс.
  * Отклонение → оценка по площади материала.
+ * Надбавка AISI 304 — только апгрейд сухого зонта (у гидро 304 уже в прайсе).
  */
 export function price(
   dims: Dims,
   base: Dims | null,
   basePrice: number | null,
-  material: '430' | '304' = '430',
+  material: '430' | '304',
+  hydro = false,
 ): PriceResult | null {
   if (!basePrice || !base) return null;
   const isBase = dims.h === base.h && dims.w === base.w && dims.d === base.d;
   const ratio = steelArea(dims) / steelArea(base);
   let value = isBase ? basePrice : basePrice * ratio ** PRICE_EXPONENT;
-  if (material === '304') value *= AISI304_FACTOR;
-  const estimate = !isBase || material === '304';
+  const upgradedTo304 = material === '304' && !hydro;
+  if (upgradedTo304) value *= AISI304_FACTOR;
+  const estimate = !isBase || upgradedTo304;
   return {
     value: Math.round(value / 50) * 50,
     estimate,
@@ -145,8 +162,9 @@ export function calculate(
   traits: FamilyTraits,
   base: Dims | null,
   basePrice: number | null,
-  material: '430' | '304' = '430',
+  material?: '430' | '304',
 ): Calculation {
+  const grade = material ?? defaultMaterialGrade(traits.hydro);
   const air = airflow(dims, traits);
   const ducts = pickDucts(air);
   const warnings: string[] = [];
@@ -166,7 +184,7 @@ export function calculate(
     ducts,
     area: steelArea(dims),
     mass: mass(dims),
-    price: price(dims, base, basePrice, material),
+    price: price(dims, base, basePrice, grade, traits.hydro),
     warnings,
   };
 }

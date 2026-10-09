@@ -11,7 +11,7 @@ export default function NotFound() {
           Загляните в каталог — там все текущие типоразмеры с ценами.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/catalog" className="btn">Открыть каталог</Link>
+          <Link href="/#catalog" className="btn">Открыть каталог</Link>
           <Link href="/" className="btn btn-ghost">На главную</Link>
         </div>
       </div>

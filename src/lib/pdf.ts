@@ -194,7 +194,7 @@ export async function buildDrawingPdf(input: DrawingInput): Promise<Uint8Array> 
 
 export interface QuoteInput extends DrawingInput {
   options: string[];
-  company: { name: string; phone: string; email: string; address: string; promo: string };
+  company: { name: string; phone: string; email: string; address: string };
   leadTimeDays: string;
 }
 
@@ -305,8 +305,6 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
   if (price) drawText(ctx, price.note, [left, y], 3.1, THIN);
   y += 6;
   drawText(ctx, `Срок изготовления: ${input.leadTimeDays}`, [left, y], 3.4, INK);
-  y += 5.5;
-  drawText(ctx, `Скидка 10 % на первый заказ по промокоду ${company.promo}`, [left, y], 3.4, INK);
 
   // примечания
   y += 12;
@@ -314,10 +312,7 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
   y += 3;
   drawLine(ctx, [left, y], [right, y], THIN, 0.25);
   y += 6;
-  const notes = [
-    ...sheet.notes,
-    'Стоимость носит информационный характер и не является публичной офертой.',
-  ];
+  const notes = [...sheet.notes];
   for (const note of notes) {
     drawText(ctx, note, [left, y], 3.1, THIN);
     y += 4.6;

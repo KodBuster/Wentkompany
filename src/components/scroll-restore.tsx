@@ -119,5 +119,31 @@ export function ScrollRestore() {
     };
   }, [pathname]);
 
+  /* Переход вида /contacts → /#catalog: Next иногда не докручивает до якоря */
+  useEffect(() => {
+    if (pendingPop.current) return;
+    const hash = window.location.hash;
+    if (!hash || hash.length < 2) return;
+    const id = decodeURIComponent(hash.slice(1));
+    if (!id) return;
+
+    const jumpHash = () => {
+      const el = document.getElementById(id);
+      if (!el) return false;
+      el.scrollIntoView({ behavior: 'auto', block: 'start' });
+      return true;
+    };
+
+    if (jumpHash()) return;
+    const raf = requestAnimationFrame(() => {
+      jumpHash();
+    });
+    const t = window.setTimeout(() => jumpHash(), 50);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+    };
+  }, [pathname]);
+
   return null;
 }

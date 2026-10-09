@@ -132,10 +132,12 @@ export function HoodDiagram({
 
   return (
     <figure
-      className={['hood-diagram', className].filter(Boolean).join(' ')}
+      className={['hood-diagram', compact ? 'hood-diagram--compact' : '', className]
+        .filter(Boolean)
+        .join(' ')}
       style={{ margin: 0 }}
     >
-      <DimInfoTip />
+      {!compact && <DimInfoTip />}
       <svg
         viewBox="0 0 660 420"
         role="img"
@@ -475,10 +477,12 @@ export function HoodDiagram({
         </g>
       </svg>
 
-      <figcaption className="hint mt-3" style={{ color: 'var(--color-steel-300)' }}>
-        {title}. Схема объясняет названия узлов; пропорции вашего изделия считает конфигуратор,
-        размеры — чертёж.
-      </figcaption>
+      {!compact && (
+        <figcaption className="hint mt-3" style={{ color: 'var(--color-steel-300)' }}>
+          {title}. Схема объясняет названия узлов; пропорции вашего изделия считает конфигуратор,
+          размеры — чертёж.
+        </figcaption>
+      )}
     </figure>
   );
 }

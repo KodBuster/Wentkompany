@@ -5,6 +5,10 @@ import { usePathname } from 'next/navigation';
 
 /** Пункт меню активен на своей странице и на вложенных (например /catalog/…). */
 function isActive(pathname: string, href: string) {
+  /* Якорь каталога на главной — подсветка на карточках /catalog/… */
+  if (href === '/#catalog' || href.startsWith('/#')) {
+    return pathname.startsWith('/catalog');
+  }
   if (pathname === href) return true;
   return pathname.startsWith(`${href}/`);
 }
