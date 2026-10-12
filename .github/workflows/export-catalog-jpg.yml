@@ -1,0 +1,89 @@
+name: Export catalog images as JPG for editing
+on:
+  push:
+    branches:
+      - export/catalog-jpg-editor-20261012
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current catalog
+        uses: actions/checkout@v4
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check 'Pillow>=10,<13'
+      - name: Generate full-resolution JPG package
+        shell: bash
+        run: |
+          python - <<'PY'
+          from PIL import Image, ImageOps
+          from pathlib import Path
+          from io import StringIO
+          import csv, hashlib, shutil, zipfile
+
+          base = Path('public/catalog')
+          out = Path('_catalog_jpg_export')
+          photos = out / 'JPG'
+          photos.mkdir(parents=True, exist_ok=True)
+          ext = {'.webp', '.jpg', '.jpeg', '.png'}
+          sources = sorted(p for p in base.iterdir() if p.is_file() and p.suffix.lower() in ext)
+          mapping = []
+          used = set()
+          for p in sources:
+              name = f'{p.stem}.jpg'
+              if name.lower() in used:
+                  raise RuntimeError(f'JPG filename collision for {p.name}: {name}')
+              used.add(name.lower())
+              dest = photos / name
+              with Image.open(p) as im:
+                  im.load()
+                  original_size = im.size
+                  if p.suffix.lower() in ('.jpg', '.jpeg') and im.mode == 'RGB':
+                      shutil.copyfile(p, dest)
+                  else:
+                      src = ImageOps.exif_transpose(im)
+                      if src.mode in ('RGBA', 'LA') or ('transparency' in src.info):
+                          rgba = src.convert('RGBA')
+                          bg = Image.new('RGB', rgba.size, (255,255,255))
+                          bg.paste(rgba, mask=rgba.getchannel('A'))
+                          rgb = bg
+                      else:
+                          rgb = src.convert('RGB')
+                      rgb.save(dest, 'JPEG', quality=97, subsampling=0, optimize=True)
+              mapping.append({
+                  'original_file': p.name,
+                  'edit_as': name,
+                  'width': original_size[0],
+                  'height': original_size[1],
+                  'source_sha256': hashlib.sha256(p.read_bytes()).hexdigest(),
+              })
+          assert len(sources) == 36, f'Expected 36 catalog images, got {len(sources)}. Check latest source.'
+          with (out / 'SOPPОSTAVLENIE.csv').open('w',encoding='utf-8-sig',newline='') as f:
+              writer = csv.DictWriter(f, fieldnames=['original_file','edit_as','width','height','source_sha256'])
+              writer.writeheader()
+              writer.writerows(mapping)
+          (out / 'READ_ME.txt').write_text(
+              'WENTKOMPANY / CATALOG — JPG FOR EDITING\n'
+              'Edit the 36 JPG images in the JPG folder and return them with the same filenames.\n'
+              'Keep the SOPPОSTAVLENIE.csv file unchanged.\n'
+              'Images were not cropped, upscaled, or visually retouched.\n'
+              'Source JPGs were copied losslessly; WebP images were converted at JPEG quality 97.\n'
+              'When edited images are uploaded back to ChatGPT, original extension will be restored\n'
+              'according to mapping to avoid breaking website paths.\n',
+              encoding='utf-8')
+          package = Path('Wentkompany_Catalog_36_JPG.zip')
+          with zipfile.ZipFile(package, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+              for p in sorted(out.rglob('*')):
+                  if p.is_file():
+                      z.write(p,p.relative_to(out))
+          print(f'JPG files: {len(sources)}; package: {package}; size={package.stat().st_size}')
+          PY
+      - name: Upload JPG ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wentkompany_Catalog_36_JPG
+          path: Wentkompany_Catalog_36_JPG.zip
+          if-no-files-found: error
+          retention-days: 14
