@@ -24,8 +24,8 @@ export const BUILD = {
    * Вылет (D) растёт → больше воздуха вокруг ядра; при малом D кассеты чуть поджимаются.
    */
   core: {
-    /** Угол кассеты к вертикали, °. */
-    tilt: 38,
+    /** Угол кассеты к вертикали, ° (производство ≈ 45°, схема α). */
+    tilt: 45,
     /** Номинальная высота кассеты, мм (не растёт с вылетом). */
     filterH: 280,
     /** Толщина кассеты, мм. */
@@ -44,7 +44,7 @@ export const BUILD = {
   /** Габарит лабиринтной кассеты (алиас ядра — для чертежа/IFC). */
   filter: { w: 500, h: 280, t: 40 },
   /** Угол кассеты (алиас ядра). */
-  filterTilt: 38,
+  filterTilt: 45,
   /** Отступ верха кассеты от обшивки при поджиме, мм. */
   filterClearance: 40,
   /**
@@ -113,8 +113,8 @@ export const BUILD = {
     /** Толщина решётки наружу, мм. */
     t: 8,
   },
-  /** Высота выпускного патрубка (шейка/врезка) над крышкой, мм — 50…100 по каталогу. */
-  spigot: 100,
+  /** Высота выпускного патрубка (шейка/врезка) над крышкой, мм. */
+  spigot: 50,
   /** Диаметр шпильки подвеса и её длина над крышкой, мм (чуть выше шейки). */
   hanger: { d: 12, len: 160 },
   /** Светильник: диаметр и глубина посадки, мм. */
@@ -271,6 +271,109 @@ export function hoodProfileOf(typeLabel: string | null | undefined): Layout['pro
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
+/** Угол кассеты к вертикали, рад (цель ≈ 45° по замечанию производства). */
+export function filterTiltRad() {
+  return (BUILD.core.tilt * Math.PI) / 180;
+}
+
+/** Якоря пристенного жировика и граница вытяжной камеры (мм, мировая Z). */
+export type WallFilterAnchors = {
+  zBack: number;
+  wallGap: number;
+  trayZ: number;
+  trayY: number;
+  yB: number;
+  zB: number;
+  yC: number;
+  /** Верх кассеты (передняя граница камеры на крыше). */
+  zC: number;
+  dy: number;
+  dz: number;
+  /** Фактический угол к вертикали, рад (≈45°, на малом D может чуть меньше). */
+  tilt: number;
+};
+
+/**
+ * Низ у ванночки у задника → верх под горизонтальной крышей под ≈45°.
+ * Камера = задняя стенка … zC; патрубок ставится в её середину отдельно.
+ */
+export function wallFilterAnchors(
+  dims: Dims,
+  opts: {
+    wallGap?: number;
+    bottomRise?: number;
+    /** Передний предел верха кассеты (шов притока и т.п.), мм. */
+    zFrontMax?: number;
+  } = {},
+): WallFilterAnchors {
+  const tilt0 = filterTiltRad();
+  const wallGap = opts.wallGap ?? 8;
+  const trayD = BUILD.core.trayD;
+  const trayH = Math.min(BUILD.core.trayH, 22);
+  const floorGap = 2;
+  const tHalf = BUILD.core.filterT * 0.5;
+  const zBack = -dims.d / 2;
+  const trayZ = zBack + wallGap + trayD / 2;
+  const kneeZ = zBack + wallGap + trayD;
+  const floorY =
+    (opts.bottomRise ?? 0) > 0 && trayZ > kneeZ
+      ? (opts.bottomRise as number) *
+        ((trayZ - kneeZ) / Math.max(dims.d - (kneeZ - zBack), 1))
+      : 0;
+  const trayY = floorY + floorGap + trayH / 2;
+  const yB = floorY + floorGap + trayH + 1;
+  const zB = trayZ;
+  const yC = dims.h - (14 + tHalf * Math.sin(tilt0) + 10);
+  const dy = Math.max(yC - yB, 50);
+  const zCTarget = zB + dy * Math.tan(tilt0);
+  const zFrontMax = opts.zFrontMax ?? dims.d / 2 - 36;
+  const zC = Math.min(zCTarget, zFrontMax);
+  const dz = Math.max(zC - zB, 24);
+  const tilt = Math.atan2(dz, dy);
+  return { zBack, wallGap, trayZ, trayY, yB, zB, yC, zC, dy, dz, tilt };
+}
+
+/**
+ * Глубина зоны ① (плоская крыша) от задника: до верха кассеты + небольшой запас под крепление.
+ * Патрубок лежит внутри камеры, поэтому зону за верх кассеты не раздуваем.
+ */
+export function wallRearBlockDepth(h: number, _diameter: number, wallGap = 8): number {
+  const a = wallFilterAnchors(
+    { h, w: 1200, d: 10_000 },
+    { wallGap },
+  );
+  return Math.ceil(a.zC - a.zBack + 24);
+}
+
+/**
+ * Мировая Z оси вытяжной врезки: середина камеры (задник ↔ верх жировика).
+ * У пристенных всегда к задней стенке, на одном ритме для ТИП 1/2/3.
+ */
+export function wallExhaustPipeZ(
+  dims: Dims,
+  diameter: number,
+  opts: { wallGap?: number; bottomRise?: number; plenumDepth?: number } = {},
+): number {
+  let zFrontMax = dims.d / 2 - 36;
+  if (opts.plenumDepth) {
+    zFrontMax = Math.min(
+      zFrontMax,
+      dims.d / 2 - opts.plenumDepth - BUILD.exhaustChamber.bridge,
+    );
+  }
+  const a = wallFilterAnchors(dims, {
+    wallGap: opts.wallGap,
+    bottomRise: opts.bottomRise,
+    zFrontMax,
+  });
+  const pipeHalf = diameter / 2;
+  /* Середина камеры на крыше; Ø должен уместиться между задником и верхом кассеты */
+  const mid = (a.zBack + a.zC) / 2;
+  const zMin = a.zBack + pipeHalf + 14;
+  const zMax = a.zC - pipeHalf - 8;
+  return clamp(mid, zMin, Math.max(zMin, zMax));
+}
+
 /** Высота низа у притока: ТИП 1 — как у ЗВП (L=¼V); ТИП 2/3 — низ прямой. */
 function supplyFrontRise(profile: Layout['profile'], height: number) {
   if (profile === 'triangle') {
@@ -340,17 +443,19 @@ export function wallType2Chamfer(h: number, d: number) {
   const A = BUILD.zpvo.type2DisplayExhaust;
   const edge = 14;
   const dMin = 600;
-  /** y/x на каталожном минимуме D */
+  /** y/x на каталожном минимуме D — прежний ритм скоса */
   const yOverX = 1.5;
   const xFromRatio = Math.round(dMin / (1 + yOverX)); /* 240 при 600 и 1.5 */
   const xMinPipe = A + 2 * edge;
-  const xConst = Math.max(xFromRatio, xMinPipe);
+  /* Зона ① должна накрыть полный жировик α=45° до горизонтальной крыши */
+  const rearBlock = wallRearBlockDepth(h, A, 8);
+  const xConst = Math.min(d - 48, Math.max(xFromRatio, xMinPipe, rearBlock));
   const chamferZ = Math.max(0, d - xConst);
   return {
     chamferZ,
     slantDy,
     vertDy,
-    /** Глубина зоны ① (плоская крыша), мм — const */
+    /** Глубина зоны ① (плоская крыша), мм */
     zone1: xConst,
     /** Глубина зоны ② (скос), мм */
     zone2: chamferZ,
@@ -374,7 +479,18 @@ export function islandType2Chamfer(h: number, d: number) {
   const dMin = 600;
   const yOverX = 1.5;
   const xFromRatio = Math.round(dMin / (1 + yOverX));
-  const xConst = Math.max(xFromRatio, A + 2 * edge);
+  /* Половина зоны ① под кассету ≈45° от ванночки до крыши */
+  const tilt = filterTiltRad();
+  const yB = 2 + Math.min(BUILD.core.trayH, 22) + 1;
+  const yC = h - (14 + BUILD.core.filterT * 0.5 * Math.sin(tilt) + 10);
+  const dy = Math.max(yC - yB, 50);
+  const halfV = BUILD.core.vGap + dy * Math.tan(tilt);
+  /* На мин. D верх может чуть не дотянуть до 45° — зона не шире корпуса */
+  const halfNeed = Math.min(halfV, d / 2 - 16);
+  const xConst = Math.min(
+    d - 48,
+    Math.max(xFromRatio, A + 2 * edge, Math.ceil(2 * halfNeed)),
+  );
   const each = Math.max(0, Math.floor((d - xConst) / 2));
   return {
     chamferZ: each,
@@ -458,17 +574,25 @@ export function layoutSpigots(
     pick.diameter,
     Math.max(120, topDepth - 2 * edge - 20),
   );
-  const usable = Math.max(topWidth - diameter - 120, 0);
   /* Пристенный: у тыла крыши, чуть внутри. Остров: центр. */
   const z = opts.island
     ? 0
     : clamp(-topDepth / 2 + diameter / 2 + edge, -topDepth / 2 + edge, 0);
-  return Array.from({ length: count }, (_, i) => ({
-    diameter,
-    x: count === 1 ? 0 : -usable / 2 + (usable * i) / (count - 1),
-    z,
-    role: 'exhaust' as const,
-  }));
+  /*
+   * По ширине: равномерно (деление на count+1), не к боковинам.
+   * 1 шт — центр; 2 шт — на ⅓ и ⅔ ширины, симметрично.
+   */
+  const xMax = Math.max(0, topWidth / 2 - diameter / 2 - edge);
+  return Array.from({ length: count }, (_, i) => {
+    const raw =
+      count === 1 ? 0 : -topWidth / 2 + (topWidth * (i + 1)) / (count + 1);
+    return {
+      diameter,
+      x: clamp(raw, -xMax, xMax),
+      z,
+      role: 'exhaust' as const,
+    };
+  });
 }
 
 /**
@@ -824,27 +948,46 @@ export function buildLayout(
     : spigots0;
 
   /*
-   * ЗВП/ЗВО/гидро без притока: Ø вытяжки const (как на схеме).
-   * ТИП 2: центр зоны ① (A = B). ТИП 1/3 и гидро: z пересчитать под фактический Ø —
-   * иначе остаётся поза от расчётного 250 при отрисовке 120 (патрубок «висит» впереди).
+   * ЗВП/ЗВО/гидро без притока: Ø как в расчёте (таблица врезок), не display-const.
+   * Иначе на схеме «маловатый» патрубок и камера читается не по размерам.
+   * Пристен: z — середина камеры; остров: z = 0.
    */
   if (!traits.supply) {
-    const A =
-      profile === 'rect'
-        ? BUILD.zpvo.type3DisplayExhaust
-        : BUILD.zpvo.type2DisplayExhaust;
     const edge = 14;
     const half = top.d / 2;
     spigots = spigots.map((s) => {
-      const dia = Math.min(s.diameter, A);
-      if (profile === 'trapezoid') {
-        return { ...s, diameter: dia, z: 0 };
-      }
+      const dia = s.diameter;
       if (traits.island) {
         return { ...s, diameter: dia, z: 0 };
       }
-      const z = clamp(-half + dia / 2 + edge, -half + edge, 0);
+      const pipeZ = wallExhaustPipeZ(dims, dia, { bottomRise });
+      const zLim = half - dia / 2 - edge;
+      const z = clamp(pipeZ - top.z, -zLim, zLim);
       return { ...s, diameter: dia, z };
+    });
+  } else if (!traits.island) {
+    /* ЗПВП: вытяжка под α, но с зазором до приточных врезок */
+    const edge = 14;
+    const half = top.d / 2;
+    spigots = spigots.map((s) => {
+      if (s.role !== 'exhaust') return s;
+      const pipeZ = wallExhaustPipeZ(dims, s.diameter, {
+        wallGap: BUILD.exhaustChamber.wallGap,
+        bottomRise: frontRise,
+        plenumDepth,
+      });
+      const zLim = half - s.diameter / 2 - edge;
+      let z = clamp(pipeZ - top.z, -zLim, zLim);
+      for (const sup of spigots) {
+        if (sup.role !== 'supply') continue;
+        const need = (s.diameter + sup.diameter) / 2 + 20;
+        const dx = Math.abs(s.x - sup.x);
+        if (dx >= need) continue;
+        const dzNeed = Math.sqrt(need * need - dx * dx);
+        z = Math.min(z, sup.z - dzNeed);
+      }
+      z = clamp(z, -zLim, zLim);
+      return { ...s, z };
     });
   }
 
@@ -864,7 +1007,8 @@ export function buildLayout(
     profile,
     spigots,
     filters: layoutFilters(dims, traits),
-    hangers: layoutHangers(top, traits, spigots, { roofInsetZ }),
+    /* Подвесы ситуативные — в компоновке/сцене/чертеже не выдаём */
+    hangers: [],
     lamps: layoutLamps(dims, !!options.lamps),
     nozzles: traits.hydro ? Math.max(2, Math.round(dims.w / BUILD.nozzleStep)) : 0,
     supplySlot: layoutSupplySlot(dims, traits),

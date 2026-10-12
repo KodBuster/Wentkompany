@@ -8,6 +8,8 @@ import type { Dims, FamilyTraits, DuctPick } from '@/lib/calc';
 import {
   buildLayout,
   BUILD,
+  filterTiltRad,
+  wallFilterAnchors,
   supplyType2Chamfer,
   islandSupplyType2Chamfer,
   islandSupplyType1Seam,
@@ -994,114 +996,70 @@ function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; 
 
 /**
  * Ядро «ванночка + жироуловитель» у задней стенки (только ЗВП/ЗВОГ пристенные).
- * Отдельно от islandFilterCore — общие только BUILD-константы, не поза.
- * A≡B — низ на ванночке у задника; C≡D — верх под крышей: P от того же Ø, что рисуем.
+ * Угол и камера — из wallFilterAnchors; патрубок в середине камеры считает layout.
  */
 function wallFilterCore(layout: Layout) {
-  const { dims, bottomRise, top, spigots } = layout;
-  const zBack = -dims.d / 2;
-  const trayD = BUILD.core.trayD;
-  const trayH = Math.min(BUILD.core.trayH, 22);
-  const wallGap = 8;
-  const floorGap = 2;
-
-  const trayZ = zBack + wallGap + trayD / 2;
-  /*
-   * ТИП 1: под ванночкой пол горизонтальный (y=0); скос начинается после бака.
-   * Иначе линейный подъём «поднимал» ванну и ломал боковой профиль.
-   */
-  const kneeZ = zBack + wallGap + trayD;
-  const floorY =
-    bottomRise > 0 && trayZ > kneeZ
-      ? bottomRise * ((trayZ - kneeZ) / Math.max(dims.d - (kneeZ - zBack), 1))
-      : 0;
-  const trayY = floorY + floorGap + trayH / 2;
-
-  /* B: низ на ванночке у задника */
-  const yB = floorY + floorGap + trayH + 1;
-  const zB = trayZ;
-
-  /* Тот же патрубок, что на крыше — без «фейкового» z от задника */
-  const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
-  const pipeZ = top.z + (exhaust?.z ?? 0);
-  const pipeHalf = (exhaust?.diameter ?? BUILD.zpvo.type2DisplayExhaust) / 2;
-  const pMin = BUILD.zpvo.type2PMin;
-  const zC = pipeZ + pipeHalf + pMin;
-
-  /*
-   * Верх C под крышей с учётом толщины кассеты после наклона —
-   * иначе угол «жировика» пробивает крышку (и даёт «прозрачные» полосы).
-   */
-  const tHalf = BUILD.core.filterT * 0.5;
-  let yC = dims.h - 12;
-  let dy = Math.max(yC - yB, 50);
-  let dz = zC - zB;
-  let tilt = Math.atan2(Math.abs(dz), dy);
-  yC = dims.h - (14 + tHalf * Math.sin(tilt) + 10);
-  dy = Math.max(yC - yB, 50);
-  dz = zC - zB;
-  tilt = Math.atan2(Math.abs(dz), dy);
-  const fh = Math.hypot(Math.abs(dz), dy);
-  const y = (yB + yC) / 2;
-  const z = (zB + zC) / 2;
-  /* Низ → задник (−Z), верх → проём (+Z). Знак только для стены — не трогать island. */
-  const rotX = dz >= 0 ? tilt : -tilt;
+  const { dims, bottomRise, top } = layout;
+  const zRoofFront = top.z + top.d / 2 - 8;
+  const a = wallFilterAnchors(dims, {
+    bottomRise,
+    zFrontMax: Math.min(zRoofFront, dims.d / 2 - 36),
+  });
+  const fh = Math.hypot(a.dz, a.dy);
+  const y = (a.yB + a.yC) / 2;
+  const z = (a.zB + a.zC) / 2;
 
   return {
     tray: {
       w: Math.max(dims.w - 2 * BUILD.core.sideClear, 200),
-      d: trayD,
-      h: trayH,
-      y: trayY,
-      z: trayZ,
+      d: BUILD.core.trayD,
+      h: Math.min(BUILD.core.trayH, 22),
+      y: a.trayY,
+      z: a.trayZ,
     },
-    filter: { fh, rotX, y, z, yC, zC, yB, zB },
+    filter: {
+      fh,
+      rotX: a.tilt,
+      y,
+      z,
+      yC: a.yC,
+      zC: a.zC,
+      yB: a.yB,
+      zB: a.zB,
+    },
   };
 }
 
 /**
- * Островное ядро V (ЗВО / ЗПВО): ванночка в центре; два ряда кассет.
- * ЗВО = ЗПВО без камеры ③: те же якоря P от Ø вытяжки; зона ② растёт с D.
+ * Островное ядро V (ЗВО / ЗПВО): ванночка в центре; два ряда ≈45°; патрубок по центру камеры.
+ * На мин. D верх упирается в обшивку — угол чуть меньше 45°, без искусственного «поля».
  */
 function islandFilterCore(layout: Layout) {
-  const { dims, top, spigots } = layout;
+  const { dims, top } = layout;
   const trayD = BUILD.core.trayD;
   const trayH = Math.min(BUILD.core.trayH, 22);
   const floorGap = 2;
   const halfGap = BUILD.core.vGap;
   const yB0 = floorGap + trayH + 1;
 
-  const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
-  const pipeZ = top.z + (exhaust?.z ?? 0);
-
-  const isType2 = layout.profile === 'trapezoid';
-  const isType3 = layout.profile === 'rect';
   const tHalf = BUILD.core.filterT * 0.5;
-  let yC = dims.h - 16;
-  const pipeD = isType2
-    ? BUILD.zpvo.type2DisplayExhaust
-    : isType3
-      ? BUILD.zpvo.type3DisplayExhaust
-      : BUILD.zpvo.type2DisplayExhaust;
-  const pipeHalf = pipeD / 2;
-  const pMin = BUILD.zpvo.type2PMin;
-
-  /* Склейка верхов: только P от оси трубы — статика камеры ① */
-  let zCFront = pipeZ + pipeHalf + pMin;
-  let zCBack = pipeZ - pipeHalf - pMin;
-
-  let gapB: number = halfGap;
-  if (zCFront < gapB + 24) {
-    gapB = Math.max(14, zCFront - 40);
-  }
-
-  let dz = Math.max(Math.abs(zCFront - gapB), 24);
-  let dy = Math.max(yC - yB0, 50);
-  let tilt = Math.atan2(dz, dy);
-  yC = dims.h - (14 + tHalf * Math.sin(tilt) + 10);
-  dy = Math.max(yC - yB0, 50);
-  dz = Math.max(Math.abs(zCFront - gapB), 24);
-  tilt = Math.atan2(dz, dy);
+  const tilt0 = filterTiltRad();
+  const yC = dims.h - (14 + tHalf * Math.sin(tilt0) + 10);
+  const dy = Math.max(yC - yB0, 50);
+  const gapB = halfGap;
+  const zRoofFront = top.z + top.d / 2 - 8;
+  const zRoofBack = top.z - top.d / 2 + 8;
+  const dzTarget = dy * Math.tan(tilt0);
+  const zLimit = dims.d / 2 - 16;
+  let zCFront = Math.min(gapB + dzTarget, zRoofFront, zLimit);
+  let zCBack = Math.max(-gapB - dzTarget, zRoofBack, -zLimit);
+  const dz = Math.max(
+    Math.min(Math.abs(zCFront - gapB), Math.abs(-gapB - zCBack)),
+    24,
+  );
+  zCFront = gapB + dz;
+  zCBack = -gapB - dz;
+  const tilt = Math.atan2(dz, dy);
   const fhBank = Math.hypot(dz, dy);
 
   return {
@@ -1129,75 +1087,33 @@ function islandFilterCore(layout: Layout) {
 
 /**
  * ЗПВП = ЗВП + камера ③: жироуловитель только в вытяжной камере ①.
- * Якорь P от Ø вытяжки (как у ЗВП); рост D расширяет зону ②, не ядро.
+ * Те же якоря/угол, что у ЗВП; верх не заходит за шов притока.
  */
 function supplyWallFilterCore(layout: Layout) {
-  const { dims, top, spigots, supplyPlenum, profile } = layout;
+  const { dims, supplyPlenum, profile } = layout;
   const plenum = supplyPlenum!;
   const ex = BUILD.exhaustChamber;
-  const zBack = -dims.d / 2;
   const zF = dims.d / 2;
-  const yR = plenum.frontRise;
-
-  const trayD = BUILD.core.trayD;
-  const trayH = Math.min(BUILD.core.trayH, 20);
-  const wallGap = ex.wallGap;
-  const floorGap = 2;
-  const tHalf = BUILD.core.filterT * 0.5;
-
-  const trayZ = zBack + wallGap + trayD / 2;
-  /* ТИП 1: под ванночкой пол горизонтальный (как ЗВП); иначе плоскость скоса */
-  const kneeZ = zBack + wallGap + trayD;
-  const floorY =
-    profile === 'triangle' && yR > 0
-      ? trayZ > kneeZ
-        ? yR * ((trayZ - kneeZ) / Math.max(zF - kneeZ, 1))
-        : 0
-      : yR > 0
-        ? yR * ((trayZ - zBack) / Math.max(zF - zBack, 1))
-        : 0;
-  const trayY = floorY + floorGap + trayH / 2;
-
-  const yB = floorY + floorGap + trayH + 1;
-  const zB = trayZ;
-
-  const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
-  const pipeZ = top.z + (exhaust?.z ?? 0);
-  const pipeD =
-    profile === 'rect'
-      ? BUILD.zpvo.type3DisplayExhaust
-      : BUILD.zpvo.type2DisplayExhaust;
-  const pipeHalf = (exhaust?.diameter ?? pipeD) / 2;
-
-  /*
-   * Верх кассеты: только P от Ø (статика ①). Не тянуть к шву притока —
-   * иначе на малом D «уезжает», как раньше у ЗПВО.
-   */
-  let zC = pipeZ + pipeHalf + ex.pMin;
-  zC = Math.max(zC, zB + 48);
-
-  let yC = dims.h - 8;
-  let dy = Math.max(yC - yB, 50);
-  let dz = zC - zB;
-  let tilt = Math.atan2(Math.abs(dz), dy);
-  yC = dims.h - (10 + tHalf * Math.sin(tilt) + 8);
-  dy = Math.max(yC - yB, 50);
-  dz = zC - zB;
-  tilt = Math.atan2(Math.abs(dz), dy);
-  const fh = Math.hypot(Math.abs(dz), dy);
-  const y = (yB + yC) / 2;
-  const z = (zB + zC) / 2;
-  const rotX = dz >= 0 ? tilt : -tilt;
+  const zSeam = zF - plenum.depth;
+  const bottomRise = profile === 'triangle' ? plenum.frontRise : 0;
+  const a = wallFilterAnchors(dims, {
+    wallGap: ex.wallGap,
+    bottomRise,
+    zFrontMax: Math.min(zSeam - ex.bridge, zF - 40),
+  });
+  const fh = Math.hypot(a.dz, a.dy);
+  const y = (a.yB + a.yC) / 2;
+  const z = (a.zB + a.zC) / 2;
 
   return {
     tray: {
       w: Math.max(dims.w - 2 * BUILD.core.sideClear, 200),
-      d: trayD,
-      h: trayH,
-      y: trayY,
-      z: trayZ,
+      d: BUILD.core.trayD,
+      h: Math.min(BUILD.core.trayH, 20),
+      y: a.trayY,
+      z: a.trayZ,
     },
-    filter: { fh, rotX, y, z },
+    filter: { fh, rotX: a.tilt, y, z },
   };
 }
 
@@ -1452,8 +1368,9 @@ function trayOf(layout: Layout) {
 function HydroDrain({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
   if (!layout.nozzles) return null;
 
-  const { dims, hangers } = layout;
-  const island = hangers.length > 0;
+  const { dims } = layout;
+  /* Остров: ряды спереди и сзади (подвесы в сцене больше не рисуем) */
+  const island = layout.filters.some((f) => f.kind === 'front' || f.kind === 'back');
   const tray = trayOf(layout);
   const d = BUILD.hydroDrain.d;
   const len = BUILD.hydroDrain.len;
@@ -1491,21 +1408,6 @@ function HydroDrain({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
   return (
     <group position={[x, y, z]} rotation={[-Math.PI / 2, 0, 0]}>
       {stub}
-    </group>
-  );
-}
-
-function Hangers({ layout, mat, length }: { layout: Layout; mat: THREE.Material; length: number }) {
-  const { dims, hangers } = layout;
-  if (!hangers.length) return null;
-  const len = length * MM;
-  return (
-    <group position={[0, dims.h * MM + len / 2, 0]}>
-      {hangers.map((h, i) => (
-        <mesh key={i} material={mat} position={[h.x * MM, 0, h.z * MM]}>
-          <cylinderGeometry args={[(BUILD.hanger.d / 2) * MM, (BUILD.hanger.d / 2) * MM, len, 8]} />
-        </mesh>
-      ))}
     </group>
   );
 }
@@ -1765,7 +1667,8 @@ function hoodExtents(dims: Dims, hasHangers: boolean) {
  * Единая изометрия: +Y верх, −Z тыл/стена, +Z перед;
  * камера в +X+Y+Z, чуть сверху — меньше «вид снизу».
  */
-const VIEW_DIR = new THREE.Vector3(0.52, 0.58, 0.62).normalize();
+/* Чуть сбоку/ниже — лучше читаются H и D (не «квадрат» в кадре) */
+const VIEW_DIR = new THREE.Vector3(0.72, 0.38, 0.58).normalize();
 
 /**
  * Автокадр по габариту зонта.
@@ -1895,8 +1798,9 @@ function CameraRig({
     const tanV = Math.tan(vFov / 2);
     const tanH = tanV * Math.max(aspect, 0.5);
 
+    /* Кадр по реальному AABB: низкий широкий зонт не сжимается в «куб» */
     const dist =
-      Math.max(boxH / (2 * tanV), Math.max(boxW, boxD) / (2 * tanH)) * 1.85;
+      Math.max(boxH / (2 * tanV), boxW / (2 * tanH), boxD / (2 * tanH)) * 1.72;
 
     orbit.target.set(0, targetY, 0);
     perspective.position.set(
@@ -1967,7 +1871,6 @@ function Hood({ layout, mode, material }: HoodProps) {
 
       <group ref={topRef}>
         <TopPlate layout={layout} mat={mats.steel} dark={mats.dark} />
-        <Hangers layout={layout} mat={mats.dark} length={BUILD.hanger.len} />
       </group>
 
       <group ref={hydroRef}>
@@ -2027,7 +1930,8 @@ export function HoodScene({
   const [helpOpen, setHelpOpen] = useState(false);
   /* Пока автокадр не готов — канвас скрыт (Firefox иначе мелькает мелкий кадр) */
   const [framed, setFramed] = useState(false);
-  const hasHangers = layout.hangers.length > 0;
+  /* Крепления ситуативные — в сцене не показываем, кадр без запаса под шпильки */
+  const hasHangers = false;
   const viewKey = [
     traits.island ? 'i' : 'w',
     traits.supply ? 's' : 'e',

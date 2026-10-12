@@ -412,9 +412,9 @@ function spigotsFront(layout: Layout): Polyline[] {
   }));
 }
 
-/** План: габарит, контур крышки, патрубки, точки подвеса, оси. */
+/** План: габарит, контур крышки, патрубки, оси (подвесы не показываем — ситуативные). */
 function planGeometry(layout: Layout, traits: FamilyTraits) {
-  const { dims, top, spigots, hangers } = layout;
+  const { dims, top, spigots } = layout;
   const hw = dims.w / 2;
   const hd = dims.d / 2;
 
@@ -442,9 +442,6 @@ function planGeometry(layout: Layout, traits: FamilyTraits) {
   }
 
   const circles: Circle[] = spigots.map((s) => ({ c: [s.x, top.z + s.z] as Point, r: s.diameter / 2 }));
-  for (const h of hangers) {
-    circles.push({ c: [h.x, h.z] as Point, r: 14, style: 'thin' });
-  }
 
   return { polys, circles };
 }

@@ -26,7 +26,14 @@ for (const p of catalog.products) {
   const c = calculate(p.base, traits, p.base, p.price);
 
   assert.ok(c.airflow > 0, `${p.article}: расход должен быть положительным`);
-  assert.ok(c.ducts.velocity <= 8.001, `${p.article}: скорость в патрубке ${c.ducts.velocity} выше рабочей`);
+  assert.ok(
+    c.ducts.count >= 1 && c.ducts.count <= 2,
+    `${p.article}: число врезок ${c.ducts.count} вне сетки 1–2`,
+  );
+  assert.ok(
+    [200, 250, 315, 355].includes(c.ducts.diameter),
+    `${p.article}: Ø${c.ducts.diameter} вне таблицы производства`,
+  );
   assert.ok(c.mass > 0 && c.mass < 500, `${p.article}: масса вне разумного диапазона`);
   if (p.price) {
     assert.equal(c.price.value, p.price, `${p.article}: эталонный типоразмер должен отдавать цену прайса`);
@@ -54,11 +61,16 @@ assert.ok(large.price.value > 16000, 'больший габарит должен
 assert.ok(small.price.estimate && large.price.estimate, 'нестандарт помечается оценкой');
 assert.ok(steelArea(base) > 0);
 
-/* подбор патрубков: границы */
-assert.equal(pickDucts(1000).diameter, 250);
-assert.equal(pickDucts(2000).diameter, 315);
-assert.equal(pickDucts(3000).diameter, 400);
-assert.equal(pickDucts(9000).count > 1, true);
+/* подбор врезок: таблица производства */
+const wallTraits = { island: false, supply: false, hydro: false };
+const islandTraits = { island: true, supply: false, hydro: false };
+assert.equal(pickDucts({ h: 350, w: 1200, d: 600 }, wallTraits).diameter, 250);
+assert.equal(pickDucts({ h: 350, w: 1200, d: 600 }, wallTraits).count, 1);
+assert.equal(pickDucts({ h: 350, w: 1600, d: 600 }, wallTraits).count, 2);
+assert.equal(pickDucts({ h: 350, w: 1600, d: 600 }, wallTraits).diameter, 200);
+assert.equal(pickDucts({ h: 350, w: 1000, d: 1000 }, islandTraits).diameter, 315);
+assert.equal(pickDucts({ h: 450, w: 1000, d: 1000 }, islandTraits).diameter, 250);
+assert.equal(pickDucts({ h: 450, w: 2500, d: 1000 }, islandTraits).diameter, 355);
 
 /* ---------- компоновка изделия (этап 4) ---------- */
 const GEOM = [
@@ -116,11 +128,11 @@ for (const code of ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'З�
         s.diameter <= l.top.d - 40 + 1e-6,
         `${code} ${dims.w}×${dims.d}: Ø патрубка больше глубины крышки (Φ > L)`,
       );
-      /* Пристенная вытяжка — патрубок в задней половине крышки (за фильтрами) */
+      /* Пристенная вытяжка — на крышке; при α=45° ось смещена от задника вперёд */
       if (!tr.island && s.role === 'exhaust') {
         assert.ok(
-          s.z <= 1e-6,
-          `${code}: вытяжной патрубок должен быть у тыла, z=${s.z}`,
+          Math.abs(s.z) + s.diameter / 2 <= l.top.d / 2 + 1e-6,
+          `${code}: вытяжной патрубок вне крышки, z=${s.z}`,
         );
       }
     }
@@ -168,16 +180,8 @@ for (const code of ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'З�
       `${code}: неизвестный тип ряда кассет`,
     );
 
-    assert.equal(l.hangers.length, tr.island ? 4 : 0, `${code}: подвесы только у островных`);
-    for (const h of l.hangers) {
-      for (const s of l.spigots) {
-        const dist = Math.hypot(h.x - s.x, h.z - (l.top.z + s.z));
-        assert.ok(
-          dist >= s.diameter / 2 + 40,
-          `${code} ${dims.w}×${dims.d}: шпилька в патрубке (dist=${dist.toFixed(0)}, Ø${s.diameter})`,
-        );
-      }
-    }
+    /* Подвесы ситуативные — в компоновке больше не выдаём */
+    assert.equal(l.hangers.length, 0, `${code}: подвесы отключены`);
     assert.ok(tr.hydro ? l.nozzles >= 2 : l.nozzles === 0, `${code}: форсунки только у гидро-изделий`);
     assert.ok(tr.supply ? !!l.supplySlot : l.supplySlot === null, `${code}: приточная щель не по типу`);
     assert.ok(l.gutterHeight > 0 && l.gutterHeight <= dims.h * 0.25 + 1e-9, `${code}: жёлоб вне габарита`);
