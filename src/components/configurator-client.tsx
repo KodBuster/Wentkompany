@@ -16,6 +16,10 @@ import {
   rub,
   dec,
   defaultMaterialGrade,
+  CAPTURE_VELOCITIES,
+  CAPTURE_VELOCITY_LABELS,
+  DEFAULT_CAPTURE_VELOCITY,
+  type CaptureVelocity,
   type Dims,
   type FamilyTraits,
 } from '@/lib/calc';
@@ -135,17 +139,20 @@ function buildCfgText(input: {
   mount: number;
   material: string;
   options: string[];
+  captureVelocity: number;
   airflow: number;
   ducts: { count: number; diameter: number };
   price: { value: number; estimate: boolean } | null;
 }) {
-  const { family, model, dims, mount, material, options, airflow, ducts, price } = input;
+  const { family, model, dims, mount, material, options, captureVelocity, airflow, ducts, price } =
+    input;
   const bits = [
     `${family.code} · ${model.article}`,
     `H/W/D ${dims.h}/${dims.w}/${dims.d} мм`,
     `кромка от пола ${mount} мм`,
     `AISI ${material}`,
     options.length ? `опции: ${options.join(', ')}` : 'опции: нет',
+    `v захвата ${dec(captureVelocity, 1)} м/с`,
     `расход ${ru(airflow)} м³/ч`,
     `патрубки ${ducts.count}×Ø${ducts.diameter}`,
     price
@@ -340,6 +347,8 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     defaultMaterialGrade(family.hydro),
   );
   const [options, setOptions] = useState<string[]>([]);
+  const [captureVelocity, setCaptureVelocity] =
+    useState<CaptureVelocity>(DEFAULT_CAPTURE_VELOCITY);
   const [mode, setMode] = useState<ViewMode>('solid');
   const [view, setView] = useState<'3d' | 'draft'>('3d');
   const [webgl, setWebgl] = useState<boolean | null>(null);
@@ -356,6 +365,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     mount: number;
     material: '430' | '304';
     options: string[];
+    captureVelocity: CaptureVelocity;
     mode: ViewMode;
     view: '3d' | 'draft';
   } | null>(null);
@@ -366,6 +376,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
       mount,
       material,
       options: [...options],
+      captureVelocity,
       mode,
       view,
     };
@@ -377,9 +388,13 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
   const traits: FamilyTraits = { island: family.island, supply: family.supply, hydro: family.hydro };
   const base: Dims = { h: model.h, w: model.w, d: model.d };
   const calc = useMemo(
-    () => calculate(dims, traits, base, model.price, material),
+    () =>
+      calculate(dims, traits, base, model.price, material, {
+        captureVelocity,
+        typeLabel: model.type,
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dims, model.slug, material],
+    [dims, model.slug, model.type, material, captureVelocity],
   );
   const layout = useMemo(
     () => buildLayout(dims, traits, calc.ducts, { lamps: options.includes(OPTIONS[3]), typeLabel: model.type }),
@@ -403,6 +418,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     setMount(e.mount);
     setMaterial(e.material);
     setOptions([...e.options]);
+    setCaptureVelocity(e.captureVelocity);
     setMode(e.mode);
     setView(e.view);
     setSceneFit((n) => n + 1);
@@ -419,6 +435,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     mount,
     material,
     options,
+    captureVelocity,
     airflow: calc.airflow,
     ducts: calc.ducts,
     price: calc.price,
@@ -524,6 +541,25 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
             </p>
           }
         />
+
+        <div className="cfg-group">
+          <span className="lbl">Скорость захвата, м/с</span>
+          <div className="cfg-chips">
+            {CAPTURE_VELOCITIES.map((v) => (
+              <button
+                key={v}
+                type="button"
+                className="cfg-chip"
+                aria-pressed={captureVelocity === v}
+                title={CAPTURE_VELOCITY_LABELS[v]}
+                onClick={() => setCaptureVelocity(v)}
+              >
+                {dec(v, 1)}
+              </button>
+            ))}
+          </div>
+          <p className="hint">{CAPTURE_VELOCITY_LABELS[captureVelocity]}</p>
+        </div>
 
         <div className="cfg-sep" />
 
@@ -726,6 +762,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
           <span className="lbl">Расчёт</span>
           <dl className="cfg-kv">
             <Row k="Расход воздуха" v={`${ru(calc.airflow)} м³/ч`} />
+            <Row k="Скорость захвата" v={`${dec(calc.captureVelocity, 1)} м/с`} />
             <Row k="Патрубки" v={`${calc.ducts.count} × Ø${calc.ducts.diameter}`} />
             <Row k="Скорость в патрубке" v={`${dec(calc.ducts.velocity)} м/с`} />
             <Row k="Площадь захвата" v={`${dec(calc.captureArea, 2)} м²`} />

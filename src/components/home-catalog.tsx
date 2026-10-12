@@ -53,7 +53,9 @@ function TypeCard({
   textOnly?: boolean;
 }) {
   const traits = traitsOf(f.code);
-  const c = p.base ? calculate(p.base, traits, p.base, p.price) : null;
+  const c = p.base
+    ? calculate(p.base, traits, p.base, p.price, undefined, { typeLabel: p.type })
+    : null;
   const img = p.images[0];
   const scheme = schemeOf(p);
   const title = typeTitle(p, f);

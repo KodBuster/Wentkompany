@@ -100,7 +100,9 @@ export async function POST(request: Request) {
 
   /* Базовая цена — из каталога, а не из запроса. */
   const basePrice = product.price ?? productsOf(product.family).find((p) => p.price)?.price ?? null;
-  const calc = calculate(dims, traits, product.base, basePrice, material);
+  const calc = calculate(dims, traits, product.base, basePrice, material, {
+    typeLabel: product.type,
+  });
 
   const input = {
     dims,

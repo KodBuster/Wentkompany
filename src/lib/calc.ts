@@ -1,10 +1,12 @@
 /**
  * Расчётное ядро конфигуратора.
  *
- * Расход воздуха — по формуле производства:
- *   L = 3600 · 0,4 · S_захвата, м³/ч
- * где S_захвата = W·D в м² (площадь проёма зонта в плане).
- * Не по тепловыделению оборудования и не по периметру × высоте сечения.
+ * Расход воздуха:
+ *   L = 3600 · v · S_захвата, м³/ч
+ * v — скорость в сечении захвата (0,4…0,7 м/с, по умолчанию 0,5);
+ * S — площадь нижнего проёма (не крышки): ТИП 2/3 — W·D;
+ * ТИП 1 — наклонная плоскость W·√(D²+rise²);
+ * ×2 только у островного ТИП 1 (ЗВО-1 / ЗПВО-1); у ТИП 2/3 низ монолитный.
  *
  * Цена нестандартного габарита — ОЦЕНКА по площади материала.
  * Масса — ориентир по площади листа 0,8 мм с коэффициентом на
@@ -27,8 +29,38 @@ export interface Dims {
   d: number;
 }
 
-/** Скорость в сечении захвата по методике производства, м/с. */
-const CAPTURE_VELOCITY = 0.4;
+/** Допустимые скорости в сечении захвата, м/с. */
+export const CAPTURE_VELOCITIES = [0.4, 0.5, 0.6, 0.7] as const;
+export type CaptureVelocity = (typeof CAPTURE_VELOCITIES)[number];
+/** Дефолт: общепит. */
+export const DEFAULT_CAPTURE_VELOCITY: CaptureVelocity = 0.5;
+
+/** Подписи режимов для UI (без лишнего текста про пересчёт). */
+export const CAPTURE_VELOCITY_LABELS: Record<CaptureVelocity, string> = {
+  0.4: 'бытовой',
+  0.5: 'общепит',
+  0.6: 'открытый огонь',
+  0.7: 'усиленный',
+};
+
+export type HoodProfile = 'triangle' | 'trapezoid' | 'rect';
+
+/** Профиль из подписи «ТИП n» (как в geometry.hoodProfileOf). */
+export function hoodProfileOf(typeLabel: string | null | undefined): HoodProfile {
+  const n = typeLabel?.match(/(\d)/)?.[1];
+  if (n === '1') return 'triangle';
+  if (n === '2') return 'trapezoid';
+  if (n === '3') return 'rect';
+  return 'rect';
+}
+
+/** Передняя вертикаль «сотка» — для подъёма низа ТИП 1 (мм). */
+const FRONT_BOARD_H = 100;
+
+export interface AirflowOpts {
+  captureVelocity?: number;
+  typeLabel?: string | null;
+}
 
 /** Ряд диаметров врезок из таблицы производства, мм. */
 export const DUCT_SIZES = [200, 250, 315, 355, 400] as const;
@@ -119,9 +151,28 @@ export function resolveMaterialGrade(raw: unknown, hydro: boolean): '430' | '304
   return defaultMaterialGrade(hydro);
 }
 
-/** Площадь захвата (проём зонта в плане), м². */
-export function captureArea(dims: Dims): number {
-  return (dims.w / 1000) * (dims.d / 1000);
+/**
+ * Площадь захвата — нижний проём, м².
+ * ТИП 1: наклонная плоскость; ТИП 2/3: горизонталь W×D.
+ * ×2 — только островной ТИП 1 (две плоскости V); иначе низ как одна плоскость.
+ */
+export function captureArea(
+  dims: Dims,
+  traits: FamilyTraits = { island: false, supply: false, hydro: false },
+  typeLabel?: string | null,
+): number {
+  const w = dims.w / 1000;
+  const d = dims.d / 1000;
+  const profile = hoodProfileOf(typeLabel);
+  let s: number;
+  if (profile === 'triangle') {
+    const rise = Math.max(0, dims.h - FRONT_BOARD_H) / 1000;
+    s = w * Math.hypot(d, rise);
+  } else {
+    s = w * d;
+  }
+  if (traits.island && profile === 'triangle') s *= 2;
+  return s;
 }
 
 /** Периметр захвата, м. Пристенный зонт открыт с трёх сторон. Справочно. */
@@ -131,9 +182,20 @@ export function capturePerimeter(dims: Dims, traits: FamilyTraits): number {
   return traits.island ? 2 * (w + d) : w + 2 * d;
 }
 
-/** Расход удаляемого воздуха, м³/ч. Формула производства: L = 3600 · 0,4 · S. */
-export function airflow(dims: Dims, _traits?: FamilyTraits): number {
-  return 3600 * CAPTURE_VELOCITY * captureArea(dims);
+/** Нормализация скорости захвата к ряду 0,4…0,7. */
+export function resolveCaptureVelocity(raw?: number): CaptureVelocity {
+  if (raw === 0.4 || raw === 0.5 || raw === 0.6 || raw === 0.7) return raw;
+  return DEFAULT_CAPTURE_VELOCITY;
+}
+
+/** Расход удаляемого воздуха, м³/ч: L = 3600 · v · S. */
+export function airflow(
+  dims: Dims,
+  traits: FamilyTraits = { island: false, supply: false, hydro: false },
+  opts?: AirflowOpts,
+): number {
+  const v = resolveCaptureVelocity(opts?.captureVelocity);
+  return 3600 * v * captureArea(dims, traits, opts?.typeLabel);
 }
 
 export interface DuctPick {
@@ -146,7 +208,7 @@ export interface DuctPick {
  * Подбор вытяжных врезок по таблице производства (W × пристен/остров × H).
  * Скорость — справочно из нашего L; раскладка 1–2 шт симметрично по ширине.
  */
-export function pickDucts(dims: Dims, traits: FamilyTraits): DuctPick {
+export function pickDucts(dims: Dims, traits: FamilyTraits, opts?: AirflowOpts): DuctPick {
   const hKey = exhaustTableH(dims.h);
   const rows = traits.island
     ? hKey === 350
@@ -154,7 +216,7 @@ export function pickDucts(dims: Dims, traits: FamilyTraits): DuctPick {
       : EXHAUST_ISLAND_450
     : EXHAUST_WALL;
   const { count, diameter } = nearestExhaustRow(rows, dims.w);
-  const air = airflow(dims, traits);
+  const air = airflow(dims, traits, opts);
   const area = Math.PI * (diameter / 2000) ** 2;
   const velocity = air / 3600 / (count * area);
   return { count, diameter, velocity };
@@ -205,10 +267,12 @@ export function price(
 }
 
 export interface Calculation {
-  /** Площадь захвата W×D, м² — входит в формулу расхода. */
+  /** Площадь нижнего проёма захвата, м². */
   captureArea: number;
   /** Периметр открытого контура, м — справочно. */
   perimeter: number;
+  /** Скорость в сечении захвата, м/с. */
+  captureVelocity: CaptureVelocity;
   airflow: number;
   ducts: DuctPick;
   area: number;
@@ -223,10 +287,13 @@ export function calculate(
   base: Dims | null,
   basePrice: number | null,
   material?: '430' | '304',
+  opts?: AirflowOpts,
 ): Calculation {
   const grade = material ?? defaultMaterialGrade(traits.hydro);
-  const air = airflow(dims, traits);
-  const ducts = pickDucts(dims, traits);
+  const captureVelocity = resolveCaptureVelocity(opts?.captureVelocity);
+  const airOpts: AirflowOpts = { captureVelocity, typeLabel: opts?.typeLabel };
+  const air = airflow(dims, traits, airOpts);
+  const ducts = pickDucts(dims, traits, airOpts);
   const warnings: string[] = [];
 
   if (ducts.velocity > 9) {
@@ -240,8 +307,9 @@ export function calculate(
   }
 
   return {
-    captureArea: captureArea(dims),
+    captureArea: captureArea(dims, traits, opts?.typeLabel),
     perimeter: capturePerimeter(dims, traits),
+    captureVelocity,
     airflow: air,
     ducts,
     area: steelArea(dims),

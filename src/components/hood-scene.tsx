@@ -16,6 +16,7 @@ import {
   wallType2Chamfer,
   islandType2Chamfer,
   type Layout,
+  type Spigot,
 } from '@/lib/geometry';
 
 export type ViewMode = 'solid' | 'xray' | 'explode';
@@ -922,14 +923,159 @@ function SpigotStub({
   );
 }
 
+/** Толщина плиты крыши у гидро/ТИП 3, мм → м сцены. */
+const ROOF_PLATE_H = 8 * MM;
+
+/**
+ * Влагоотделитель (гидро): камера 90 мм над верхней гранью крыши,
+ * внутри — лепестки и шейка выхода. Ничего не торчит под крышу.
+ */
+function MoistureSeparator({
+  diameter,
+  body,
+  flange,
+}: {
+  diameter: number;
+  body: THREE.Material;
+  flange: THREE.Material;
+}) {
+  const cfg = BUILD.hydroSeparator;
+  const r = (diameter / 2) * MM;
+  const side = (diameter + cfg.oversize) * MM;
+  const boxH = cfg.h * MM;
+  const wall = cfg.wall * MM;
+  const collarH = cfg.collarH * MM;
+  const inner = Math.max(side - 2 * wall, diameter * MM + 10 * MM);
+  const baffleN = cfg.baffles;
+  const baffleT = 1.6 * MM;
+  const baffleSpan = r * 1.55;
+  const flangeW = side + 20 * MM;
+  const flangeT = 2.5 * MM;
+  /* Зазор от пола/крышки камеры — без наклона, иначе край уходит в крышу */
+  const baffleClear = 6 * MM;
+  const baffleH = Math.max(boxH - flangeT - wall - 2 * baffleClear, 20 * MM);
+  const baffleY = flangeT + baffleClear + baffleH / 2;
+
+  return (
+    <group>
+      <mesh material={flange} position={[0, flangeT / 2, 0]}>
+        <boxGeometry args={[flangeW, flangeT, flangeW]} />
+      </mesh>
+      <mesh material={body} position={[0, boxH / 2, -(side / 2 - wall / 2)]}>
+        <boxGeometry args={[side, boxH, wall]} />
+      </mesh>
+      <mesh material={body} position={[0, boxH / 2, side / 2 - wall / 2]}>
+        <boxGeometry args={[side, boxH, wall]} />
+      </mesh>
+      <mesh material={body} position={[-(side / 2 - wall / 2), boxH / 2, 0]}>
+        <boxGeometry args={[wall, boxH, inner]} />
+      </mesh>
+      <mesh material={body} position={[side / 2 - wall / 2, boxH / 2, 0]}>
+        <boxGeometry args={[wall, boxH, inner]} />
+      </mesh>
+      <mesh material={flange} position={[0, boxH - wall / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[r + 1 * MM, (side / 2) * 0.98, 32]} />
+      </mesh>
+      {/* Вертикальные лепестки — плоскость XZ, без rotX (не пробивают крышу) */}
+      {Array.from({ length: baffleN }, (_, i) => {
+        const t = baffleN === 1 ? 0 : i / (baffleN - 1);
+        const x = -baffleSpan / 2 + t * baffleSpan;
+        return (
+          <mesh key={i} material={body} position={[x, baffleY, 0]}>
+            <boxGeometry args={[baffleT, baffleH, inner * 0.82]} />
+          </mesh>
+        );
+      })}
+      <mesh material={body} position={[0, boxH + collarH / 2, 0]}>
+        <cylinderGeometry args={[r, r, collarH, 28, 1, true]} />
+      </mesh>
+      <mesh material={flange} position={[0, boxH + collarH, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[r - 3 * MM, r + 5 * MM, 28]} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Вырезы выхлопа на нижней грани крыши (без лепестков — они только в камере сверху). */
+function RoofExhaustCutouts({
+  layout,
+  mat,
+  dark,
+}: {
+  layout: Layout;
+  mat: THREE.Material;
+  dark: THREE.Material;
+}) {
+  if (!layout.nozzles) return null;
+  const cfg = BUILD.hydroSeparator;
+  return (
+    <>
+      {layout.spigots
+        .filter((s) => s.role === 'exhaust')
+        .map((s, i) => {
+          const r = (s.diameter / 2) * MM;
+          const side = (s.diameter + cfg.oversize) * MM;
+          return (
+            <group key={`cut-${i}`} position={[s.x * MM, 0.4 * MM, s.z * MM]}>
+              <mesh material={dark} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[r, side / 2, 28]} />
+              </mesh>
+              <mesh material={mat} position={[0, -0.2 * MM, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[side / 2, (side + 18 * MM) / 2, 4]} />
+              </mesh>
+            </group>
+          );
+        })}
+    </>
+  );
+}
+
+/** Влагоотделители на выхлопе — отдельный узел для разноса. */
+function HydroSeparators({
+  layout,
+  mat,
+  dark,
+}: {
+  layout: Layout;
+  mat: THREE.Material;
+  dark: THREE.Material;
+}) {
+  if (!layout.nozzles) return null;
+  const { dims, top, spigots } = layout;
+  const yRoof = dims.h * MM + ROOF_PLATE_H;
+  return (
+    <group position={[0, yRoof, top.z * MM]}>
+      {spigots
+        .filter((s) => s.role === 'exhaust')
+        .map((s, i) => (
+          <group key={`sep-${i}`} position={[s.x * MM, 0, s.z * MM]}>
+            <MoistureSeparator diameter={s.diameter} body={dark} flange={mat} />
+          </group>
+        ))}
+    </group>
+  );
+}
+
 /** Крышка / врезки. У приточных, ТИП 1 и ТИП 2 (стенa/остров) крыша в оболочке — только патрубки. */
 function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; dark: THREE.Material }) {
-  const { top, dims, spigots, supplyPlenum, profile, filters, bottomRise } = layout;
+  const { top, dims, spigots, supplyPlenum, profile, filters, bottomRise, nozzles } = layout;
   const island = filters.some((f) => f.kind === 'front' || f.kind === 'back');
+  const hydro = !!nozzles;
   const type1Shell = profile === 'triangle' && !supplyPlenum && bottomRise > 0;
   const type2WallShell = profile === 'trapezoid' && !supplyPlenum && !island;
   const type2IslandShell = profile === 'trapezoid' && !supplyPlenum && island;
   const roofInShell = !!supplyPlenum || type1Shell || type2WallShell || type2IslandShell;
+
+  const renderPort = (s: Spigot, i: number, zPos: number) => {
+    /* Выхлоп гидро — отдельный HydroSeparators, здесь только приток / сухие шейки */
+    if (hydro && s.role === 'exhaust') return null;
+    const body = s.role === 'supply' ? mat : dark;
+    return (
+      <group key={i} position={[s.x * MM, (BUILD.spigot / 2) * MM, zPos * MM]}>
+        <SpigotStub diameter={s.diameter} body={body} flange={mat} />
+      </group>
+    );
+  };
 
   if (roofInShell) {
     const wallType2 = !island && profile === 'trapezoid';
@@ -955,44 +1101,27 @@ function TopPlate({ layout, mat, dark }: { layout: Layout; mat: THREE.Material; 
     return (
       <group position={[0, dims.h * MM, topZ * MM]}>
         {spigots.map((s, i) => {
-          const body = s.role === 'supply' ? mat : dark;
-          /* ЗВП/ЗВО без притока: поза из layout (A=B / P), без clamp */
           if (type1Shell || type2WallShell || type2IslandShell) {
-            const zPos = s.z + (top.z - topZ);
-            return (
-              <group key={i} position={[s.x * MM, (BUILD.spigot / 2) * MM, zPos * MM]}>
-                <SpigotStub diameter={s.diameter} body={body} flange={mat} />
-              </group>
-            );
+            return renderPort(s, i, s.z + (top.z - topZ));
           }
           const localZ = s.z + (top.z - topZ);
           const half = topD / 2 - s.diameter / 2 - 8;
           const zPos =
             s.role === 'supply' ? localZ : Math.max(-half, Math.min(half, localZ));
-          return (
-            <group key={i} position={[s.x * MM, (BUILD.spigot / 2) * MM, zPos * MM]}>
-              <SpigotStub diameter={s.diameter} body={body} flange={mat} />
-            </group>
-          );
+          return renderPort(s, i, zPos);
         })}
       </group>
     );
   }
 
-  /* ТИП 3 / прочее без крыши в shell: плита + патрубки */
+  /* ТИП 3 / гидро: плита; выхлоп гидро — вырез снизу + камера сверху (отдельный узел) */
   return (
     <group position={[0, dims.h * MM, top.z * MM]}>
-      <mesh material={mat} position={[0, 4 * MM, 0]}>
-        <boxGeometry args={[top.w * MM, 8 * MM, top.d * MM]} />
+      <mesh material={mat} position={[0, ROOF_PLATE_H / 2, 0]}>
+        <boxGeometry args={[top.w * MM, ROOF_PLATE_H, top.d * MM]} />
       </mesh>
-      {spigots.map((s, i) => {
-        const body = s.role === 'supply' ? mat : dark;
-        return (
-          <group key={i} position={[s.x * MM, (BUILD.spigot / 2) * MM, s.z * MM]}>
-            <SpigotStub diameter={s.diameter} body={body} flange={mat} />
-          </group>
-        );
-      })}
+      {hydro && <RoofExhaustCutouts layout={layout} mat={mat} dark={dark} />}
+      {spigots.map((s, i) => renderPort(s, i, s.z))}
     </group>
   );
 }
@@ -1991,6 +2120,7 @@ function Hood({ layout, mode, material }: HoodProps) {
   const t = useRef(0);
 
   const topRef = useRef<THREE.Group>(null);
+  const sepRef = useRef<THREE.Group>(null);
   const filtersRef = useRef<THREE.Group>(null);
   const hydroRef = useRef<THREE.Group>(null);
   const gutterRef = useRef<THREE.Group>(null);
@@ -2001,6 +2131,8 @@ function Hood({ layout, mode, material }: HoodProps) {
     const h = layout.dims.h * MM;
     /* Разнос только по вертикали — компоновка узлов как в рентгене */
     if (topRef.current) topRef.current.position.y = k * h * 0.55;
+    /* Влагоотделитель — своя деталь, выше крышки */
+    if (sepRef.current) sepRef.current.position.y = k * h * 0.92;
     if (hydroRef.current) hydroRef.current.position.y = k * h * 0.28;
     if (gutterRef.current) gutterRef.current.position.y = -k * h * 0.4;
     if (filtersRef.current) filtersRef.current.position.y = k * h * 0.12;
@@ -2013,6 +2145,10 @@ function Hood({ layout, mode, material }: HoodProps) {
 
       <group ref={topRef}>
         <TopPlate layout={layout} mat={mats.steel} dark={mats.dark} />
+      </group>
+
+      <group ref={sepRef}>
+        <HydroSeparators layout={layout} mat={mats.steel} dark={mats.dark} />
       </group>
 
       <group ref={hydroRef}>

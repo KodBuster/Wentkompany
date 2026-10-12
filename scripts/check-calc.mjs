@@ -23,7 +23,7 @@ const rows = [];
 for (const p of catalog.products) {
   if (!p.base) continue;
   const traits = traitsOf(p.family);
-  const c = calculate(p.base, traits, p.base, p.price);
+  const c = calculate(p.base, traits, p.base, p.price, undefined, { typeLabel: p.type });
 
   assert.ok(c.airflow > 0, `${p.article}: расход должен быть положительным`);
   assert.ok(

@@ -96,7 +96,9 @@ function FamilyView({ slug }: { slug: string }) {
 
         <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
           {items.map((p) => {
-            const c = p.base ? calculate(p.base, traits, p.base, p.price) : null;
+            const c = p.base
+              ? calculate(p.base, traits, p.base, p.price, undefined, { typeLabel: p.type })
+              : null;
             return (
               <article key={p.id} className="tile">
                 <Link href={`/catalog/${p.slug}`} className="no-underline">
@@ -173,7 +175,9 @@ function ProductView({ slug }: { slug: string }) {
   const traits = traitsOf(p.family);
   const family = families.find((f) => f.code === p.family);
   const material = defaultMaterialGrade(traits.hydro);
-  const c = p.base ? calculate(p.base, traits, p.base, p.price, material) : null;
+  const c = p.base
+    ? calculate(p.base, traits, p.base, p.price, material, { typeLabel: p.type })
+    : null;
   const related = productsOf(p.family).filter((x) => x.id !== p.id).slice(0, 3);
 
   const jsonLd = {

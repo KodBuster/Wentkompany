@@ -276,6 +276,7 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
   y += 6;
   const params: [string, string][] = [
     ['Расход воздуха', `${ru(calc.airflow)} м³/ч`],
+    ['Скорость захвата', `${dec(calc.captureVelocity, 1)} м/с`],
     ['Патрубки', `${calc.ducts.count} × Ø${calc.ducts.diameter}, ${dec(calc.ducts.velocity)} м/с`],
     ['Площадь захвата', `${dec(calc.captureArea, 2)} м²`],
     ['Периметр захвата', `${dec(calc.perimeter)} м`],

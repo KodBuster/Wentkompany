@@ -33,7 +33,9 @@ export default async function ContactsPage({
   const material = traits ? defaultMaterialGrade(traits.hydro) : '430';
   const calc =
     product?.base && traits
-      ? calculate(product.base, traits, product.base, product.price, material)
+      ? calculate(product.base, traits, product.base, product.price, material, {
+          typeLabel: product.type,
+        })
       : null;
 
   const standardCfg = product?.base
