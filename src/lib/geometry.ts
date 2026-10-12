@@ -85,8 +85,8 @@ export const BUILD = {
      * Чуть меньше ТИП 1/3 (160) → больше зона ②; не жать — иначе патрубки сходятся и жировик уезжает.
      */
     depthType2: 125,
-    /** ТИП 2: высота нижнего вертикального бортика, мм — const (часть камеры ③) */
-    type2VertDy: 84,
+    /** ТИП 2: высота нижнего вертикального бортика = frontBoardH (сотка). */
+    type2VertDy: 100,
     /** Отступ от переднего края крыши до стенки патрубка (и такой же до шва), мм */
     edge: 35,
     /** Ø приточного патрубка (пока const; таблица по расходу — позже) */
@@ -135,15 +135,19 @@ export const BUILD = {
     /** Мин. зазор по D: внутренняя стенка короба → верх кассеты. */
     minBridge: 55,
     /**
-     * ТИП 1: высота приточного короба (крыша → нижняя горизонтальная плоскость), мм.
+     * Передняя вертикаль козырька ТИП 1/2 («сотка»), мм — const производства.
+     * ТИП 1: от низа скоса до крыши; ТИП 2: нижний борт до начала скоса крыши;
+     * ЗПВО ТИП 1: высота «холодной» камеры.
      */
+    frontBoardH: 100,
+    /** @deprecated то же, что frontBoardH */
     type1PlenumH: 100,
     /**
      * ТИП 2: угол скоса «абажура» к вертикали, ° — const (не от D).
      */
     type2AlphaDeg: 30,
-    /** ТИП 2: высота нижней вертикали (передний бортик), мм — const. */
-    type2VertDy: 84,
+    /** ТИП 2: высота нижней вертикали = frontBoardH. */
+    type2VertDy: 100,
     /**
      * ТИП 2: глубина приточной полости (нормаль к обшивке), мм — const.
      * Узкая полость: низ перегородки почти у внешней стенки, стенки // скосу.
@@ -176,24 +180,39 @@ export const BUILD = {
   },
 } as const;
 
-/** Низ приточного короба ТИП 1 (мм по Y): горизонтальная плоскость с решётками. */
-export function islandSupplyType1FloorY(h: number) {
-  return Math.max(h - BUILD.zpvo.type1PlenumH, Math.round(h * 0.62));
+/** Передняя вертикаль козырька (сотка), мм. */
+export function frontBoardMm() {
+  return BUILD.zpvo.frontBoardH;
 }
 
 /**
- * Шов А («фиолетовая точка» на макете): пересечение лица-скоса с перегородкой.
- * Меняется с H/D — не жёсткая константа. Пол короба (К) и низ перегородки = ySeam.
+ * Низ приточного короба ТИП 1 (мм по Y): горизонталь под «холодной» камерой.
+ * Высота камеры = frontBoardH (100 мм) — const, не от D.
+ */
+export function islandSupplyType1FloorY(h: number) {
+  return Math.max(80, h - frontBoardMm());
+}
+
+/** ТИП 1: подъём скошенного низа, мм — передняя вертикаль всегда сотка. */
+export function type1BottomRise(h: number) {
+  return Math.max(0, h - frontBoardMm());
+}
+
+/** ТИП 2: высота нижнего вертикального борта, мм — сотка (если H позволяет). */
+export function type2VertBoard(h: number) {
+  const board = frontBoardMm();
+  return Math.min(board, Math.max(40, h - 40));
+}
+
+/**
+ * Шов А: перегородка притока на zSeam; пол короба ySeam = H − 100.
+ * С ростом D уезжает только z (глубина зоны вытяжки), передний борт по высоте не ползёт.
  */
 export function islandSupplyType1Seam(h: number, d: number, plenumDepth: number) {
   const zSeam = d / 2 - plenumDepth;
-  const yFloorMax = islandSupplyType1FloorY(h);
+  const ySeam = islandSupplyType1FloorY(h);
   const yB = 2 + Math.min(BUILD.core.trayH, 22) + 1;
   const zBot = BUILD.core.vGap;
-  const tilt = (BUILD.core.tilt * Math.PI) / 180;
-  /* Y, где скос с углом кассеты от зоны ванночки пересекает плоскость перегородки */
-  const yFromTilt = yB + (zSeam - zBot) / Math.tan(tilt);
-  const ySeam = Math.max(yB + 50, Math.min(yFromTilt, yFloorMax, h - 36));
   return { ySeam, zSeam, yB, zBot };
 }
 
@@ -374,133 +393,102 @@ export function wallExhaustPipeZ(
   return clamp(mid, zMin, Math.max(zMin, zMax));
 }
 
-/** Высота низа у притока: ТИП 1 — как у ЗВП (L=¼V); ТИП 2/3 — низ прямой. */
+/** Высота низа у притока: ТИП 1 — скос до сотки у фронта; ТИП 2/3 — низ прямой. */
 function supplyFrontRise(profile: Layout['profile'], height: number) {
-  if (profile === 'triangle') {
-    return Math.min(
-      Math.round(height * 0.75),
-      height - Math.max(80, Math.round(height / 4)),
-    );
-  }
+  if (profile === 'triangle') return type1BottomRise(height);
   return 0;
 }
 
 /**
+ * Горизонталь скоса ТИП 2 при α const и сотке борта — не растёт с D.
+ */
+function type2ChamferRun(h: number, d: number, sides: 1 | 2) {
+  const frontH = Math.max(h, 80);
+  const vertDy = type2VertBoard(frontH);
+  const slantDy = Math.max(frontH - vertDy, 40);
+  const alpha = (BUILD.zpvo.type2AlphaDeg * Math.PI) / 180;
+  const byAlpha = Math.round(slantDy * Math.tan(alpha));
+  /* Остров: два скоса — оставляем плоскую крышу ≥200 мм (check / врезки) */
+  const minFlat = sides === 2 ? 220 : 120;
+  const maxRun = Math.max(0, Math.floor((d - minFlat) / sides));
+  const chamferZ = Math.min(byAlpha, maxRun);
+  return { frontH, vertDy, slantDy, chamferZ };
+}
+
+/**
  * ТИП 2 ЗПВП = ЗВП + камера ③.
- * Наружный бортик/угол как у ЗВП; плоская крыша длиннее на мост + ③ (const).
- * С ростом D растёт только скос (зона ②).
+ * Скос α const; с ростом D растёт плоская крыша (зона ① + мост + ③), не угол.
  */
 export function supplyType2Chamfer(h: number, d: number, plenumDepth: number) {
   const base = wallType2Chamfer(h, d);
   const plenum = Math.max(plenumDepth, BUILD.supplyChamber.depthType2);
   const bridge = BUILD.exhaustChamber.bridge;
-  /* Крыша: зона ① (как у ЗВП) + мост + камера ③ */
-  const flat = Math.min(d - 48, base.zone1 + bridge + plenum);
+  const flat = Math.max(plenum + bridge + 80, d - base.chamferZ);
   const chamferZ = Math.max(0, d - flat);
+  const zone1 = Math.max(80, flat - bridge - plenum);
   return {
     chamferZ,
     slantDy: base.slantDy,
     vertDy: base.vertDy,
-    zone1: base.zone1,
+    zone1,
     flat,
     plenum,
   };
 }
 
 /**
- * ТИП 2 ЗПВО «абажур»: α const; полость const по нормали к обшивке.
- * Скос (chamferZ) не растёт с D — иначе на старте от 600 Lv стоит, а α плывёт.
- * С ростом D увеличиваются Ln (=D) и Lv (= D − 2×chamfer) вместе.
+ * ТИП 2 ЗПВО «абажур»: α const; полость const.
+ * С ростом D растёт плоская середина Lv, скос y с каждой стороны — const.
  */
 export function islandSupplyType2Chamfer(h: number, d: number, plenumDepth: number) {
-  const frontH = Math.max(h, 80);
-  const vertDy = Math.min(BUILD.zpvo.type2VertDy, Math.round(frontH * 0.28));
-  const slantDy = frontH - vertDy;
-  const alpha = (BUILD.zpvo.type2AlphaDeg * Math.PI) / 180;
-  const byAlpha = Math.round(slantDy * Math.tan(alpha));
+  const { vertDy, slantDy, chamferZ } = type2ChamferRun(h, d, 2);
   const ex = BUILD.zpvo.type2DisplayExhaust;
   const pMin = BUILD.zpvo.type2PMin;
   const bridge = BUILD.zpvo.type2Bridge;
   const minFlat = 2 * plenumDepth + ex + 2 * pMin + 2 * bridge;
-  /* Потолок скоса — по мин. каталожному D (600), не по текущему вылету */
-  const dMin = 600;
-  const roomAtMin = Math.max(0, Math.floor((dMin - minFlat) / 2));
-  const roomNow = Math.max(0, Math.floor((d - minFlat) / 2));
-  const chamferZ = Math.min(byAlpha, roomAtMin, roomNow);
-
-  return { chamferZ, slantDy, vertDy };
-}
-
-/**
- * ТИП 2 ЗВП/ЗВО (без притока): бортик const + скос зоны ②.
- * Зона ① (x) — const (вытяжка + жировик); на мин. D=600: y/x ≈ 1.5.
- * Патрубок в центре зоны ① (A = B). С ростом D растёт только y.
- */
-export function wallType2Chamfer(h: number, d: number) {
-  const frontH = Math.max(h, 80);
-  const vertDy = Math.min(BUILD.zpvo.type2VertDy, Math.round(frontH * 0.28));
-  const slantDy = Math.max(frontH - vertDy, 40);
-  const A = BUILD.zpvo.type2DisplayExhaust;
-  const edge = 14;
-  const dMin = 600;
-  /** y/x на каталожном минимуме D — прежний ритм скоса */
-  const yOverX = 1.5;
-  const xFromRatio = Math.round(dMin / (1 + yOverX)); /* 240 при 600 и 1.5 */
-  const xMinPipe = A + 2 * edge;
-  /* Зона ① должна накрыть полный жировик α=45° до горизонтальной крыши */
-  const rearBlock = wallRearBlockDepth(h, A, 8);
-  const xConst = Math.min(d - 48, Math.max(xFromRatio, xMinPipe, rearBlock));
-  const chamferZ = Math.max(0, d - xConst);
+  const maxEach = Math.max(0, Math.floor((d - minFlat) / 2));
   return {
-    chamferZ,
+    chamferZ: Math.min(chamferZ, maxEach),
     slantDy,
     vertDy,
-    /** Глубина зоны ① (плоская крыша), мм */
-    zone1: xConst,
-    /** Глубина зоны ② (скос), мм */
-    zone2: chamferZ,
-    A,
-    edge,
-    yOverX,
   };
 }
 
 /**
- * ТИП 2 ЗВО (остров без притока) = ЗПВО без камеры ③.
- * Зона ① по центру — const; скосы y с двух сторон; на D=600 сумма y / x ≈ 1.5.
- * Патрубок в центре (A = B).
+ * ТИП 2 ЗВП: бортик-сотка + скос под α const (type2AlphaDeg).
+ * С ростом D растёт плоская крыша (зона ①), угол передней стенки не плывёт.
  */
-export function islandType2Chamfer(h: number, d: number) {
-  const frontH = Math.max(h, 80);
-  const vertDy = Math.min(BUILD.zpvo.type2VertDy, Math.round(frontH * 0.28));
-  const slantDy = Math.max(frontH - vertDy, 40);
+export function wallType2Chamfer(h: number, d: number) {
+  const { vertDy, slantDy, chamferZ } = type2ChamferRun(h, d, 1);
   const A = BUILD.zpvo.type2DisplayExhaust;
   const edge = 14;
-  const dMin = 600;
-  const yOverX = 1.5;
-  const xFromRatio = Math.round(dMin / (1 + yOverX));
-  /* Половина зоны ① под кассету ≈45° от ванночки до крыши */
-  const tilt = filterTiltRad();
-  const yB = 2 + Math.min(BUILD.core.trayH, 22) + 1;
-  const yC = h - (14 + BUILD.core.filterT * 0.5 * Math.sin(tilt) + 10);
-  const dy = Math.max(yC - yB, 50);
-  const halfV = BUILD.core.vGap + dy * Math.tan(tilt);
-  /* На мин. D верх может чуть не дотянуть до 45° — зона не шире корпуса */
-  const halfNeed = Math.min(halfV, d / 2 - 16);
-  const xConst = Math.min(
-    d - 48,
-    Math.max(xFromRatio, A + 2 * edge, Math.ceil(2 * halfNeed)),
-  );
-  const each = Math.max(0, Math.floor((d - xConst) / 2));
+  const zone1 = Math.max(A + 2 * edge, d - chamferZ);
   return {
-    chamferZ: each,
+    chamferZ,
     slantDy,
     vertDy,
-    zone1: d - 2 * each,
-    zone2Each: each,
+    zone1,
+    zone2: chamferZ,
     A,
     edge,
-    yOverX,
+  };
+}
+
+/**
+ * ТИП 2 ЗВО: симметричные скосы α const; с ростом D растёт центральная плоская зона.
+ */
+export function islandType2Chamfer(h: number, d: number) {
+  const { vertDy, slantDy, chamferZ } = type2ChamferRun(h, d, 2);
+  const A = BUILD.zpvo.type2DisplayExhaust;
+  const edge = 14;
+  return {
+    chamferZ,
+    slantDy,
+    vertDy,
+    zone1: d - 2 * chamferZ,
+    zone2Each: chamferZ,
+    A,
+    edge,
   };
 }
 
@@ -557,6 +545,25 @@ function taperForProfile(
   };
 }
 
+/**
+ * Центры врезок по ширине крышки: 1 → 0; 2 → ⅓ и ⅔; иначе равные доли.
+ * Не к боковинам (edge-hugging ломает схему на ЗПВП/ЗПВО).
+ */
+export function spigotCentersX(
+  topWidth: number,
+  count: number,
+  diameter: number,
+  edge = 14,
+): number[] {
+  const n = Math.max(1, count);
+  const xMax = Math.max(0, topWidth / 2 - diameter / 2 - edge);
+  return Array.from({ length: n }, (_, i) => {
+    if (n === 1) return 0;
+    const raw = -topWidth / 2 + (topWidth * (i + 1)) / (n + 1);
+    return clamp(raw, -xMax, xMax);
+  });
+}
+
 /** Раскладка вытяжных патрубков: диаметр не больше глубины крышки (Φ ≤ L). */
 export function layoutSpigots(
   topWidth: number,
@@ -578,21 +585,13 @@ export function layoutSpigots(
   const z = opts.island
     ? 0
     : clamp(-topDepth / 2 + diameter / 2 + edge, -topDepth / 2 + edge, 0);
-  /*
-   * По ширине: равномерно (деление на count+1), не к боковинам.
-   * 1 шт — центр; 2 шт — на ⅓ и ⅔ ширины, симметрично.
-   */
-  const xMax = Math.max(0, topWidth / 2 - diameter / 2 - edge);
-  return Array.from({ length: count }, (_, i) => {
-    const raw =
-      count === 1 ? 0 : -topWidth / 2 + (topWidth * (i + 1)) / (count + 1);
-    return {
-      diameter,
-      x: clamp(raw, -xMax, xMax),
-      z,
-      role: 'exhaust' as const,
-    };
-  });
+  const xs = spigotCentersX(topWidth, count, diameter, edge);
+  return xs.map((x) => ({
+    diameter,
+    x,
+    z,
+    role: 'exhaust' as const,
+  }));
 }
 
 /**
@@ -623,20 +622,14 @@ export function withSupplySpigot(
     const zEx = -half + ch.zone1 / 2;
     const zSup = zFlatFront - edge - supplyDia / 2;
     const n = spigots.length;
-    if (n === 1) {
-      return [
-        { x: 0, z: zEx, diameter: A, role: 'exhaust' },
-        { x: 0, z: zSup, diameter: Math.min(supplyDia, A), role: 'supply' },
-      ];
-    }
-    const usable = Math.max(top.w - A - 80, 0);
-    const exhaust = spigots.map((_, i) => ({
-      x: -usable / 2 + (usable * i) / (n - 1),
+    const xs = spigotCentersX(top.w, n, A);
+    const exhaust = xs.map((x) => ({
+      x,
       z: zEx,
       diameter: A,
       role: 'exhaust' as const,
     }));
-    return [...exhaust, { x: 0, z: zSup, diameter: supplyDia, role: 'supply' }];
+    return [...exhaust, { x: 0, z: zSup, diameter: Math.min(supplyDia, A), role: 'supply' }];
   }
 
   const zF = half;
@@ -661,27 +654,21 @@ export function withSupplySpigot(
   );
   const zExLimit = Math.min(half - depth - gapZ, zSeamTop - 20);
   const n = spigots.length;
-
-  if (n === 1) {
-    const dia = Math.min(spigots[0].diameter, exhaustMax, A);
-    const zEx = clamp(
-      -half + dia / 2 + rearClear,
-      -half + rearClear,
-      zExLimit - dia / 2,
-    );
-    return [
-      { x: 0, z: zEx, diameter: dia, role: 'exhaust' },
-      { x: 0, z: zSup, diameter: Math.min(supplyDia, dia), role: 'supply' },
-    ];
-  }
-
-  const dia = Math.min(Math.max(...spigots.map((s) => s.diameter)), exhaustMax, A);
-  const zEx = clamp(-half + dia / 2 + rearClear, -half + rearClear, zExLimit - dia / 2);
-  const usable = Math.max(top.w - dia - 80, 0);
-  const exhaust = spigots.map((s, i) => ({
-    x: -usable / 2 + (usable * i) / (n - 1),
+  const dia = Math.min(
+    Math.max(...spigots.map((s) => s.diameter)),
+    exhaustMax,
+    A,
+  );
+  const zEx = clamp(
+    -half + dia / 2 + rearClear,
+    -half + rearClear,
+    zExLimit - dia / 2,
+  );
+  const xs = spigotCentersX(top.w, n, dia);
+  const exhaust = xs.map((x) => ({
+    x,
     z: zEx,
-    diameter: Math.min(s.diameter, dia),
+    diameter: dia,
     role: 'exhaust' as const,
   }));
   return [...exhaust, { x: 0, z: zSup, diameter: supplyDia, role: 'supply' }];
@@ -726,16 +713,9 @@ export function withIslandSupplySpigots(
       zSup = (zP + zFlat) / 2;
     }
     const n = spigots.length;
-    if (n === 1) {
-      return [
-        { x: 0, z: 0, diameter: exD, role: 'exhaust' },
-        { x: 0, z: zSup, diameter: sDia, role: 'supply' },
-        { x: 0, z: -zSup, diameter: sDia, role: 'supply' },
-      ];
-    }
-    const usable = Math.max(top.w - exD - 2 * edge, 0);
-    const exhaust = spigots.map((_, i) => ({
-      x: -usable / 2 + (usable * i) / (n - 1),
+    const xs = spigotCentersX(top.w, n, exD, edge);
+    const exhaust = xs.map((x) => ({
+      x,
       z: 0,
       diameter: exD,
       role: 'exhaust' as const,
@@ -764,16 +744,9 @@ export function withIslandSupplySpigots(
   const dia = exD;
 
   const n = spigots.length;
-  if (n === 1) {
-    return [
-      { x: 0, z: 0, diameter: dia, role: 'exhaust' },
-      { x: 0, z: zSup, diameter: supplyDia, role: 'supply' },
-      { x: 0, z: -zSup, diameter: supplyDia, role: 'supply' },
-    ];
-  }
-  const usable = Math.max(top.w - dia - 2 * edge, 0);
-  const exhaust = spigots.map((_, i) => ({
-    x: -usable / 2 + (usable * i) / (n - 1),
+  const xs = spigotCentersX(top.w, n, dia, edge);
+  const exhaust = xs.map((x) => ({
+    x,
     z: 0,
     diameter: dia,
     role: 'exhaust' as const,
@@ -917,12 +890,10 @@ export function buildLayout(
   };
   /*
    * ТИП 1: скос низа вверх к фронту (план полный).
-   * Передняя вертикаль L = ¼V const → подъём низа = ¾H.
+   * Передняя вертикаль = frontBoardH (100 мм) — const производства.
    */
   const bottomRise =
-    profile === 'triangle' && !traits.supply
-      ? Math.min(Math.round(dims.h * 0.75), dims.h - Math.max(80, Math.round(dims.h / 4)))
-      : 0;
+    profile === 'triangle' && !traits.supply ? type1BottomRise(dims.h) : 0;
   const taper = insets.topFront + insets.bottomFront + bottomRise;
 
   const plenumDepth = traits.supply

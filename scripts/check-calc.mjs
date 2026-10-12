@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { calculate, pickDucts, steelArea } from '../src/lib/calc.ts';
-import { buildLayout } from '../src/lib/geometry.ts';
+import { buildLayout, wallType2Chamfer, islandType2Chamfer } from '../src/lib/geometry.ts';
 import { buildSheet, toSheet, SCALE_SERIES, SHEET_FIELDS, chooseScale } from '../src/lib/drawing.ts';
 import { buildDxf, translit } from '../src/lib/dxf.ts';
 
@@ -203,7 +203,7 @@ for (const code of ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'З�
   assert.equal(t1.profile, 'triangle');
   assert.equal(t2.profile, 'trapezoid');
   assert.equal(t3.profile, 'rect');
-  assert.ok(t1.bottomRise > 40, 'ТИП 1: есть подъём скошенного низа');
+  assert.equal(dims.h - t1.bottomRise, 100, 'ТИП 1: передняя вертикаль = сотка');
   assert.ok(t2.taper > 80, 'ТИП 2: есть скос сверху');
   assert.equal(t3.taper, 0, 'ТИП 3: без скоса');
   assert.equal(t2.bottomRise, 0, 'ТИП 2: без подъёма низа');
@@ -213,6 +213,17 @@ for (const code of ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'З�
   assert.ok(Math.abs(t2.bottom.d - dims.d) < 1e-6, 'ТИП 2: низ на весь вылет');
   assert.ok(t2.top.d < dims.d - 40, 'ТИП 2: верх короче (скос сверху)');
   assert.ok(Math.abs(t3.top.d - dims.d) < 1e-6 && Math.abs(t3.bottom.d - dims.d) < 1e-6, 'ТИП 3: прямоугольник');
+  /* ТИП 2: при росте D угол скоса не плывёт — растёт плоская крыша */
+  {
+    const w600 = wallType2Chamfer(350, 600);
+    const w900 = wallType2Chamfer(350, 900);
+    assert.equal(w600.chamferZ, w900.chamferZ, 'ЗВП-2: скос const при росте D');
+    assert.ok(w900.zone1 > w600.zone1, 'ЗВП-2: плоская зона растёт с D');
+    const i600 = islandType2Chamfer(350, 600);
+    const i900 = islandType2Chamfer(350, 900);
+    assert.equal(i600.chamferZ, i900.chamferZ, 'ЗВО-2: скос const при росте D');
+    assert.ok(i900.zone1 > i600.zone1, 'ЗВО-2: плоская зона растёт с D');
+  }
 }
 {
   const tr = traitsOf('ЗПВП');

@@ -539,8 +539,8 @@ function makeIslandSupplyShell(layout: Layout) {
     }
   } else {
     /*
-     * ТИП 1: короб без сплошного скоса по W (жаровики видны снизу);
-     * боковины-монодетали ×2 — полный торец по контуру рис-2.
+     * ТИП 1: приток с yA (H−100); боковина как у ЗВО — до y=0 под ванной,
+     * без «грешка» (обрезанного металла над ванночкой).
      */
     const seam = islandSupplyType1Seam(
       layout.dims.h,
@@ -550,39 +550,42 @@ function makeIslandSupplyShell(layout: Layout) {
     const yA = seam.ySeam * MM;
     const zAF = seam.zSeam * MM;
     const zAB = -seam.zSeam * MM;
-    const yBot = seam.yB * MM;
-    const zBotF = seam.zBot * MM;
-    const zBotB = -seam.zBot * MM;
+    const halfTray = (BUILD.core.trayD / 2) * MM;
+    const zKneeF = halfTray;
+    const zKneeB = -halfTray;
 
-    /* Короб */
+    /* Короб / пол «холодной» камеры на yA */
     pushQuad(pos, idx, [-hw, H, zB], [hw, H, zB], [hw, H, zF], [-hw, H, zF]);
     pushQuad(pos, idx, [hw, yA, zF], [-hw, yA, zF], [-hw, H, zF], [hw, H, zF]);
     pushQuad(pos, idx, [-hw, yA, zB], [hw, yA, zB], [hw, H, zB], [-hw, H, zB]);
     pushQuad(pos, idx, [-hw, yA, zAF], [hw, yA, zAF], [hw, H, zAF], [-hw, H, zAF]);
     pushQuad(pos, idx, [hw, yA, zAB], [-hw, yA, zAB], [-hw, H, zAB], [hw, H, zAB]);
+    /* Пол притока (горизонталь под холодной камерой) */
+    pushQuad(pos, idx, [-hw, yA, zAF], [hw, yA, zAF], [hw, yA, zF], [-hw, yA, zF]);
+    pushQuad(pos, idx, [hw, yA, zAB], [-hw, yA, zAB], [-hw, yA, zB], [hw, yA, zB]);
 
-    /* Боковины-монодетали ×2: полный торец (верх + крылья + низ), без скоса внутри по W */
+    /* Боковины: горизонт y=0 под ванной → шов/крылья на yA → крыша */
     const addSide = (x: number, flip: boolean) => {
-      const p1 = [x, yBot, zBotF];
+      const p0 = [x, 0, zKneeB];
+      const p1 = [x, 0, zKneeF];
       const p2 = [x, yA, zAF];
       const p3 = [x, yA, zF];
       const p4 = [x, H, zF];
       const p5 = [x, H, zB];
       const p6 = [x, yA, zB];
       const p7 = [x, yA, zAB];
-      const p8 = [x, yBot, zBotB];
       const tris = flip
         ? [
             [p3, p6, p5], [p3, p5, p4],
             [p1, p3, p2],
-            [p6, p8, p7],
-            [p1, p2, p7], [p1, p7, p8],
+            [p6, p0, p7],
+            [p1, p2, p7], [p1, p7, p0],
           ]
         : [
             [p3, p4, p5], [p3, p5, p6],
             [p1, p2, p3],
-            [p6, p7, p8],
-            [p1, p7, p2], [p1, p8, p7],
+            [p6, p7, p0],
+            [p1, p7, p2], [p1, p0, p7],
           ];
       for (const t of tris) {
         const base = pos.length / 3;
@@ -1031,34 +1034,58 @@ function wallFilterCore(layout: Layout) {
 }
 
 /**
- * Островное ядро V (ЗВО / ЗПВО): ванночка в центре; два ряда ≈45°; патрубок по центру камеры.
- * На мин. D верх упирается в обшивку — угол чуть меньше 45°, без искусственного «поля».
+ * Островное ядро V (ЗВО / ЗПВО): низ у ванночки, верх под плоской крышей с уголком.
+ * Полная высота. ТИП 2 — не на скос; ЗПВО — не в «холодную» камеру (учитываем
+ * толщину кассеты: наружная грань дальше осевой линии ряда).
  */
 function islandFilterCore(layout: Layout) {
-  const { dims, top } = layout;
+  const { dims, top, supplyPlenum, profile } = layout;
   const trayD = BUILD.core.trayD;
   const trayH = Math.min(BUILD.core.trayH, 22);
   const floorGap = 2;
-  const halfGap = BUILD.core.vGap;
+  const gapB = BUILD.core.vGap;
   const yB0 = floorGap + trayH + 1;
 
   const tHalf = BUILD.core.filterT * 0.5;
   const tilt0 = filterTiltRad();
+  const mountClear = Math.max(40, Math.round(BUILD.core.filterT));
+  /* Вылет наружной грани кассеты по Z за осевую линию ряда */
+  const thickOut = tHalf * Math.cos(tilt0);
+
+  let zTopMax = dims.d / 2 - mountClear;
+  zTopMax = Math.min(zTopMax, top.z + top.d / 2 - 8);
+
+  /* ТИП 2: только под плоской зоной ① (не на скос абажура) */
+  if (profile === 'trapezoid') {
+    const ch = supplyPlenum
+      ? islandSupplyType2Chamfer(dims.h, dims.d, supplyPlenum.depth)
+      : islandType2Chamfer(dims.h, dims.d);
+    zTopMax = Math.min(zTopMax, dims.d / 2 - ch.chamferZ - 8 - thickOut);
+  }
+
+  if (supplyPlenum) {
+    /* Шов притока − мост N − толщина: иначе жировик лезет в холодную камеру */
+    const bridge = Math.max(
+      BUILD.zpvo.minBridge,
+      BUILD.zpvo.type2Bridge,
+      BUILD.zpvo.type2NMin,
+    );
+    let zSeam = dims.d / 2 - supplyPlenum.depth;
+    if (profile === 'trapezoid') {
+      const ch = islandSupplyType2Chamfer(dims.h, dims.d, supplyPlenum.depth);
+      zSeam = dims.d / 2 - ch.chamferZ - supplyPlenum.depth;
+    }
+    zTopMax = Math.min(zTopMax, zSeam - bridge - thickOut);
+  }
+  zTopMax = Math.max(zTopMax, gapB + 48);
+
+  /* Полная высота до горизонтальной крыши */
   const yC = dims.h - (14 + tHalf * Math.sin(tilt0) + 10);
   const dy = Math.max(yC - yB0, 50);
-  const gapB = halfGap;
-  const zRoofFront = top.z + top.d / 2 - 8;
-  const zRoofBack = top.z - top.d / 2 + 8;
   const dzTarget = dy * Math.tan(tilt0);
-  const zLimit = dims.d / 2 - 16;
-  let zCFront = Math.min(gapB + dzTarget, zRoofFront, zLimit);
-  let zCBack = Math.max(-gapB - dzTarget, zRoofBack, -zLimit);
-  const dz = Math.max(
-    Math.min(Math.abs(zCFront - gapB), Math.abs(-gapB - zCBack)),
-    24,
-  );
-  zCFront = gapB + dz;
-  zCBack = -gapB - dz;
+  const dz = Math.max(Math.min(dzTarget, zTopMax - gapB), 48);
+  const zCFront = gapB + dz;
+  const zCBack = -gapB - dz;
   const tilt = Math.atan2(dz, dy);
   const fhBank = Math.hypot(dz, dy);
 
@@ -1087,19 +1114,30 @@ function islandFilterCore(layout: Layout) {
 
 /**
  * ЗПВП = ЗВП + камера ③: жироуловитель только в вытяжной камере ①.
- * Те же якоря/угол, что у ЗВП; верх не заходит за шов притока.
+ * Верх не заходит за шов притока (у ТИП 2 шов от края плоской крыши, не от габарита D).
  */
 function supplyWallFilterCore(layout: Layout) {
   const { dims, supplyPlenum, profile } = layout;
   const plenum = supplyPlenum!;
   const ex = BUILD.exhaustChamber;
   const zF = dims.d / 2;
-  const zSeam = zF - plenum.depth;
+  const tilt0 = filterTiltRad();
+  const thickOut = BUILD.core.filterT * 0.5 * Math.cos(tilt0);
+  const bridge = Math.max(ex.bridge, BUILD.zpvo.type2Bridge, BUILD.zpvo.type2NMin);
+
+  /* ТИП 1/3: шов = фронт − глубина ③; ТИП 2: шов от края плоской крыши после скоса */
+  let zSeam = zF - plenum.depth;
+  if (profile === 'trapezoid') {
+    const ch = supplyType2Chamfer(dims.h, dims.d, plenum.depth);
+    zSeam = zF - ch.chamferZ - plenum.depth;
+  }
+  const zFrontMax = Math.min(zSeam - bridge - thickOut, zF - 40);
+
   const bottomRise = profile === 'triangle' ? plenum.frontRise : 0;
   const a = wallFilterAnchors(dims, {
     wallGap: ex.wallGap,
     bottomRise,
-    zFrontMax: Math.min(zSeam - ex.bridge, zF - 40),
+    zFrontMax,
   });
   const fh = Math.hypot(a.dz, a.dy);
   const y = (a.yB + a.yC) / 2;
@@ -1287,37 +1325,88 @@ function Filters({ layout, mat }: { layout: Layout; mat: THREE.Material }) {
   );
 }
 
-/** Гидроконтур: патрубок на крышке над левой форсункой → стояк → коллектор. */
+/**
+ * Гидроконтур: вода вдоль плоскости жировика (как на производстве), не «сверху вниз».
+ * Коллектор у верхней части кассеты; факел // плоскости фильтра.
+ */
 function HydroLoop({ layout, mat, water }: { layout: Layout; mat: THREE.Material; water: THREE.Material }) {
-  const { dims, nozzles, gutterHeight, top, spigots } = layout;
+  const { dims, nozzles, top, spigots, filters } = layout;
   if (!nozzles) return null;
 
-  const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
-  const pipeZ = top.z + (exhaust?.z ?? 0);
-  /* ЗВПГ/ЗВОГ: ряд форсунок и подвод — под осью вытяжного патрубка */
-  const z = pipeZ * MM;
-
+  const island = filters.some((f) => f.kind === 'front' || f.kind === 'back');
   const pipeLen = Math.min(dims.w * 0.68, Math.max(dims.w - 120, 320)) * MM;
   const usable = pipeLen / MM;
-  /* Ряд форсунок по центру крышки; патрубок воды — только над левой */
   const xs = Array.from({ length: nozzles }, (_, i) =>
     nozzles === 1 ? 0 : -usable / 2 + (usable * i) / (nozzles - 1),
   );
-  const inletX = xs[0] * MM;
-
+  const inletX = xs[0]! * MM;
   const inletD = BUILD.hydroInlet.d;
   const inletH = BUILD.hydroInlet.h;
   const yLid = dims.h * MM;
-  const yManifold = (dims.h - 42) * MM;
-  const dropH = Math.max(yLid - yManifold, 20 * MM);
-  const dropY = (yLid + yManifold) / 2;
-  const curtainH = Math.max(yManifold - gutterHeight * MM - 36 * MM, 80 * MM);
-  const curtainR = dims.d * 0.2 * MM;
+  const exhaust = spigots.find((s) => s.role === 'exhaust') ?? spigots[0];
+  /* Патрубок на крыше — как раньше, в зоне вытяжки; к рампе доводим уголком */
+  const inletZ0 = island ? 0 : top.z + (exhaust?.z ?? 0);
+
+  type Bank = { y: number; z: number; rotX: number; fh: number };
+  /* Над верхним торцом + в камеру; вода вдоль плоскости в жёлоб, без просвета наружу */
+  const above = 28;
+  const standoff = 16;
+  const nudgeZ = -40;
+  const toCenter = 36;
+  const banks: Bank[] = island
+    ? (() => {
+        const core = islandFilterCore(layout);
+        const a = Math.abs(core.front.rotX);
+        const yTop = (b: { y: number; fh: number }) => b.y + (b.fh / 2) * Math.cos(a);
+        /* Перед / тыл зеркально; обе рампы чуть к центру V */
+        return [
+          {
+            y: yTop(core.front) + above * Math.cos(a) + standoff * Math.sin(a),
+            z:
+              core.front.z +
+              (core.front.fh / 2) * Math.sin(a) +
+              above * Math.sin(a) -
+              standoff * Math.cos(a) -
+              toCenter,
+            rotX: core.front.rotX,
+            fh: core.front.fh,
+          },
+          {
+            y: yTop(core.back) + above * Math.cos(a) + standoff * Math.sin(a),
+            z:
+              core.back.z -
+              (core.back.fh / 2) * Math.sin(a) -
+              above * Math.sin(a) +
+              standoff * Math.cos(a) +
+              toCenter,
+            rotX: core.back.rotX,
+            fh: core.back.fh,
+          },
+        ];
+      })()
+    : (() => {
+        const { filter } = wallFilterCore(layout);
+        const tilt = filter.rotX;
+        return [
+          {
+            y: filter.yC + above * Math.cos(tilt) + standoff * Math.sin(tilt),
+            z: filter.zC + above * Math.sin(tilt) - standoff * Math.cos(tilt) + nudgeZ,
+            rotX: tilt,
+            fh: filter.fh,
+          },
+        ];
+      })();
+
+  const inletZ = inletZ0 * MM;
+  const yFeed = banks[0]!.y * MM;
+  const dropR = (inletD / 2 - 2) * MM;
+  const dropH = Math.max(yLid - yFeed, 20 * MM);
+  const dropY = (yLid + yFeed) / 2;
 
   return (
     <group>
-      {/* Патрубок подвода — всегда над левой форсункой */}
-      <group position={[inletX, yLid + (inletH / 2) * MM, z]}>
+      {/* Один подвод: у стены — у вытяжки; у острова — по центру, на обе рампы */}
+      <group position={[inletX, yLid + (inletH / 2) * MM, inletZ]}>
         <mesh material={mat}>
           <cylinderGeometry
             args={[(inletD / 2) * MM, (inletD / 2) * MM, inletH * MM, 16, 1, true]}
@@ -1330,27 +1419,58 @@ function HydroLoop({ layout, mat, water }: { layout: Layout; mat: THREE.Material
           <torusGeometry args={[(inletD / 2) * MM, 3 * MM, 6, 16]} />
         </mesh>
       </group>
-
-      {/* Стояк: крышка → коллектор у левой форсунки */}
-      <mesh material={mat} position={[inletX, dropY, z]}>
-        <cylinderGeometry args={[(inletD / 2 - 2) * MM, (inletD / 2 - 2) * MM, dropH, 12]} />
+      <mesh material={mat} position={[inletX, dropY, inletZ]}>
+        <cylinderGeometry args={[dropR, dropR, dropH, 12]} />
       </mesh>
 
-      <group position={[0, yManifold, z]}>
-        <mesh material={mat} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[8 * MM, 8 * MM, pipeLen, 12]} />
-        </mesh>
-        {xs.map((xMm, i) => (
-          <group key={i} position={[xMm * MM, 0, 0]}>
-            <mesh material={mat} position={[0, -16 * MM, 0]} rotation={[Math.PI, 0, 0]}>
-              <coneGeometry args={[10 * MM, 24 * MM, 10]} />
-            </mesh>
-            <mesh material={water} position={[0, -curtainH / 2 - 28 * MM, 0]} rotation={[Math.PI, 0, 0]}>
-              <coneGeometry args={[curtainR, curtainH, 14, 1, true]} />
-            </mesh>
+      {banks.map((bank, bi) => {
+        const yManifold = bank.y * MM;
+        const zManifold = bank.z * MM;
+        const sprayRotX = bank.rotX;
+        const tipGap = 8 * MM;
+        const nozzleH = 22 * MM;
+        const curtainH = Math.min(Math.max(bank.fh * 0.55, 90), 220) * MM;
+        const curtainR = Math.min(dims.d * 0.08, 55) * MM;
+        const runZ = zManifold - inletZ;
+        const runLen = Math.abs(runZ);
+
+        return (
+          <group key={`hydro-bank-${bi}`}>
+            {runLen > 8 * MM && (
+              <mesh
+                material={mat}
+                position={[inletX, yManifold, (inletZ + zManifold) / 2]}
+                rotation={[Math.PI / 2, 0, 0]}
+              >
+                <cylinderGeometry args={[dropR, dropR, runLen, 12]} />
+              </mesh>
+            )}
+
+            <group position={[0, yManifold, zManifold]}>
+              <mesh material={mat} rotation={[0, 0, Math.PI / 2]}>
+                <cylinderGeometry args={[8 * MM, 8 * MM, pipeLen, 12]} />
+              </mesh>
+              {xs.map((xMm, i) => (
+                <group key={i} position={[xMm * MM, 0, 0]} rotation={[sprayRotX, 0, 0]}>
+                  <mesh
+                    material={mat}
+                    position={[0, -tipGap - nozzleH / 2, 0]}
+                    scale={[1, -1, 1]}
+                  >
+                    <coneGeometry args={[9 * MM, nozzleH, 10]} />
+                  </mesh>
+                  <mesh
+                    material={water}
+                    position={[0, -tipGap - nozzleH - curtainH / 2, 0]}
+                  >
+                    <coneGeometry args={[curtainR, curtainH, 14, 1, true]} />
+                  </mesh>
+                </group>
+              ))}
+            </group>
           </group>
-        ))}
-      </group>
+        );
+      })}
     </group>
   );
 }
@@ -1659,16 +1779,18 @@ function hoodExtents(dims: Dims, hasHangers: boolean) {
     yMax: topMm * MM,
     halfW: (dims.w / 2 + BUILD.lip) * MM,
     halfD: (dims.d / 2 + BUILD.lip) * MM,
-    span: Math.max(dims.w, dims.d, topMm) * MM,
+    /* Масштаб кадра: H×W. D не входит — иначе при росте вылета всё мельчает. */
+    scaleKey: Math.max(dims.w, topMm) * MM,
   };
 }
 
 /*
- * Единая изометрия: +Y верх, −Z тыл/стена, +Z перед;
- * камера в +X+Y+Z, чуть сверху — меньше «вид снизу».
+ * Ракурс ¾ спереди, низко: по экрану в основном W (горизонталь) и H (вертикаль).
+ * Чистый бок сжимал W в перспективе — 1200 выглядело как 600.
+ * Узкий FOV — меньше «квадратит» габариты.
  */
-/* Чуть сбоку/ниже — лучше читаются H и D (не «квадрат» в кадре) */
-const VIEW_DIR = new THREE.Vector3(0.72, 0.38, 0.58).normalize();
+const VIEW_DIR = new THREE.Vector3(0.42, 0.16, 0.89).normalize();
+const VIEW_FOV = 30;
 
 /**
  * Автокадр по габариту зонта.
@@ -1693,7 +1815,7 @@ function CameraRig({
 }) {
   const { camera, controls, size, invalidate } = useThree();
   const fitLeft = useRef(0);
-  const lastSpan = useRef(0);
+  const lastScale = useRef(0);
   const lastSize = useRef({ w: 0, h: 0 });
   const lastDims = useRef({ w: 0, d: 0, h: 0 });
   const lastTargetY = useRef(0);
@@ -1704,7 +1826,7 @@ function CameraRig({
     userMoved.current = false;
     fitting.current = true;
     fitLeft.current = 30;
-    lastSpan.current = 0;
+    lastScale.current = 0;
     invalidate();
   }, [orbitKey, userMoved, fitting, invalidate]);
 
@@ -1734,11 +1856,29 @@ function CameraRig({
     if (size.width < 2 || size.height < 2) return;
 
     const ext = hoodExtents(dims, hasHangers);
-    const targetY = dims.h * 0.68 * MM;
+    /* Центр кадра ближе к середине короба — не задираем взгляд вверх */
+    const targetY = dims.h * 0.45 * MM;
+
+    /*
+     * Пользователь крутит во время автокадра — сразу отдаём ракурс,
+     * иначе onStart игнорировался и при смене D «сбрасывало» вид.
+     */
+    if (userMoved.current && fitLeft.current > 0) {
+      fitLeft.current = 0;
+      fitting.current = false;
+      lastScale.current = ext.scaleKey;
+      lastTargetY.current = targetY;
+      lastDims.current = { w: dims.w, d: dims.d, h: dims.h };
+      if (!framedSent.current) {
+        framedSent.current = true;
+        onFramed?.();
+      }
+      return;
+    }
 
     /*
      * После автокадра камеру не трогаем, пока пользователь орбитит/панит/зумит.
-     * Подстройка только в кадр, когда реально сменились W/D/H.
+     * Смена мм при ручном ракурсе — только масштаб, без сброса угла.
      */
     if (fitLeft.current <= 0) {
       fitting.current = false;
@@ -1748,11 +1888,10 @@ function CameraRig({
         lastDims.current.d !== dims.d ||
         lastDims.current.h !== dims.h;
 
-      if (userMoved.current && dimsChanged && lastSpan.current > 0) {
-        const ratio = ext.span / Math.max(lastSpan.current, 1e-6);
+      if (userMoved.current && dimsChanged && lastScale.current > 0) {
+        const ratio = ext.scaleKey / Math.max(lastScale.current, 1e-6);
         const dy = targetY - lastTargetY.current;
         const t = orbit.target;
-        /* Сохраняем pan: сдвигаем якорь на ΔH, не прибиваем к (0, targetY, 0) */
         t.y += dy;
         const offset = perspective.position.clone().sub(t);
         if (Number.isFinite(ratio) && Math.abs(ratio - 1) > 0.002) {
@@ -1763,15 +1902,12 @@ function CameraRig({
         orbit.minDistance = Math.max(0.3, used * 0.2);
         orbit.maxDistance = Math.max(used * 10, 30);
         orbit.update();
-      } else if (!userMoved.current && dimsChanged && lastSpan.current > 0) {
-        const ratio = ext.span / lastSpan.current;
-        if (Number.isFinite(ratio) && Math.abs(ratio - 1) > 0.002) {
-          fitLeft.current = 15;
-          fitting.current = true;
-        }
+      } else if (!userMoved.current && dimsChanged) {
+        fitLeft.current = 15;
+        fitting.current = true;
       }
 
-      lastSpan.current = ext.span;
+      lastScale.current = ext.scaleKey;
       lastTargetY.current = targetY;
       lastDims.current = { w: dims.w, d: dims.d, h: dims.h };
 
@@ -1791,16 +1927,22 @@ function CameraRig({
     const boxD = Math.max(ext.halfD * 2, 0.25);
     const aspect = size.width / Math.max(size.height, 1);
 
+    perspective.fov = VIEW_FOV;
     perspective.aspect = aspect;
     perspective.updateProjectionMatrix();
 
-    const vFov = (perspective.fov * Math.PI) / 180;
+    const vFov = (VIEW_FOV * Math.PI) / 180;
     const tanV = Math.tan(vFov / 2);
     const tanH = tanV * Math.max(aspect, 0.5);
 
-    /* Кадр по реальному AABB: низкий широкий зонт не сжимается в «куб» */
-    const dist =
-      Math.max(boxH / (2 * tanV), boxW / (2 * tanH), boxD / (2 * tanH)) * 1.72;
+    /*
+     * Масштаб от W×H (лицо зонта спереди). D слабее тянет камеру назад,
+     * чтобы вылет рос в кадре, а не мельчил ширину.
+     */
+    const distH = (boxH / (2 * tanV)) * 1.65;
+    const distW = (boxW / (2 * tanH)) * 1.5;
+    const distD = (boxD / (2 * tanH)) * 1.05;
+    const dist = Math.max(distH, distW, distD);
 
     orbit.target.set(0, targetY, 0);
     perspective.position.set(
@@ -1816,7 +1958,7 @@ function CameraRig({
     orbit.maxDistance = Math.max(dist * 10, 30);
     orbit.update();
 
-    lastSpan.current = ext.span;
+    lastScale.current = ext.scaleKey;
     lastTargetY.current = targetY;
     lastDims.current = { w: dims.w, d: dims.d, h: dims.h };
     fitLeft.current -= 1;
@@ -1942,16 +2084,16 @@ export function HoodScene({
   const radius = Math.max(dims.w, dims.d) * MM;
   /* Стартовая позиция уже близка к автокадру — меньше скачок, если что мелькнет */
   const camera = useMemo(() => {
-    const cy = dims.h * 0.68 * MM;
+    const cy = dims.h * 0.45 * MM;
     const span = Math.max(dims.w, dims.d, dims.h + 200) * MM;
-    const dist = span * 2.4;
+    const dist = span * 2.8;
     return {
       position: [
         VIEW_DIR.x * dist,
         cy + VIEW_DIR.y * dist,
         VIEW_DIR.z * dist,
       ] as [number, number, number],
-      fov: 40,
+      fov: VIEW_FOV,
     };
   }, [dims.w, dims.d, dims.h]);
 
@@ -2039,7 +2181,7 @@ export function HoodScene({
           enableDamping
           dampingFactor={0.08}
           onStart={() => {
-            if (fitting.current) return;
+            /* Всегда фиксируем ручной ракурс — даже если ещё идёт автокадр */
             userMoved.current = true;
           }}
         />
