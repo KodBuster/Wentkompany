@@ -30,11 +30,67 @@ export interface Dims {
 /** Скорость в сечении захвата по методике производства, м/с. */
 const CAPTURE_VELOCITY = 0.4;
 
-/** Рабочая скорость в патрубке, м/с. */
-const DUCT_VELOCITY = 8;
+/** Ряд диаметров врезок из таблицы производства, мм. */
+export const DUCT_SIZES = [200, 250, 315, 355, 400] as const;
 
-/** Ряд диаметров патрубков, мм. */
-export const DUCT_SIZES = [250, 315, 400] as const;
+type ExhaustRow = { w: number; count: number; diameter: number };
+
+/**
+ * Сетка вытяжных врезок (Excel «количество врезок»).
+ * Ключ — длина зонта W; остров / пристен; H 350 или 450.
+ * Пристенные 350 и 450 совпадают; островные отличаются на W=1000.
+ */
+const EXHAUST_WALL: ExhaustRow[] = [
+  { w: 800, count: 1, diameter: 200 },
+  { w: 1000, count: 1, diameter: 200 },
+  { w: 1200, count: 1, diameter: 250 },
+  { w: 1400, count: 1, diameter: 250 },
+  { w: 1600, count: 2, diameter: 200 },
+  { w: 1800, count: 2, diameter: 250 },
+  { w: 2000, count: 2, diameter: 250 },
+  { w: 2500, count: 2, diameter: 315 },
+];
+
+const EXHAUST_ISLAND_350: ExhaustRow[] = [
+  { w: 800, count: 1, diameter: 250 },
+  { w: 1000, count: 1, diameter: 315 },
+  { w: 1200, count: 2, diameter: 250 },
+  { w: 1400, count: 2, diameter: 250 },
+  { w: 1600, count: 2, diameter: 250 },
+  { w: 1800, count: 2, diameter: 315 },
+  { w: 2000, count: 2, diameter: 315 },
+  { w: 2500, count: 2, diameter: 355 },
+];
+
+const EXHAUST_ISLAND_450: ExhaustRow[] = [
+  { w: 800, count: 1, diameter: 250 },
+  { w: 1000, count: 1, diameter: 250 },
+  { w: 1200, count: 2, diameter: 250 },
+  { w: 1400, count: 2, diameter: 250 },
+  { w: 1600, count: 2, diameter: 250 },
+  { w: 1800, count: 2, diameter: 315 },
+  { w: 2000, count: 2, diameter: 315 },
+  { w: 2500, count: 2, diameter: 355 },
+];
+
+/** Ближайшая высота сетки производства. */
+function exhaustTableH(h: number): 350 | 450 {
+  return h < 400 ? 350 : 450;
+}
+
+/** Строка сетки по W: ближайшая длина; при ничьей — больший W (запас). */
+function nearestExhaustRow(rows: ExhaustRow[], w: number): ExhaustRow {
+  let best = rows[0]!;
+  let bestDist = Math.abs(best.w - w);
+  for (const row of rows) {
+    const dist = Math.abs(row.w - w);
+    if (dist < bestDist || (dist === bestDist && row.w > best.w)) {
+      best = row;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
 
 /** Толщина стали по умолчанию, м (0,8 мм) и плотность нержавейки, кг/м³. */
 const STEEL_THICKNESS = 0.0008;
@@ -86,18 +142,22 @@ export interface DuctPick {
   velocity: number;
 }
 
-/** Подбор числа и диаметра патрубков под рабочую скорость. */
-export function pickDucts(air: number): DuctPick {
-  for (let count = 1; count <= 4; count++) {
-    for (const diameter of DUCT_SIZES) {
-      const area = Math.PI * (diameter / 2000) ** 2;
-      if (air <= count * area * DUCT_VELOCITY * 3600) {
-        return { count, diameter, velocity: air / 3600 / (count * area) };
-      }
-    }
-  }
-  const area = Math.PI * (0.4 / 2) ** 2;
-  return { count: 4, diameter: 400, velocity: air / 3600 / (4 * area) };
+/**
+ * Подбор вытяжных врезок по таблице производства (W × пристен/остров × H).
+ * Скорость — справочно из нашего L; раскладка 1–2 шт симметрично по ширине.
+ */
+export function pickDucts(dims: Dims, traits: FamilyTraits): DuctPick {
+  const hKey = exhaustTableH(dims.h);
+  const rows = traits.island
+    ? hKey === 350
+      ? EXHAUST_ISLAND_350
+      : EXHAUST_ISLAND_450
+    : EXHAUST_WALL;
+  const { count, diameter } = nearestExhaustRow(rows, dims.w);
+  const air = airflow(dims, traits);
+  const area = Math.PI * (diameter / 2000) ** 2;
+  const velocity = air / 3600 / (count * area);
+  return { count, diameter, velocity };
 }
 
 /** Площадь листа: верх и четыре стенки, низ открыт. м². */
@@ -166,10 +226,12 @@ export function calculate(
 ): Calculation {
   const grade = material ?? defaultMaterialGrade(traits.hydro);
   const air = airflow(dims, traits);
-  const ducts = pickDucts(air);
+  const ducts = pickDucts(dims, traits);
   const warnings: string[] = [];
 
-  if (ducts.velocity > 9) warnings.push('Скорость в патрубке выше 9 м/с — проверьте шумность.');
+  if (ducts.velocity > 9) {
+    warnings.push('Скорость в патрубке выше 9 м/с — сверьте с сетью объекта.');
+  }
   if (base && (dims.w !== base.w || dims.d !== base.d || dims.h !== base.h)) {
     warnings.push('Нестандартный габарит: срок изготовления увеличивается.');
   }
