@@ -740,7 +740,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
               {calc.price.estimate ? 'с учётом AISI 304' : 'цена из прайса'}
             </span>
           ) : (
-            <span className="badge badge-warn">нестандарт — после расчёта</span>
+            <span className="badge badge-warn">нестандарт — запросите расчёт</span>
           )}
         </div>
 
@@ -803,7 +803,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
           <p className="hint mt-2">
             {calc.price && isBase
               ? 'Эталонный типоразмер — цена из прайса. В заявке можно уточнить опции и сроки.'
-              : 'Для нестандартного габарита цена — после расчёта производством. Приложите эскизы в заявке.'}
+              : 'Нестандартный габарит: приложите эскизы — производство посчитает сумму и срок.'}
           </p>
         </div>
       </aside>
