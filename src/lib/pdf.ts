@@ -296,7 +296,7 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
   drawText(ctx, 'ЦЕНА', [left, y], 3.4, THIN, { bold: true });
   drawText(
     ctx,
-    price ? `${price.estimate ? '≈ ' : ''}${rub(price.value)}` : 'по запросу',
+    price ? `${price.estimate ? '≈ ' : ''}${rub(price.value)}` : 'после расчёта',
     [right, y + 2],
     9,
     ACCENT,

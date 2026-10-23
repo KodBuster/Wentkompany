@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { families, products } from '@/lib/catalog';
+import { getFamilies, getProducts } from '@/lib/catalog';
 import { Configurator, type ConfiguratorModel, type ConfiguratorFamily } from '@/components/configurator-client';
 
 export const metadata: Metadata = {
@@ -20,6 +20,8 @@ export default async function ConfiguratorPage({
   searchParams: Promise<{ slug?: string; h?: string; w?: string; d?: string }>;
 }) {
   const sp = await searchParams;
+  const products = getProducts();
+  const families = getFamilies();
 
   const models: ConfiguratorModel[] = products
     .filter((p) => CONFIGURABLE.includes(p.family) && p.base)
@@ -59,7 +61,8 @@ export default async function ConfiguratorPage({
           <h1>Соберите изделие по своим размерам</h1>
           <p className="muted mt-2 max-w-[58ch] leading-relaxed">
             Габариты задаёте вы — корпус, жёлоб, кассеты, гидроконтур и патрубки
-            пересчитываются вместе с ними, как и расход воздуха, спецификация и цена.
+            пересчитываются вместе с ними, как и расход воздуха и спецификация. Цена на сайте —
+            только для эталонного типоразмера.
           </p>
         </div>
 
@@ -73,8 +76,8 @@ export default async function ConfiguratorPage({
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <span className="lbl">Если размер нестандартный</span>
           <p className="muted max-w-[46ch] text-sm">
-            Цена вне типоразмера считается предварительно, от площади изделия. Точную подтверждаем
-            расчётом — пришлите конфигурацию, ответим с окончательной суммой и сроком.
+            Цену вне эталона на сайте не публикуем — оставьте заявку, производство посчитает
+            точно и подтвердит срок.
           </p>
           <Link href="/#catalog" className="btn btn-ghost">Каталог с ценами</Link>
         </div>

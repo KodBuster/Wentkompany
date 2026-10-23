@@ -133,11 +133,14 @@ function TypeCard({
         )}
         <div className="home-catalog__cta">
           <span className="num home-catalog__price">
-            {p.price ? rub(p.price) : 'по запросу'}
+            {p.price ? rub(p.price) : 'после расчёта'}
           </span>
           {p.base ? (
-            <StickyLink href={orderHref(p.slug)} className="btn home-catalog__btn">
-              Заказать
+            <StickyLink
+              href={p.price ? orderHref(p.slug) : `/contacts?mode=quote&slug=${encodeURIComponent(p.slug)}`}
+              className="btn home-catalog__btn"
+            >
+              {p.price ? 'Заказать' : 'Запросить расчёт'}
             </StickyLink>
           ) : (
             <StickyLink href={`/catalog/${p.slug}`} className="btn btn-ghost home-catalog__btn">
@@ -196,8 +199,9 @@ function NeutralCard({
  * Каталог на главной: линейки → гидрозатвор → ПИР/ГФ/АВТ → нейтралка.
  */
 export function HomeCatalog() {
-  const lines = homeCatalogFamilies.filter((f) => LINE_CODES.includes(f.code));
-  const singles = homeCatalogFamilies.filter((f) => SINGLE_CODES.includes(f.code));
+  const catalogFamilies = homeCatalogFamilies();
+  const lines = catalogFamilies.filter((f) => LINE_CODES.includes(f.code));
+  const singles = catalogFamilies.filter((f) => SINGLE_CODES.includes(f.code));
 
   const hydroItems = HYDRO_CODES.map((code) => {
     const f = familyByCode(code);
@@ -224,7 +228,7 @@ export function HomeCatalog() {
                 <p className="muted text-sm leading-relaxed">{familyBlurb(f)}</p>
               </div>
               <span className="num home-catalog__from">
-                {f.priceFrom ? `от ${rub(f.priceFrom)}` : 'по запросу'}
+                {f.priceFrom ? `от ${rub(f.priceFrom)}` : 'после расчёта'}
               </span>
             </header>
 
@@ -249,7 +253,7 @@ export function HomeCatalog() {
               </p>
             </div>
             <span className="num home-catalog__from">
-              {Number.isFinite(hydroFrom) ? `от ${rub(hydroFrom)}` : 'по запросу'}
+              {Number.isFinite(hydroFrom) ? `от ${rub(hydroFrom)}` : 'после расчёта'}
             </span>
           </header>
 
@@ -266,7 +270,7 @@ export function HomeCatalog() {
         {singles.map((f) => {
           const p = productsOf(f.code)[0];
           if (!p) return null;
-          return <TypeCard key={f.code} p={p} f={f} textOnly={f.code === 'АВТ'} />;
+          return <TypeCard key={f.code} p={p} f={f} />;
         })}
       </div>
 

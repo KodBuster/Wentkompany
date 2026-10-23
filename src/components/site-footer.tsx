@@ -17,7 +17,7 @@ export function SiteFooter() {
           </div>
           <div>
             <h2 className="mb-4 text-sm text-steel-300 normal-case tracking-normal">Каталог</h2>
-            {hoodFamilies.map((f) => (
+            {hoodFamilies().map((f) => (
               <Link key={f.slug} href={`/catalog/${f.slug}`} className="site-footer-link">
                 {f.title}
               </Link>

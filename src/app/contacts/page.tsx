@@ -43,7 +43,7 @@ export default async function ContactsPage({
         shortName(product),
         `${product.base.h}/${product.base.w}/${product.base.d} мм`,
         `AISI ${material}`,
-        product.price ? rub(product.price) : 'цена по запросу',
+        product.price ? rub(product.price) : 'после расчёта',
       ].join(' · ')
     : '';
 

@@ -156,8 +156,8 @@ function buildCfgText(input: {
     `расход ${ru(airflow)} м³/ч`,
     `патрубки ${ducts.count}×Ø${ducts.diameter}`,
     price
-      ? `оценка ${price.estimate ? '≈ ' : ''}${rub(price.value)}`
-      : 'цена по запросу',
+      ? `${price.estimate ? '≈ ' : ''}${rub(price.value)}`
+      : 'после расчёта',
   ];
   return bits.join(' · ');
 }
@@ -729,14 +729,18 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
       {/* ---------------- правая панель ---------------- */}
       <aside className="cfg-pane cfg-pane--aside">
         <div className="cfg-group">
-          <span className="lbl">Ориентировочная цена</span>
+          <span className="lbl">{calc.price ? 'Цена эталона' : 'Цена'}</span>
           <div className="cfg-price">
-            {calc.price ? `${calc.price.estimate ? '≈ ' : ''}${rub(calc.price.value)}` : 'по запросу'}
+            {calc.price
+              ? `${calc.price.estimate ? '≈ ' : ''}${rub(calc.price.value)}`
+              : 'после расчёта'}
           </div>
-          {calc.price && (
+          {calc.price ? (
             <span className={calc.price.estimate ? 'badge badge-warn' : 'badge'}>
-              {calc.price.estimate ? 'предварительная оценка' : 'цена из прайса'}
+              {calc.price.estimate ? 'с учётом AISI 304' : 'цена из прайса'}
             </span>
+          ) : (
+            <span className="badge badge-warn">нестандарт — после расчёта</span>
           )}
         </div>
 
@@ -793,15 +797,13 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
         </div>
 
         <div className="cfg-cta-block">
-          <Link href={quoteHref} className="btn w-full">
-            Получить точную цену
+          <Link href={calc.price && isBase ? orderHref : quoteHref} className="btn w-full">
+            {calc.price && isBase ? 'Заказать' : 'Запросить расчёт'}
           </Link>
           <p className="hint mt-2">
-            Производство пересчитает по вашим вводным: приложите эскизы и пояснения в заявке.
-          </p>
-          <p className="hint mt-3">
-            Цена нестандартного габарита — оценка по площади материала от эталонного типоразмера.
-            Точный расчёт делает производство.
+            {calc.price && isBase
+              ? 'Эталонный типоразмер — цена из прайса. В заявке можно уточнить опции и сроки.'
+              : 'Для нестандартного габарита цена — после расчёта производством. Приложите эскизы в заявке.'}
           </p>
         </div>
       </aside>

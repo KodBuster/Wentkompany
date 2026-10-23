@@ -140,6 +140,7 @@ export function HoodDiagram({
       {!compact && <DimInfoTip />}
       <svg
         viewBox="0 0 660 420"
+        preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label={title}
         style={{ width: '100%', height: 'auto', display: 'block' }}

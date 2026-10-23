@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
-  families, products, familyBySlug, productBySlug, productsOf, traitsOf, shortName, schemeOf,
+  families, products, familyBySlug, familyByCode, productBySlug, productsOf, traitsOf, shortName, schemeOf,
 } from '@/lib/catalog';
 import { calculate, rub, ru, dec, defaultMaterialGrade } from '@/lib/calc';
 import { HoodDiagram } from '@/components/hood-diagram';
@@ -111,13 +111,17 @@ function FamilyView({ slug }: { slug: string }) {
                   {c && <Row k="Патрубки" v={`${c.ducts.count} × Ø${c.ducts.diameter}`} />}
                 </dl>
                 <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t pt-3" style={{ borderColor: 'var(--hair)' }}>
-                  <span className="num text-xl">{p.price ? rub(p.price) : 'по запросу'}</span>
+                  <span className="num text-xl">{p.price ? rub(p.price) : 'после расчёта'}</span>
                   {p.base ? (
                     <Link
-                      href={`/contacts?mode=order&slug=${encodeURIComponent(p.slug)}`}
+                      href={
+                        p.price
+                          ? `/contacts?mode=order&slug=${encodeURIComponent(p.slug)}`
+                          : `/contacts?mode=quote&slug=${encodeURIComponent(p.slug)}`
+                      }
                       className="btn"
                     >
-                      Заказать
+                      {p.price ? 'Заказать' : 'Запросить расчёт'}
                     </Link>
                   ) : (
                     <Link href={`/catalog/${p.slug}`} className="btn btn-ghost">
@@ -173,7 +177,7 @@ function FamilyView({ slug }: { slug: string }) {
 function ProductView({ slug }: { slug: string }) {
   const p = productBySlug(slug)!;
   const traits = traitsOf(p.family);
-  const family = families.find((f) => f.code === p.family);
+  const family = familyByCode(p.family);
   const material = defaultMaterialGrade(traits.hydro);
   const c = p.base
     ? calculate(p.base, traits, p.base, p.price, material, { typeLabel: p.type })
@@ -229,16 +233,21 @@ function ProductView({ slug }: { slug: string }) {
             )}
 
             <div className="mt-8 flex flex-wrap items-baseline gap-4">
-              <span className="num text-4xl">{p.price ? rub(p.price) : 'по запросу'}</span>
+              <span className="num text-4xl">{p.price ? rub(p.price) : 'после расчёта'}</span>
               {p.price && <span className="badge">цена для эталонного типоразмера</span>}
+              {!p.price && <span className="badge badge-warn">после расчёта</span>}
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
               {p.base && (
                 <Link
-                  href={`/contacts?mode=order&slug=${encodeURIComponent(p.slug)}`}
+                  href={
+                    p.price
+                      ? `/contacts?mode=order&slug=${encodeURIComponent(p.slug)}`
+                      : `/contacts?mode=quote&slug=${encodeURIComponent(p.slug)}`
+                  }
                   className="btn"
                 >
-                  Заказать
+                  {p.price ? 'Заказать' : 'Запросить расчёт'}
                 </Link>
               )}
               {CONFIGURABLE.includes(p.family) ? (
@@ -428,7 +437,7 @@ function ProductView({ slug }: { slug: string }) {
                   <span className="lbl">{shortName(r)}</span>
                   <h3>{r.base ? `${r.base.h}/${r.base.w}/${r.base.d} мм` : r.name}</h3>
                   <span className="num mt-auto border-t pt-3" style={{ borderColor: 'var(--hair)' }}>
-                    {r.price ? rub(r.price) : 'по запросу'}
+                    {r.price ? rub(r.price) : 'после расчёта'}
                   </span>
                 </Link>
               ))}

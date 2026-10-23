@@ -1,5 +1,6 @@
 import data from '@/data/catalog.json';
 import type { Family, FamilyTraits, Dims } from './calc';
+import { displayPriceMap, loadPricesFile } from './prices';
 
 export interface FamilyRecord extends FamilyTraits {
   code: Family;
@@ -16,6 +17,7 @@ export interface Product {
   family: Family;
   type: string | null;
   name: string;
+  /** Витринная цена (после формулы) либо null. */
   price: number | null;
   base: Dims | null;
   greaseTraps: boolean;
@@ -34,14 +36,47 @@ export interface Product {
 /** Путь к схемке-съёмке типа, если есть. */
 export const schemeOf = (p: Product) => p.schemeImage || null;
 
-export const families = data.families as FamilyRecord[];
-export const products = data.products as Product[];
+type RawProduct = Omit<Product, 'price'> & { price: number | null };
+
+const rawFamilies = data.families as FamilyRecord[];
+const rawProducts = data.products as RawProduct[];
+
 export const generatedAt = data.generatedAt as string;
 
-export const familyBySlug = (slug: string) => families.find((f) => f.slug === slug);
-export const familyByCode = (code: string) => families.find((f) => f.code === code);
-export const productBySlug = (slug: string) => products.find((p) => p.slug === slug);
-export const productsOf = (code: string) => products.filter((p) => p.family === code);
+/** Продукты с ценами из прайс-файла (формула −% затем +%). */
+export function getProducts(): Product[] {
+  const file = loadPricesFile();
+  const map = displayPriceMap(file);
+  return rawProducts.map((p) => ({
+    ...p,
+    /* Витрина только из прайса; catalog.json.price не для показа */
+    price: map[p.article] ?? null,
+  }));
+}
+
+/** Линейки с пересчитанным «от …». */
+export function getFamilies(): FamilyRecord[] {
+  const list = getProducts();
+  return rawFamilies.map((f) => {
+    const prices = list
+      .filter((p) => p.family === f.code && p.price != null)
+      .map((p) => p.price!);
+    return {
+      ...f,
+      priceFrom: prices.length ? Math.min(...prices) : null,
+    };
+  });
+}
+
+/** @deprecated для совместимости — предпочтительнее getProducts() */
+export const products = rawProducts as Product[];
+/** @deprecated предпочтительнее getFamilies() */
+export const families = rawFamilies;
+
+export const familyBySlug = (slug: string) => getFamilies().find((f) => f.slug === slug);
+export const familyByCode = (code: string) => getFamilies().find((f) => f.code === code);
+export const productBySlug = (slug: string) => getProducts().find((p) => p.slug === slug);
+export const productsOf = (code: string) => getProducts().filter((p) => p.family === code);
 
 export const traitsOf = (code: string): FamilyTraits => {
   const f = familyByCode(code);
@@ -49,19 +84,20 @@ export const traitsOf = (code: string): FamilyTraits => {
 };
 
 /** Изделия, попадающие под пп. 5.28–5.33 СП 7.13130.2013. */
-export const complianceProducts = products.filter(
-  (p) => p.family === 'ЗВПГ' || p.family === 'ЗВОГ' || p.family === 'ГФ' || p.family === 'АВТ',
-);
+export const complianceProducts = () =>
+  getProducts().filter(
+    (p) => p.family === 'ЗВПГ' || p.family === 'ЗВОГ' || p.family === 'ГФ' || p.family === 'АВТ',
+  );
 
 /** Линейки зонтов для профессиональной кухни без открытого огня. */
-export const hoodFamilies = families.filter((f) =>
-  ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ПИР'].includes(f.code),
-);
+export const hoodFamilies = () =>
+  getFamilies().filter((f) => ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ПИР'].includes(f.code));
 
 /** Каталог на главной: обычные зонты, гидрозатвор, ПИР/ГФ/АВТ. */
-export const homeCatalogFamilies = families.filter((f) =>
-  ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'ЗВОГ', 'ПИР', 'ГФ', 'АВТ'].includes(f.code),
-);
+export const homeCatalogFamilies = () =>
+  getFamilies().filter((f) =>
+    ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'ЗВОГ', 'ПИР', 'ГФ', 'АВТ'].includes(f.code),
+  );
 
 export const priceFrom = (code: string) => familyByCode(code)?.priceFrom ?? null;
 

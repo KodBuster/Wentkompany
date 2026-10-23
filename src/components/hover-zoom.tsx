@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type PointerEvent,
@@ -61,6 +62,7 @@ export function HoverZoom({
 }) {
   const minScale = scale;
   const desktop = useDesktopPointer();
+  const clipId = useId().replace(/:/g, '');
   const ref = useRef<HTMLDivElement>(null);
   const [internalOn, setInternalOn] = useState(false);
   const [pos, setPos] = useState<Pt>({ x: 50, y: 50 });
@@ -205,10 +207,10 @@ export function HoverZoom({
       aria-label={
         clickToggle
           ? on
-            ? `Лупа ×${liveScale.toFixed(2)}, клик — выключить, колесо — масштаб`
+            ? `Лупа ×${liveScale.toFixed(2)}, левая кнопка мыши — выключить, колёсико — масштаб`
             : 'Включить лупу для схемы'
           : on
-            ? `Лупа ×${liveScale.toFixed(2)}, колесо — масштаб, Esc — выключить`
+            ? `Лупа ×${liveScale.toFixed(2)}, колёсико — масштаб, Esc — выключить`
             : undefined
       }
       onPointerDown={onPointerDown}
@@ -230,7 +232,8 @@ export function HoverZoom({
         width: '100%',
         height: '100%',
         position: 'relative',
-        cursor: on ? 'zoom-out' : clickToggle ? 'zoom-in' : 'default',
+        /* В лупе системный курсор скрыт — рисуем свою «мышь» */
+        cursor: on ? 'none' : clickToggle ? 'zoom-in' : 'default',
         userSelect: 'none',
         touchAction: 'auto',
       }}
@@ -258,9 +261,74 @@ export function HoverZoom({
           aria-hidden
           className="hover-zoom__reticle"
           style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-          title={`×${liveScale.toFixed(2)} · Esc — выключить`}
+          title={`×${liveScale.toFixed(2)} · ЛКМ — выйти · колесо — масштаб`}
         >
-          <span className="hover-zoom__esc">Esc</span>
+          {/* Компактная мышь: ЛКМ = выход, колёсико = зум */}
+          <svg
+            className="hover-zoom__mouse"
+            viewBox="0 0 24 36"
+            width="22"
+            height="33"
+            focusable="false"
+          >
+            <defs>
+              <clipPath id={clipId}>
+                <rect x="2.5" y="1.5" width="19" height="33" rx="9.5" />
+              </clipPath>
+            </defs>
+            {/* Корпус */}
+            <rect
+              x="2.5"
+              y="1.5"
+              width="19"
+              height="33"
+              rx="9.5"
+              className="hover-zoom__mouse-body"
+            />
+            <g clipPath={`url(#${clipId})`}>
+              {/* Левая кнопка */}
+              <rect
+                x="2.5"
+                y="1.5"
+                width="9.5"
+                height="13"
+                className="hover-zoom__mouse-lmb"
+              />
+              {/* Правая — приглушена */}
+              <rect
+                x="12"
+                y="1.5"
+                width="9.5"
+                height="13"
+                className="hover-zoom__mouse-rmb"
+              />
+            </g>
+            {/* Шов между кнопками */}
+            <line
+              x1="12"
+              y1="2.5"
+              x2="12"
+              y2="14.5"
+              className="hover-zoom__mouse-split"
+            />
+            {/* Горизонталь под кнопками */}
+            <line
+              x1="4"
+              y1="14.5"
+              x2="20"
+              y2="14.5"
+              className="hover-zoom__mouse-split"
+            />
+            {/* Колёсико */}
+            <rect
+              x="10"
+              y="8"
+              width="4"
+              height="7"
+              rx="2"
+              className="hover-zoom__mouse-wheel"
+            />
+          </svg>
         </span>
       )}
     </div>

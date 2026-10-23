@@ -51,14 +51,16 @@ for (const p of catalog.products) {
   ].join('  '));
 }
 
-/* монотонность цены по площади */
+/* вне эталона цена на витрине не считается — только заявка */
 const base = { h: 350, w: 1200, d: 600 };
 const traits = traitsOf('ЗПВО');
 const small = calculate({ h: 350, w: 800, d: 600 }, traits, base, 16000);
 const large = calculate({ h: 350, w: 2400, d: 900 }, traits, base, 16000);
-assert.ok(small.price.value < 16000, 'меньший габарит должен стоить дешевле эталона');
-assert.ok(large.price.value > 16000, 'больший габарит должен стоить дороже эталона');
-assert.ok(small.price.estimate && large.price.estimate, 'нестандарт помечается оценкой');
+const exact = calculate(base, traits, base, 16000);
+assert.equal(small.price, null, 'меньший нестандарт — без цены');
+assert.equal(large.price, null, 'больший нестандарт — без цены');
+assert.equal(exact.price?.value, 16000, 'эталон отдаёт прайс');
+assert.equal(exact.price?.estimate, false, 'эталон без пометки оценки');
 assert.ok(steelArea(base) > 0);
 
 /* подбор врезок: таблица производства */
@@ -328,4 +330,6 @@ console.log(`\nOK · проверено типоразмеров: ${checked}`);
 console.log(`OK · компоновка: 6 семейств × ${GEOM.length} габарита`);
 console.log(`OK · чертёж: ${sheets} листа, виды в границах полей, масштабы из ряда ГОСТ`);
 console.log(`OK · DXF: ${dxfChecked} файла, структура R12 валидна, текст только ASCII`);
-console.log(`Нестандарт: 800/600 → ${small.price.value} ₽, 2400/900 → ${large.price.value} ₽ (эталон 16 000 ₽)`);
+console.log(
+  `Нестандарт: цена скрыта (null), эталон → ${exact.price.value} ₽`,
+);

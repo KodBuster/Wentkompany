@@ -53,7 +53,7 @@ export function HydroChoice({ compact = false }: { compact?: boolean }) {
             ))}
           </ul>
           <div className="mt-auto flex flex-wrap items-baseline gap-3 border-t pt-3" style={{ borderColor: 'var(--hair)' }}>
-            <span className="num text-lg">{hood ? `от ${rub(hood)}` : 'по запросу'}</span>
+            <span className="num text-lg">{hood ? `от ${rub(hood)}` : 'после расчёта'}</span>
             <Link href="/catalog/zvpg" style={{ color: 'var(--color-supply)' }}>ЗВПГ и ЗВОГ</Link>
           </div>
         </article>
@@ -71,7 +71,7 @@ export function HydroChoice({ compact = false }: { compact?: boolean }) {
             ))}
           </ul>
           <div className="mt-auto flex flex-wrap items-baseline gap-3 border-t pt-3" style={{ borderColor: 'var(--hair)' }}>
-            <span className="num text-lg">{filter ? `от ${rub(filter)}` : 'по запросу'}</span>
+            <span className="num text-lg">{filter ? `от ${rub(filter)}` : 'после расчёта'}</span>
             <Link href="/catalog/gf" style={{ color: 'var(--color-supply)' }}>Гидрофильтр ГФ</Link>
           </div>
         </article>

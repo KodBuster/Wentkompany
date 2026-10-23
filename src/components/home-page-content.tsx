@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { HoodDiagram } from '@/components/hood-diagram';
 import { HomeCatalog } from '@/components/home-catalog';
-import { HoverZoom } from '@/components/hover-zoom';
+import { HeroVisualSlider } from '@/components/hero-visual-slider';
 import { PageBackdrop } from '@/components/page-backdrop';
 import { complianceProducts, priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
@@ -113,12 +113,12 @@ export function HomePageContent() {
             </p>
           </div>
           <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
-            {complianceProducts.map((p) => (
+            {complianceProducts().map((p) => (
               <Link key={p.id} href={`/catalog/${p.slug}`} className="tile no-underline">
                 <span className="lbl">{p.article}</span>
                 <h3>{p.name.replace(/\s*\([^)]*\)\s*$/, '')}</h3>
                 <span className="num mt-auto border-t pt-3 text-lg" style={{ borderColor: 'var(--hair)' }}>
-                  {p.price ? `от ${rub(p.price)}` : 'по запросу'}
+                  {p.price ? `от ${rub(p.price)}` : 'после расчёта'}
                 </span>
               </Link>
             ))}
@@ -193,10 +193,8 @@ export function HomePageContent() {
                 {rub(priceFrom('ЗВПГ') ?? 45000)}.
               </p>
             </div>
-            <div className="hero__visual hero__visual--zoom">
-              <HoverZoom>
-                <HoodDiagram island compact />
-              </HoverZoom>
+            <div className="hero__visual hero__visual--zoom hero__visual--slider">
+              <HeroVisualSlider diagram={<HoodDiagram island compact />} />
             </div>
           </div>
         </div>

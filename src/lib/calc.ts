@@ -131,9 +131,6 @@ const STEEL_DENSITY = 7900;
 /** Надбавка на жироуловители, рамы, крепёж. */
 const HARDWARE_FACTOR = 1.35;
 
-/** Показатель степени в оценке цены по площади (экономия масштаба). */
-const PRICE_EXPONENT = 0.6;
-
 /** Оценочная надбавка за AISI 304 — до подтверждения производством. */
 const AISI304_FACTOR = 1.18;
 
@@ -239,9 +236,9 @@ export interface PriceResult {
 }
 
 /**
- * Цена изделия. Совпадение с эталонным типоразмером → прайс.
- * Отклонение → оценка по площади материала.
- * Надбавка AISI 304 — только апгрейд сухого зонта (у гидро 304 уже в прайсе).
+ * Цена изделия только для эталонного типоразмера (прайс).
+ * Нестандартный габарит → null (на витрине «запросить цену», без оценки).
+ * Надбавка AISI 304 — только апгрейд сухого зонта на эталоне (у гидро 304 уже в прайсе).
  */
 export function price(
   dims: Dims,
@@ -252,16 +249,16 @@ export function price(
 ): PriceResult | null {
   if (!basePrice || !base) return null;
   const isBase = dims.h === base.h && dims.w === base.w && dims.d === base.d;
-  const ratio = steelArea(dims) / steelArea(base);
-  let value = isBase ? basePrice : basePrice * ratio ** PRICE_EXPONENT;
+  if (!isBase) return null;
+  let value = basePrice;
   const upgradedTo304 = material === '304' && !hydro;
   if (upgradedTo304) value *= AISI304_FACTOR;
-  const estimate = !isBase || upgradedTo304;
   return {
-    value: Math.round(value / 50) * 50,
-    estimate,
-    note: estimate
-      ? 'Предварительная оценка по площади материала. Точную цену рассчитывает производство.'
+    /* Прайс уже по формуле; до 50 ₽ не округляем — только целые рубли */
+    value: Math.round(value),
+    estimate: upgradedTo304,
+    note: upgradedTo304
+      ? 'Надбавка за AISI 304 к цене эталона. Точную сумму подтверждает производство.'
       : 'Цена для эталонного типоразмера по прайсу.',
   };
 }

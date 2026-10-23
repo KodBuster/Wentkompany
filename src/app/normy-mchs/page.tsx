@@ -275,7 +275,7 @@ export default function NormyPage() {
             <p>Цены — для эталонного типоразмера в формате «высота / ширина / глубина». Нестандарт считаем по объекту.</p>
           </div>
           <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
-            {complianceProducts.map((p) => (
+            {complianceProducts().map((p) => (
               <Link key={p.id} href={`/catalog/${p.slug}`} className="tile no-underline">
                 <span className="lbl">
                   {p.article}
@@ -287,7 +287,7 @@ export default function NormyPage() {
                   className="num mt-auto border-t pt-3 text-xl"
                   style={{ borderColor: 'var(--hair-l)', color: 'var(--color-steel-100)' }}
                 >
-                  {p.price ? `от ${rub(p.price)}` : 'по запросу'}
+                  {p.price ? `от ${rub(p.price)}` : 'после расчёта'}
                 </span>
               </Link>
             ))}
