@@ -2,7 +2,15 @@
 
 Хостинг: [cloud.amvera.ru](https://cloud.amvera.ru). Документация: [docs.amvera.ru](https://docs.amvera.ru/).
 
-Проект собирается через **Dockerfile** и слушает порт **3000** (`amvera.yaml` → `run.containerPort`). Не используйте порт 80: процесс в контейнере не root и получит `EACCES`.
+Сборка идёт через окружение **Node.js (npm)**, не через Dockerfile: так обходится сбой Harbor (`INTERNAL_ERROR` при pull `node:*-alpine`).  
+Приложение слушает порт **3000** (`amvera.yaml` → `run.containerPort`).
+
+В панели Amvera:
+- окружение: **node.js**, инструмент: **npm**, версия Node **22**;
+- `containerPort`: **3000**;
+- либо просто положите актуальный `amvera.yaml` в git и нажмите «Применить» / пересборку.
+
+Dockerfile оставлен для Timeweb / локального `docker compose`.
 
 ---
 
@@ -10,9 +18,10 @@
 
 1. Войти в [личный кабинет Amvera](https://cloud.amvera.ru).
 2. **Создать проект** → тип **Приложение**.
-3. Выбрать тариф: для сборки Next.js рекомендуется минимум **1 ГБ RAM** (лучше 2 ГБ — `next build` прожорлив).
-4. Подключить репозиторий GitHub: `https://github.com/KodBuster/Wentkompany`.
-5. Ветка деплоя: **`main`** (по умолчанию Amvera ждёт `master` — смените в настройках приложения).
+3. Выбрать тариф: для сборки Next.js рекомендуется минимум **1 ГБ RAM** (лучше 2 ГБ — `next build` прожорлив). На «Пробном» часто 503.
+4. Подключить репозиторий GitHub (ваш форк или `KodBuster/Wentkompany`).
+5. Ветка деплоя: **`main`** (по умолчанию Amvera ждёт `master` — смените в настройках).
+6. Окружение: **node.js / npm / 22** (не docker), пока Harbor нестабилен.
 
 ---
 

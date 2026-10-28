@@ -1,7 +1,11 @@
 node_modules
 .next
 .git
+new
 *.zip
 npm-debug.log
 .env
 .env.local
+.env*.local
+docs
+crop.py

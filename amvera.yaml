@@ -1,16 +1,21 @@
 # Конфигурация Amvera Cloud
-# https://docs.amvera.ru/applications/configuration/docker.html
-# Секреты (Telegram, CRM) — в панели Amvera → Переменные.
+# Обход сбоев Harbor (INTERNAL_ERROR при pull node:*-alpine в Docker-сборке):
+# собираем и запускаем через окружение Node, без Dockerfile.
+# https://docs.amvera.ru/applications/environments/nodejs-server.html
+#
+# В панели Amvera: окружение node.js / npm, ветка main.
+# Секреты (Telegram, CRM) — Переменные. Публичные NEXT_PUBLIC_* — в amvera.build.env.
 
 meta:
-  environment: docker
+  environment: node
   toolchain:
-    name: docker
+    name: npm
+    version: "22"
 
 build:
-  dockerfile: Dockerfile
+  # Next подхватывает .env.production.local на этапе build
+  additionalCommands: cp amvera.build.env .env.production.local && npm run build
 
 run:
-  # Не 80: в образе USER nextjs → EACCES на привилегированных портах.
-  # Amvera проксирует containerPort наружу сам.
+  command: npm run start
   containerPort: 3000
