@@ -946,7 +946,7 @@ function MoistureSeparator({
   const wall = cfg.wall * MM;
   const collarH = cfg.collarH * MM;
   const inner = Math.max(side - 2 * wall, diameter * MM + 10 * MM);
-  const baffleN = cfg.baffles;
+  const baffleN: number = cfg.baffles;
   const baffleT = 1.6 * MM;
   const baffleSpan = r * 1.55;
   const flangeW = side + 20 * MM;
