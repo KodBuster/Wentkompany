@@ -2185,7 +2185,7 @@
   }
   .blog-list__item {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 1fr auto;
     gap: 1rem 1.25rem;
     align-items: start;
     padding: 1.1rem 1.2rem;
@@ -2199,13 +2199,6 @@
     border-color: #C9BDB0;
     background: var(--color-sheet);
     transform: translateY(-2px);
-  }
-  .blog-list__num {
-    font-family: var(--font-mono), ui-monospace, monospace;
-    font-size: 0.78rem;
-    letter-spacing: 0.06em;
-    color: var(--color-extract-deep);
-    padding-top: 0.2rem;
   }
   .blog-list__body {
     display: flex;
@@ -2370,7 +2363,7 @@
   }
   @media (max-width: 640px) {
     .blog-list__item {
-      grid-template-columns: auto 1fr;
+      grid-template-columns: 1fr;
     }
     .blog-list__arrow { display: none; }
     .blog-pager {

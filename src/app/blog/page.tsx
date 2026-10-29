@@ -28,9 +28,6 @@ export default function BlogIndexPage() {
           {articles.map((a) => (
             <li key={a.slug}>
               <Link href={`/blog/${a.slug}`} className="blog-list__item no-underline">
-                <span className="blog-list__num" aria-hidden>
-                  {String(a.order).padStart(3, '0')}
-                </span>
                 <span className="blog-list__body">
                   <span className="blog-list__title">{a.title}</span>
                   {a.excerpt ? <span className="blog-list__excerpt muted">{a.excerpt}</span> : null}

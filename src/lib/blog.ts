@@ -5,8 +5,6 @@ import { markdownToHtml } from '@/lib/markdown';
 export type BlogArticleMeta = {
   /** URL-slug без префикса /blog/ */
   slug: string;
-  /** Порядковый номер из имени файла (000…010) */
-  order: number;
   title: string;
   /** Короткий лид для списка */
   excerpt: string;
@@ -18,11 +16,27 @@ export type BlogArticle = BlogArticleMeta & {
 };
 
 const DIR = path.join(process.cwd(), 'content', 'blog');
-const FILE_RE = /^zont-vytyazhnoy_(\d{3})-(.+)\.md$/;
+
+/** Порядок в списке и «предыдущая / следующая» — без номеров в именах файлов. */
+const SLUG_ORDER = [
+  'poleznye-ssylki',
+  'obsiy',
+  'pristennyy',
+  'ostrovnoy',
+  'pritochno-vytyazhnoy',
+  'gidrozatvor',
+  'gidrofiltr',
+  'mangal',
+  'kupit',
+  'montazh',
+  'raschet',
+] as const;
+
+const FILE_RE = /^([a-z0-9-]+)\.md$/i;
 
 function readDir(): string[] {
   if (!fs.existsSync(DIR)) return [];
-  return fs.readdirSync(DIR).filter((f) => FILE_RE.test(f)).sort();
+  return fs.readdirSync(DIR).filter((f) => FILE_RE.test(f));
 }
 
 function firstParagraph(body: string): string {
@@ -49,27 +63,30 @@ function firstParagraph(body: string): string {
 function metaFromFile(filename: string): BlogArticleMeta | null {
   const m = FILE_RE.exec(filename);
   if (!m) return null;
-  const order = Number(m[1]);
-  const slug = m[2];
+  const slug = m[1];
   const raw = fs.readFileSync(path.join(DIR, filename), 'utf8');
   const titleLine = raw.split(/\r?\n/).find((l) => l.startsWith('# '));
   const title = titleLine ? titleLine.slice(2).trim() : slug;
   const afterTitle = raw.replace(/^#\s+[^\n]+\n?/, '');
   return {
     slug,
-    order,
     title,
     excerpt: firstParagraph(afterTitle),
     filename,
   };
 }
 
-/** Список статей по возрастанию номера. */
+function sortIndex(slug: string): number {
+  const i = (SLUG_ORDER as readonly string[]).indexOf(slug);
+  return i === -1 ? 1000 : i;
+}
+
+/** Список статей в заданном порядке. */
 export function listBlogArticles(): BlogArticleMeta[] {
   return readDir()
     .map(metaFromFile)
     .filter((a): a is BlogArticleMeta => !!a)
-    .sort((a, b) => a.order - b.order);
+    .sort((a, b) => sortIndex(a.slug) - sortIndex(b.slug) || a.slug.localeCompare(b.slug, 'ru'));
 }
 
 /** Статья по slug или null. */

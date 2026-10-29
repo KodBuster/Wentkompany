@@ -38,11 +38,11 @@ export default async function BlogArticlePage({ params }: Props) {
             Блог
           </Link>
           <span aria-hidden>/</span>
-          <span>{String(article.order).padStart(3, '0')}</span>
+          <span>{article.title}</span>
         </nav>
 
         <div className="head blog-article__head">
-          <p className="lbl">Статья {String(article.order).padStart(3, '0')}</p>
+          <p className="lbl">Статья</p>
           <h1>{article.title}</h1>
         </div>
 
