@@ -1152,22 +1152,6 @@
     display: block;
     transition: transform 0.35s var(--ease-out);
   }
-  /* Тест спин-вьюера (ЗВП-1): drag по кадрам */
-  .product-spin {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    touch-action: none;
-    cursor: ew-resize;
-    user-select: none;
-  }
-  .product-spin__img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    pointer-events: none;
-  }
   .home-catalog__photo-empty {
     display: grid;
     place-items: center;
