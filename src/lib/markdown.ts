@@ -10,10 +10,10 @@ function esc(s: string): string {
 /** Инлайн-разметка: ссылки, жирный, курсив, код. */
 function inline(raw: string): string {
   let s = esc(raw);
-  s = s.replace(
-    /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
-  );
+  /* title = полный URL: при наведении видно и можно скопировать из подсказки */
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, label: string, href: string) => {
+    return `<a href="${href}" title="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+  });
   s = s.replace(
     /\[([^\]]+)\]\((\/[^)\s]*)\)/g,
     '<a href="$2">$1</a>',
@@ -88,7 +88,13 @@ export function markdownToHtml(md: string, opts?: { skipFirstH1?: boolean }): st
       const tbody = `<tbody>${rows
         .map((r) => `<tr>${r.map((c) => `<td>${inline(c)}</td>`).join('')}</tr>`)
         .join('')}</tbody>`;
-      out.push(`<div class="blog-table-wrap"><table>${thead}${tbody}</table></div>`);
+      const mod =
+        header[0] === 'Документ'
+          ? ' blog-table--docs'
+          : header.length >= 3
+            ? ' blog-table--compare'
+            : '';
+      out.push(`<div class="blog-table-wrap"><table class="blog-table${mod}">${thead}${tbody}</table></div>`);
       continue;
     }
 
@@ -112,6 +118,29 @@ export function markdownToHtml(md: string, opts?: { skipFirstH1?: boolean }): st
       continue;
     }
 
+    /* Одна или несколько строк-картинок подряд: ![alt](/sketches/…) */
+    const imgOnly = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(trimmed);
+    if (imgOnly) {
+      const figs: string[] = [];
+      while (i < lines.length) {
+        const m = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(lines[i].trim());
+        if (!m) break;
+        const alt = esc(m[1] || '');
+        const src = esc(m[2]);
+        const sketch = src.includes('/sketches/') ? ' blog-sketch' : '';
+        figs.push(
+          `<figure class="blog-figure${sketch}"><img src="${src}" alt="${alt}" loading="lazy" decoding="async" /></figure>`,
+        );
+        i += 1;
+      }
+      if (figs.length >= 2 && figs.every((f) => f.includes('blog-sketch'))) {
+        out.push(`<div class="blog-sketch-row">${figs.join('')}</div>`);
+      } else {
+        out.push(...figs);
+      }
+      continue;
+    }
+
     const para: string[] = [trimmed];
     i += 1;
     while (i < lines.length) {
@@ -123,7 +152,8 @@ export function markdownToHtml(md: string, opts?: { skipFirstH1?: boolean }): st
         /^#{1,3}\s/.test(n) ||
         n.startsWith('|') ||
         /^\d+\.\s+/.test(n) ||
-        /^[-*]\s+/.test(n)
+        /^[-*]\s+/.test(n) ||
+        /^!\[[^\]]*\]\([^)\s]+\)$/.test(n)
       ) {
         break;
       }

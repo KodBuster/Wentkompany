@@ -28,4 +28,6 @@ export const norms = {
   clauses: '5.28–5.33',
   /** Первоисточник на docs.cntd.ru */
   sourceUrl: 'https://docs.cntd.ru/document/1312658782',
+  /** Якорь блока пп. 5.28–5.33 в том же документе */
+  clausesUrl: 'https://docs.cntd.ru/document/1312658782#7E80KE',
 } as const;

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { enhanceBlogNormsHtml } from '@/lib/blog-norms';
 import { markdownToHtml } from '@/lib/markdown';
 
 export type BlogArticleMeta = {
@@ -39,6 +40,7 @@ function readDir(): string[] {
   return fs.readdirSync(DIR).filter((f) => FILE_RE.test(f));
 }
 
+/** Первый абзац целиком; если длинный — только полные предложения (без обрыва «…»). */
 function firstParagraph(body: string): string {
   const lines = body.replace(/\r\n/g, '\n').split('\n');
   const buf: string[] = [];
@@ -53,11 +55,21 @@ function firstParagraph(body: string): string {
       continue;
     }
     buf.push(t.replace(/\*\*/g, '').replace(/\*/g, ''));
-    if (buf.join(' ').length > 160) break;
   }
   const text = buf.join(' ').replace(/\s+/g, ' ').trim();
-  if (text.length <= 180) return text;
-  return `${text.slice(0, 177).replace(/\s+\S*$/, '')}…`;
+  if (!text) return '';
+  // Не режем посреди предложения: либо весь абзац, либо целые фразы до лимита
+  const softMax = 360;
+  if (text.length <= softMax) return text;
+  const parts = text.match(/[^.!?…]+[.!?…]+(?:\s+|$)|[^.!?…]+$/g);
+  if (!parts?.length) return text;
+  let out = '';
+  for (const part of parts) {
+    const next = (out ? `${out} ${part}` : part).replace(/\s+/g, ' ').trim();
+    if (out && next.length > softMax) break;
+    out = next;
+  }
+  return out || parts[0].trim();
 }
 
 function metaFromFile(filename: string): BlogArticleMeta | null {
@@ -96,7 +108,7 @@ export function getBlogArticle(slug: string): BlogArticle | null {
   const raw = fs.readFileSync(path.join(DIR, meta.filename), 'utf8');
   return {
     ...meta,
-    html: markdownToHtml(raw, { skipFirstH1: true }),
+    html: enhanceBlogNormsHtml(markdownToHtml(raw, { skipFirstH1: true })),
   };
 }
 

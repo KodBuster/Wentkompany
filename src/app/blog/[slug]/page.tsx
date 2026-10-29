@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { BlogProse } from '@/components/blog-prose';
 import { allBlogSlugs, getBlogArticle, listBlogArticles } from '@/lib/blog';
 
 type Props = { params: Promise<{ slug: string }> };
@@ -46,10 +47,7 @@ export default async function BlogArticlePage({ params }: Props) {
           <h1>{article.title}</h1>
         </div>
 
-        <article
-          className="blog-prose"
-          dangerouslySetInnerHTML={{ __html: article.html }}
-        />
+        <BlogProse html={article.html} />
 
         <div className="blog-pager">
           {prev ? (

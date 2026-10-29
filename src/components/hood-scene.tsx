@@ -102,34 +102,49 @@ function StudioEnvironment() {
 
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 256;
+    canvas.width = 1024;
+    canvas.height = 512;
     const ctx = canvas.getContext('2d')!;
 
-    /* Тёплый цех: плавный градиент + мягкие блики (без жёстких прямоугольников) */
-    const sky = ctx.createLinearGradient(0, 0, 0, 256);
-    sky.addColorStop(0, '#f6f0ea');
-    sky.addColorStop(0.42, '#c9b09a');
-    sky.addColorStop(0.58, '#3f342e');
-    sky.addColorStop(1, '#161210');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, 512, 256);
+    /*
+     * Светлая студия: midtones подняты (тени не в чёрный),
+     * белые софтбоксы — точка белого на бликах.
+     */
+    const base = ctx.createLinearGradient(0, 0, 0, 512);
+    base.addColorStop(0, '#dce2e8');
+    base.addColorStop(0.35, '#b0b8c0');
+    base.addColorStop(0.55, '#7a848e');
+    base.addColorStop(0.75, '#9aa2aa');
+    base.addColorStop(1, '#c8d0d8');
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, 1024, 512);
 
-    const g1 = ctx.createRadialGradient(170, 36, 6, 170, 36, 130);
-    g1.addColorStop(0, 'rgba(255,248,238,0.55)');
-    g1.addColorStop(1, 'rgba(255,248,238,0)');
-    ctx.fillStyle = g1;
-    ctx.fillRect(0, 0, 340, 150);
+    /* чуть темнее по углам — контраст без провала */
+    ctx.fillStyle = 'rgba(50,58,66,0.28)';
+    ctx.fillRect(0, 40, 70, 200);
+    ctx.fillRect(954, 40, 70, 200);
 
-    const g2 = ctx.createRadialGradient(390, 50, 4, 390, 50, 100);
-    g2.addColorStop(0, 'rgba(255,244,230,0.35)');
-    g2.addColorStop(1, 'rgba(255,244,230,0)');
-    ctx.fillStyle = g2;
-    ctx.fillRect(290, 0, 220, 130);
+    const softbox = (x: number, y: number, w: number, h: number, a: number) => {
+      const g = ctx.createLinearGradient(x, y, x, y + h);
+      g.addColorStop(0, `rgba(255,255,255,${a * 0.4})`);
+      g.addColorStop(0.2, `rgba(255,255,255,${a})`);
+      g.addColorStop(0.8, `rgba(255,255,255,${a})`);
+      g.addColorStop(1, `rgba(255,255,255,${a * 0.3})`);
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y, w, h);
+    };
+    softbox(40, 16, 320, 170, 1);
+    softbox(400, 8, 240, 150, 1);
+    softbox(700, 24, 280, 180, 0.95);
+    softbox(330, 36, 24, 130, 1);
+    softbox(580, 24, 18, 110, 1);
+    softbox(60, 190, 200, 48, 0.7);
+    softbox(760, 200, 180, 44, 0.65);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.mapping = THREE.EquirectangularReflectionMapping;
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
     return tex;
   }, []);
 
@@ -156,50 +171,56 @@ function useMaterials(mode: ViewMode, material: '430' | '304') {
      * forceSinglePass: DoubleSide без второго прохода по тем же треугольникам —
      * иначе на плоских/скосах штриховка (z-fighting лицевой и изнанки).
      */
-    const steel = new THREE.MeshStandardMaterial({
-      color: material === '304' ? '#B9AFA3' : '#A89888',
-      metalness: 0.82,
-      roughness: material === '304' ? 0.26 : 0.36,
-      envMapIntensity: 0.85,
+    /*
+     * Нержавейка (MeshPhysical): металл = отражения, не «серая заливка».
+     * 304 — ближе к полировке; 430 — чуть матовее / темнее.
+     * xray/ghost / forceSinglePass — без изменений логики.
+     */
+    /* 304 — светлее/зеркальнее; 430 — заметно темнее и матовее */
+    const steel = new THREE.MeshPhysicalMaterial({
+      color: material === '304' ? '#F9FAFB' : '#C4CCD4',
+      metalness: 1,
+      roughness: material === '304' ? 0.08 : 0.2,
+      envMapIntensity: material === '304' ? 1.7 : 1.2,
       side: THREE.DoubleSide,
       forceSinglePass: true,
       transparent: xray,
       opacity: xray ? 0.18 : 1,
       depthWrite: !xray,
     });
-    const dark = new THREE.MeshStandardMaterial({
-      color: '#3A322C',
-      metalness: 0.7,
-      roughness: 0.48,
-      envMapIntensity: 0.65,
+    const dark = new THREE.MeshPhysicalMaterial({
+      color: material === '304' ? '#78828c' : '#58626c',
+      metalness: 1,
+      roughness: material === '304' ? 0.22 : 0.32,
+      envMapIntensity: material === '304' ? 1.25 : 1.0,
       forceSinglePass: true,
       transparent: xray,
       opacity: xray ? 0.25 : 1,
       depthWrite: !xray,
     });
-    const filter = new THREE.MeshStandardMaterial({
-      color: '#A89A8C',
-      metalness: 0.72,
-      roughness: 0.46,
-      envMapIntensity: 0.7,
+    const filter = new THREE.MeshPhysicalMaterial({
+      color: material === '304' ? '#F4F6F8' : '#BAC2CA',
+      metalness: 1,
+      roughness: material === '304' ? 0.1 : 0.22,
+      envMapIntensity: material === '304' ? 1.55 : 1.1,
       side: THREE.DoubleSide,
       forceSinglePass: true,
     });
     const water = new THREE.MeshStandardMaterial({
       color: '#58B4DC',
       metalness: 0.1,
-      roughness: 0.15,
+      roughness: 0.12,
       transparent: true,
       opacity: 0.75,
       emissive: '#1d6a8c',
-      emissiveIntensity: 0.35,
+      emissiveIntensity: 0.3,
     });
     const ghost = mode !== 'solid';
-    const corpus = new THREE.MeshStandardMaterial({
-      color: material === '304' ? '#B9AFA3' : '#A89888',
-      metalness: 0.82,
-      roughness: material === '304' ? 0.26 : 0.36,
-      envMapIntensity: 0.85,
+    const corpus = new THREE.MeshPhysicalMaterial({
+      color: material === '304' ? '#F9FAFB' : '#C4CCD4',
+      metalness: 1,
+      roughness: material === '304' ? 0.08 : 0.2,
+      envMapIntensity: material === '304' ? 1.7 : 1.2,
       side: THREE.DoubleSide,
       forceSinglePass: true,
       transparent: ghost,
@@ -2253,6 +2274,10 @@ export function HoodScene({
         camera={camera}
         dpr={[1, 1.75]}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
+        onCreated={({ gl }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.45;
+        }}
         style={{
           background: 'transparent',
           width: '100%',
@@ -2272,10 +2297,12 @@ export function HoodScene({
           orbitKey={`${viewKey}|${fitNonce}|${fitRequest}`}
           onFramed={() => setFramed(true)}
         />
-        <hemisphereLight args={['#efe6dc', '#1a1612', 0.72]} />
-        <directionalLight position={[3, 5, 2]} intensity={1.12} color="#fff4e8" />
-        <directionalLight position={[-4, 2, -3]} intensity={0.48} color="#c4a890" />
-        <directionalLight position={[0, -4, 1]} intensity={0.45} color="#fff4e8" />
+        <hemisphereLight args={['#f2f4f6', '#5a646e', 0.7]} />
+        <ambientLight intensity={0.22} color="#eef1f4" />
+        <directionalLight position={[4, 6, 2]} intensity={1.1} color="#ffffff" />
+        <directionalLight position={[-5, 2, -2]} intensity={0.5} color="#d8dee4" />
+        <directionalLight position={[0, -4, 2]} intensity={0.32} color="#b8c0c8" />
+        <directionalLight position={[2, 4, -5]} intensity={0.5} color="#ffffff" />
 
         <group>
           <Hood layout={layout} mode={mode} material={material} />

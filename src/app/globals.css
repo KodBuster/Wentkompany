@@ -752,6 +752,11 @@
     line-height: 1.45;
     color: var(--color-steel-300);
   }
+  /* Вложенный пункт внутри карточки (матрёшка) */
+  .clause-tip__text .clause-tip-hit {
+    font-size: 0.95em;
+    vertical-align: baseline;
+  }
   /* (i) на схеме зонта — справка по Ш/Г/В */
   .hood-diagram {
     position: relative;
@@ -2229,7 +2234,7 @@
   }
 
   .blog-article {
-    max-width: 75ch;
+    max-width: 82ch;
   }
   .blog-article__head {
     max-width: none;
@@ -2256,13 +2261,69 @@
   .blog-prose > * + * {
     margin-top: 1rem;
   }
+  /* Карандашный эскиз справа от текста — крупнее, чтобы читались подписи */
+  .blog-figure.blog-sketch {
+    margin: 0.15rem 0 1.15rem 1.35rem;
+    float: right;
+    width: min(340px, 52%);
+    shape-outside: margin-box;
+  }
+  .blog-figure.blog-sketch img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--hair);
+    border-radius: var(--radius-sm);
+    background: #F7F3EC;
+    box-shadow: 1px 2px 0 rgba(40, 28, 18, 0.04);
+  }
+  /* Ряд эскизов (ТИП 1 / 2 / 3): шире колонки текста */
+  .blog-sketch-row {
+    clear: both;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin: 1rem 0 1.5rem;
+    width: min(52rem, calc(100vw - 2.5rem));
+    max-width: none;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .blog-sketch-row .blog-figure.blog-sketch {
+    float: none;
+    width: 100%;
+    margin: 0;
+  }
+  @media (max-width: 900px) {
+    .blog-sketch-row {
+      grid-template-columns: 1fr;
+      justify-items: center;
+      width: 100%;
+      left: auto;
+      transform: none;
+      gap: 1rem;
+    }
+    .blog-sketch-row .blog-figure.blog-sketch {
+      width: min(420px, 94%);
+    }
+  }
+  @media (max-width: 640px) {
+    .blog-figure.blog-sketch {
+      float: none;
+      width: min(360px, 92%);
+      margin: 0.85rem auto 1.2rem;
+    }
+  }
   .blog-prose h2 {
+    clear: both;
     margin-top: 2rem;
     margin-bottom: 0.65rem;
     font-size: clamp(1.2rem, 2.4vw, 1.45rem);
     color: var(--color-steel-100);
   }
   .blog-prose h3 {
+    clear: both;
     margin-top: 1.55rem;
     margin-bottom: 0.45rem;
     font-size: 1.08rem;
@@ -2328,6 +2389,61 @@
   }
   .blog-prose tr:last-child td {
     border-bottom: 0;
+  }
+  .blog-prose table a {
+    word-break: break-word;
+  }
+  /* Пункты СП в тексте статьи — как бейджи на сайте */
+  .blog-prose button.clause-tip-hit {
+    display: inline;
+    margin: 0 0.05em;
+    padding: 0.05em 0.4em;
+    vertical-align: baseline;
+    font: inherit;
+    font-size: 0.92em;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    line-height: inherit;
+    cursor: help;
+  }
+
+  /* Документ | Зачем — первая колонка шире */
+  .blog-table--docs {
+    table-layout: fixed;
+  }
+  .blog-table--docs th:first-child,
+  .blog-table--docs td:first-child {
+    width: 58%;
+  }
+  .blog-table--docs th:nth-child(2),
+  .blog-table--docs td:nth-child(2) {
+    width: 42%;
+  }
+
+  /* Сравнение / типы: 1-я колонка ровно по тексту (ТИП 1 в одну строку), остальное — 2-й и 3-й */
+  .blog-table--compare {
+    table-layout: auto;
+  }
+  .blog-table--compare th,
+  .blog-table--compare td {
+    vertical-align: middle;
+  }
+  .blog-table--compare th:first-child,
+  .blog-table--compare td:first-child {
+    width: 1%;
+    white-space: nowrap;
+    padding-right: 0.65rem;
+  }
+  .blog-table--compare th:nth-child(3),
+  .blog-table--compare td:nth-child(3) {
+    width: 48%;
+  }
+  @media (max-width: 640px) {
+    .blog-table--compare th:first-child,
+    .blog-table--compare td:first-child {
+      font-size: 0.9em;
+      letter-spacing: -0.01em;
+    }
   }
 
   .blog-pager {
