@@ -10,6 +10,7 @@ const links = [
   { href: '/#catalog', label: 'Каталог' },
   { href: '/nestandartnyy-zont', label: 'Нестандарт' },
   { href: '/configurator', label: 'Конфигуратор' },
+  { href: '/blog', label: 'Блог' },
   { href: '/contacts', label: 'Контакты' },
 ];
 
