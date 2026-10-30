@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { formatPhone, isValidPhone } from '@/lib/phone';
 import { checkUpload } from '@/lib/upload';
 
 /**
@@ -90,9 +91,16 @@ export async function POST(request: Request) {
     at: new Date().toISOString(),
   };
 
-  if (!lead.name || !lead.phone) {
-    return NextResponse.json({ error: 'Заполните имя и телефон' }, { status: 400 });
+  if (!lead.name) {
+    return NextResponse.json({ error: 'Укажите имя' }, { status: 400 });
   }
+  if (!isValidPhone(lead.phone)) {
+    return NextResponse.json(
+      { error: 'Введите полный телефонный номер' },
+      { status: 400 },
+    );
+  }
+  lead.phone = formatPhone(lead.phone);
 
   // Файлы проверяем по первым байтам: заявленный тип подделывается тривиально
   const uploads: NonNullable<Awaited<ReturnType<typeof checkUpload>> & { ok: true }>[] = [];

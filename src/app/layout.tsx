@@ -14,15 +14,15 @@ import { Metrika } from '@/components/metrika';
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
   title: {
-    default: 'WENTBUSTER — гидрозонты, гидрофильтры и вытяжные зонты',
-    template: '%s · WENTBUSTER',
+    default: 'FortInox — гидрозонты, гидрофильтры и вытяжные зонты',
+    template: '%s · FortInox',
   },
   description: site.description,
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
     siteName: site.name,
-    title: 'WENTBUSTER — гидрозонты, гидрофильтры и вытяжные зонты',
+    title: 'FortInox — гидрозонты, гидрофильтры и вытяжные зонты',
     description: site.description,
   },
   robots: { index: true, follow: true },

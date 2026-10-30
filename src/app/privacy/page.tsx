@@ -16,8 +16,7 @@ export default function PrivacyPage() {
           <p className="lbl">152-ФЗ</p>
           <h1>Политика конфиденциальности</h1>
           <p className="muted">
-            Шаблон под проверку юристом до запуска: подставляются реквизиты оператора, сроки хранения
-            и адрес для обращений субъекта данных.
+            Порядок обработки персональных данных при обращении через сайт.
           </p>
         </div>
 
@@ -26,7 +25,7 @@ export default function PrivacyPage() {
             <h3 className="mb-2" style={{ color: 'var(--color-steel-100)' }}>1. Оператор</h3>
             <p>
               Оператором персональных данных является {site.legalName}. Контакты для обращений:{' '}
-              {site.email}, {site.phone}. <span style={{ color: 'var(--color-warn)' }}>TODO: ИНН, ОГРН, юридический адрес.</span>
+              {site.email}, {site.phone}.
             </p>
           </div>
           <div>
@@ -60,7 +59,7 @@ export default function PrivacyPage() {
             <h3 className="mb-2" style={{ color: 'var(--color-steel-100)' }}>5. Хранение и защита</h3>
             <p>
               Данные хранятся на серверах, расположенных на территории Российской Федерации.
-              Срок хранения — <span style={{ color: 'var(--color-warn)' }}>TODO: указать срок</span>, после чего данные удаляются.
+              Срок хранения — до достижения целей обработки или отзыва согласия, после чего данные удаляются.
             </p>
           </div>
           <div>

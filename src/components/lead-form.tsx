@@ -2,6 +2,8 @@
 
 import { useRef, useState, type DragEvent } from 'react';
 import { GOALS, track } from '@/lib/analytics';
+import { isValidPhone } from '@/lib/phone';
+import { NOTES_PLACEHOLDER, PhoneInput } from '@/components/phone-input';
 
 type Status = 'idle' | 'sending' | 'ok' | 'error';
 
@@ -63,12 +65,6 @@ export function LeadForm({
     : isQuote
       ? 'Запрос точной цены'
       : 'Конфигурация прикреплена';
-
-  const taskPlaceholder = isOrder
-    ? 'Адрес объекта, желаемый срок, комментарии к пакету документов'
-    : isQuote
-      ? 'Что пересчитать: вырезы, нестандарт, материалы, особые требования — и что на эскизах'
-      : 'Например: тандыр и мангал во встроенном помещении, потолок 3,2 м, приёмка в ноябре';
 
   const fileHint = isQuote
     ? `До ${MAX_FILES} файлов: эскизы, чертежи, PDF, DXF или фото (каждый до ${MAX_MB} МБ). Уходит менеджеру вместе с заявкой, на сервере не сохраняется.`
@@ -165,6 +161,18 @@ export function LeadForm({
     const form = e.currentTarget;
     const fd = new FormData(form);
     if (fd.get('company')) return; // honeypot
+    const name = String(fd.get('name') ?? '').trim();
+    const phone = String(fd.get('phone') ?? '');
+    if (!name) {
+      setStatus('error');
+      setError('Укажите имя');
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      setStatus('error');
+      setError('Введите полный телефонный номер (должен распознаваться для страны)');
+      return;
+    }
     setStatus('sending');
     setError('');
     try {
@@ -252,7 +260,7 @@ export function LeadForm({
       </label>
       <label className="field">
         <span className="lbl">Телефон</span>
-        <input className="input" type="tel" name="phone" autoComplete="tel" required maxLength={30} />
+        <PhoneInput />
       </label>
       <label className="field">
         <span className="lbl">Тип объекта</span>
@@ -261,12 +269,12 @@ export function LeadForm({
         </select>
       </label>
       <label className="field">
-        <span className="lbl">{isQuote ? 'Пояснения и хотелки' : 'Задача'}</span>
+        <span className="lbl">Примечание</span>
         <textarea
           className="input"
           name="task"
           maxLength={1200}
-          placeholder={taskPlaceholder}
+          placeholder={NOTES_PLACEHOLDER}
         />
       </label>
 

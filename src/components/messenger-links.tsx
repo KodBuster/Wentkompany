@@ -172,7 +172,7 @@ function StickyHit({
 
 /**
  * Ссылки на мессенджеры.
- * variant="full" — контакты (подпись + «скоро»).
+ * variant="full" — контакты (иконка + подпись).
  * variant="icons" — только значки (футер).
  */
 export function MessengerLinks({ variant = 'full' }: { variant?: 'full' | 'icons' }) {
@@ -206,7 +206,7 @@ export function MessengerLinks({ variant = 'full' }: { variant?: 'full' | 'icons
             ? `messenger-links__icon-btn${ready ? '' : ' messenger-links__icon-btn--pending'}`
             : `messenger-links__item${ready ? '' : ' messenger-links__item--pending'}`;
           const style = { ['--messenger-brand' as string]: item.brand };
-          const title = ready ? item.label : `${item.label}: ссылку подставим позже`;
+          const title = item.label;
 
           const inner = iconsOnly ? (
             <span className="messenger-links__glyph" aria-hidden>
@@ -218,7 +218,6 @@ export function MessengerLinks({ variant = 'full' }: { variant?: 'full' | 'icons
                 {item.icon}
               </span>
               <span className="messenger-links__label">{item.label}</span>
-              {!ready && <span className="messenger-links__soon">скоро</span>}
             </>
           );
 

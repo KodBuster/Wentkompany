@@ -112,6 +112,7 @@ export async function POST(request: Request) {
     productName: family?.title ?? product.name,
     material: material as '430' | '304',
     lamps: options.includes(OPTIONS[3]),
+    options,
     typeLabel: product.type,
   };
   const designation = buildSheet(input).designation;

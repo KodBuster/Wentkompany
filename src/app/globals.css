@@ -838,7 +838,7 @@
   .cfg-alerts .badge { width: 100%; white-space: normal; text-align: left; }
   .badge-info { border-color: var(--color-supply); color: var(--color-supply); background: rgba(61, 122, 140, 0.12); }
 
-  /* Мессенджеры на контактах — заготовки со значками */
+  /* Мессенджеры на контактах */
   .messenger-links {
     max-width: 36rem;
   }
@@ -913,13 +913,6 @@
     font-size: 0.78rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-  }
-  .messenger-links__soon {
-    font-family: var(--font-mono);
-    font-size: 0.62rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--color-steel-500);
   }
   /* Футер: только значки-приложения на прозрачном фоне */
   .messenger-links--icons .messenger-links__list {

@@ -11,7 +11,7 @@ export function SiteFooter() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <span className="font-[family-name:var(--font-display)] text-xl font-bold uppercase tracking-wide">
-              WENT<span style={{ color: 'var(--color-extract)' }}>BUSTER</span>
+              Fort<span style={{ color: 'var(--color-extract)' }}>Inox</span>
             </span>
             <p className="muted mt-4 text-sm leading-relaxed max-w-[36ch]">{site.description}</p>
           </div>

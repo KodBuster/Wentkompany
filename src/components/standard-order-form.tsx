@@ -3,35 +3,60 @@
 import { useState } from 'react';
 import type { Dims } from '@/lib/calc';
 import { GOALS, track } from '@/lib/analytics';
+import { isValidPhone } from '@/lib/phone';
+import { NOTES_PLACEHOLDER, PhoneInput } from '@/components/phone-input';
 
 type Status = 'idle' | 'sending' | 'ok' | 'error';
 
 /**
- * Короткий заказ эталонного типоразмера: имя, телефон, примечание.
- * Чертёж PDF собирается сам и уходит в заявку — клиент файл не выбирает.
+ * Короткий заказ эталонного типоразмера: имя, телефон, опции, примечание.
+ * Чертёж PDF собирается сам (с выбранными опциями) и уходит в заявку.
  */
 export function StandardOrderForm({
   slug,
   dims,
   configuration,
   material,
+  availableOptions = [],
 }: {
   slug: string;
   dims: Dims;
   configuration: string;
   /** Если не передан — сервер возьмёт дефолт линейки. */
   material?: '430' | '304';
+  /** Доп. оборудование из карточки каталога. */
+  availableOptions?: string[];
 }) {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
+  const [options, setOptions] = useState<string[]>([]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
     const fd = new FormData(form);
     if (fd.get('company')) return;
+    const name = String(fd.get('name') ?? '').trim();
+    const phone = String(fd.get('phone') ?? '');
+    if (!name) {
+      setStatus('error');
+      setError('Укажите имя');
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      setStatus('error');
+      setError('Введите полный телефонный номер (должен распознаваться для страны)');
+      return;
+    }
     setStatus('sending');
     setError('');
+
+    const optsLine = options.length
+      ? `опции: ${options.join(', ')} · цена выше базовой (надбавка по запросу)`
+      : availableOptions.length
+        ? 'опции: нет'
+        : '';
+    const fullCfg = [configuration, optsLine].filter(Boolean).join(' · ');
 
     try {
       const exportRes = await fetch('/api/export', {
@@ -42,6 +67,7 @@ export function StandardOrderForm({
           slug,
           dims,
           ...(material ? { material } : {}),
+          options,
         }),
       });
       if (!exportRes.ok) {
@@ -52,7 +78,7 @@ export function StandardOrderForm({
       const pdfFile = new File([pdfBlob], `${slug}-chertezh.pdf`, { type: 'application/pdf' });
 
       fd.set('page', window.location.pathname);
-      fd.set('configuration', `[Заказ · эталон] ${configuration}`);
+      fd.set('configuration', `[Заказ · эталон] ${fullCfg}`);
       fd.set('leadMode', 'order');
       fd.set('drawing', pdfFile);
       fd.delete('object');
@@ -62,8 +88,15 @@ export function StandardOrderForm({
         throw new Error((await res.json().catch(() => ({}))).error || 'Не удалось отправить заказ');
       }
       setStatus('ok');
-      track(GOALS.leadSent, { withConfiguration: true, withDrawing: true, mode: 'order-standard', slug });
+      track(GOALS.leadSent, {
+        withConfiguration: true,
+        withDrawing: true,
+        mode: 'order-standard',
+        slug,
+        optionsCount: options.length,
+      });
       form.reset();
+      setOptions([]);
     } catch (err) {
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Не удалось отправить заказ');
@@ -84,6 +117,14 @@ export function StandardOrderForm({
     );
   }
 
+  const hasOptions = options.length > 0;
+  const cfgPreview = [
+    configuration,
+    hasOptions ? `опции: ${options.join(', ')}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <form
       onSubmit={onSubmit}
@@ -98,10 +139,37 @@ export function StandardOrderForm({
           Заказ эталонного типоразмера
         </span>
         <p className="num mt-1 text-sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-          {configuration}
+          {cfgPreview}
         </p>
+        {hasOptions && (
+          <p className="hint mt-2" style={{ color: 'var(--color-extract)' }}>
+            С выбранным оборудованием итоговая цена будет выше базовой — надбавка уточняется по запросу.
+          </p>
+        )}
         <p className="hint mt-2">Чертёж PDF приложится автоматически при отправке.</p>
       </div>
+
+      {availableOptions.length > 0 && (
+        <div className="cfg-group" style={{ margin: 0 }}>
+          <span className="lbl">Дополнительное оборудование</span>
+          <p className="hint" style={{ marginBottom: '0.35rem' }}>
+            Любая опция увеличивает цену относительно базовой.
+          </p>
+          {availableOptions.map((o) => (
+            <label key={o} className="cfg-opt">
+              <input
+                type="checkbox"
+                checked={options.includes(o)}
+                onChange={(e) =>
+                  setOptions((s) => (e.target.checked ? [...s, o] : s.filter((x) => x !== o)))
+                }
+              />
+              <span>{o}</span>
+              <span className="lbl ml-auto">+ к базе</span>
+            </label>
+          ))}
+        </div>
+      )}
 
       <label className="field">
         <span className="lbl">Имя</span>
@@ -109,7 +177,7 @@ export function StandardOrderForm({
       </label>
       <label className="field">
         <span className="lbl">Телефон</span>
-        <input className="input" type="tel" name="phone" autoComplete="tel" required maxLength={30} />
+        <PhoneInput />
       </label>
       <label className="field">
         <span className="lbl">Примечание</span>
@@ -117,7 +185,7 @@ export function StandardOrderForm({
           className="input"
           name="task"
           maxLength={1200}
-          placeholder="Адрес объекта, срок, вопрос — по желанию"
+          placeholder={NOTES_PLACEHOLDER}
         />
       </label>
 

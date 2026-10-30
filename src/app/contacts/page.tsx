@@ -70,7 +70,7 @@ export default async function ContactsPage({
               </h1>
               <p className="muted mt-6 leading-relaxed">
                 {isStandardOrder
-                  ? 'Имя, телефон и при желании примечание — чертёж выбранного типоразмера уйдёт вместе с заказом. На сервере файл не сохраняется.'
+                  ? 'Имя, телефон, при необходимости доп. оборудование и примечание — чертёж выбранного типоразмера уйдёт вместе с заказом. На сервере файл не сохраняется.'
                   : isOrder
                     ? 'Конфигурация уже в заявке. Нужен пакет документов: чертёж, КП и спецификация — производство подтвердит срок и сумму.'
                     : isQuote
@@ -118,10 +118,10 @@ export default async function ContactsPage({
 
           {!isStandardOrder && (
             <>
-              <div className="tiles mt-8" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))' }}>
+              <div className="tiles mt-8" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
                 <div className="tile">
                   <span className="lbl">Телефон</span>
-                  <a href={site.phoneHref} className="num text-lg no-underline">{site.phone}</a>
+                  <a href={site.phoneHref} className="num text-lg no-underline whitespace-nowrap">{site.phone}</a>
                 </div>
                 <div className="tile">
                   <span className="lbl">Почта</span>
@@ -136,7 +136,6 @@ export default async function ContactsPage({
                   <span className="num">{site.hours}</span>
                 </div>
               </div>
-              <p className="lbl mt-6">Реквизиты и адрес производства подставим из карточки компании.</p>
               <div className="mt-6">
                 <MessengerLinks />
               </div>
@@ -155,6 +154,7 @@ export default async function ContactsPage({
             dims={product.base}
             configuration={standardCfg}
             material={material}
+            availableOptions={product.options}
           />
         ) : (
           <LeadForm configuration={cfg} mode={mode} />

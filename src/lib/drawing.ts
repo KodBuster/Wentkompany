@@ -454,6 +454,8 @@ export interface DrawingInput {
   productName: string;
   material: '430' | '304';
   lamps?: boolean;
+  /** Выбранные опции доп. оборудования — в примечания листа. */
+  options?: string[];
   /** Подпись типа из каталога — профиль сечения на чертеже. */
   typeLabel?: string | null;
 }
@@ -522,13 +524,22 @@ export function buildSheet(input: DrawingInput): Sheet {
 
   const designation = `ВК.${article}.${dims.h}-${dims.w}-${dims.d}`;
 
+  const selectedOptions = (input.options ?? []).filter(Boolean);
+  let noteN = 1;
   const notes = [
-    `1. Расход воздуха расчётный ${ru(calc.airflow)} м³/ч.`,
-    `2. Патрубки ${calc.ducts.count} × Ø${calc.ducts.diameter}, скорость ${dec(calc.ducts.velocity)} м/с.`,
-    `3. Сталь AISI ${material}, сварка инверторная аргонодуговая.`,
-    `4. Жироуловители лабиринтные съёмные — ${layout.filters.reduce((s, r) => s + r.count, 0)} шт.`,
-    ...(traits.hydro ? ['5. Гидрозатвор: обвязка и автоматика по п. 5.30 СП 7.13130.'] : []),
-    `${traits.hydro ? 6 : 5}. Размеры для справок, чертёж предварительный.`,
+    `${noteN++}. Расход воздуха расчётный ${ru(calc.airflow)} м³/ч.`,
+    `${noteN++}. Патрубки ${calc.ducts.count} × Ø${calc.ducts.diameter}, скорость ${dec(calc.ducts.velocity)} м/с.`,
+    `${noteN++}. Сталь AISI ${material}, сварка инверторная аргонодуговая.`,
+    `${noteN++}. Жироуловители лабиринтные съёмные — ${layout.filters.reduce((s, r) => s + r.count, 0)} шт.`,
+    ...(traits.hydro
+      ? [`${noteN++}. Гидрозатвор: обвязка и автоматика по п. 5.30 СП 7.13130.`]
+      : []),
+    ...(selectedOptions.length
+      ? [
+          `${noteN++}. Доп. оборудование — цена выше базовой (надбавка по запросу): ${selectedOptions.join('; ')}.`,
+        ]
+      : []),
+    `${noteN++}. Размеры для справок, чертёж предварительный.`,
   ];
 
   const stamp: StampRow[] = [
@@ -538,7 +549,7 @@ export function buildSheet(input: DrawingInput): Sheet {
     { label: 'Масса, кг', value: ru(calc.mass) },
     { label: 'Масштаб', value: scaleLabel(scale) },
     { label: 'Лист', value: '1 из 1' },
-    { label: 'Организация', value: 'WENTBUSTER' },
+    { label: 'Организация', value: 'FortInox' },
     { label: 'Статус', value: 'Предварительно' },
   ];
 
