@@ -60,6 +60,10 @@ function TypeCard({
   const scheme = schemeOf(p);
   const title = typeTitle(p, f);
   const showVisuals = !textOnly && (!!img || !!scheme);
+  // В длинной главной странице native lazy-loading иногда не запускается
+  // для второго блока каталога (ЗВО): карточки уже в viewport, а currentSrc
+  // остаётся пустым. Три оптимизированных фото весят мало — грузим их сразу.
+  const eagerVisuals = p.family === 'ЗВО';
 
   return (
     <article className={`home-catalog__type${textOnly ? ' home-catalog__type--text' : ''}`}>
@@ -74,6 +78,7 @@ function TypeCard({
                 height={400}
                 className="home-catalog__img"
                 sizes="(max-width: 860px) 100vw, 420px"
+                loading={eagerVisuals ? 'eager' : 'lazy'}
               />
             </span>
           )}
@@ -86,6 +91,7 @@ function TypeCard({
                 height={360}
                 className="home-catalog__scheme-img"
                 sizes="(max-width: 860px) 100vw, 220px"
+                loading={eagerVisuals ? 'eager' : 'lazy'}
               />
             </span>
           )}
