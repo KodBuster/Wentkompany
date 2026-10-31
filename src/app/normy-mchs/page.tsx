@@ -190,7 +190,7 @@ export default function NormyPage() {
             style={{ borderColor: 'var(--color-extract)', background: 'rgba(244,112,60,.13)' }}
           >
             <div>
-              <h3 style={{ color: 'var(--color-extract)' }}>Почему гидрофильтр стал безальтернативным</h3>
+              <h3 style={{ color: 'var(--color-extract)' }}>Почему без гидрофильтра тракт обычно не собирают</h3>
               <p className="mt-2 text-sm text-steel-200">
                 Формально п. 5.30 говорит «могут применяться» — гидрофильтр не обязателен. Но альтернативу
                 задаёт п. 5.31: без гидрофильтра дымовой канал должен соответствовать п. 5.11 на всём протяжении.
