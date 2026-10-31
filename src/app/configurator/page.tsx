@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getFamilies, getProducts } from '@/lib/catalog';
 import { Configurator, type ConfiguratorModel, type ConfiguratorFamily } from '@/components/configurator-client';
+import { openGraph } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'Конфигуратор зонтов',
@@ -9,6 +10,11 @@ export const metadata: Metadata = {
     'Параметрический конфигуратор: габариты, расчёт расхода воздуха, подбор патрубков, спецификация ' +
     'и 3D-модель изделия, которая перестраивается под введённые размеры.',
   alternates: { canonical: '/configurator' },
+  openGraph: openGraph({
+    title: 'Конфигуратор вытяжных зонтов FortInox',
+    description: 'Габариты, расход воздуха, патрубки, спецификация и 3D-модель зонта под ваши размеры.',
+    url: '/configurator',
+  }),
 };
 
 /** В клиент уходит только то, что нужно сцене и расчёту — описания и картинки остаются на сервере. */

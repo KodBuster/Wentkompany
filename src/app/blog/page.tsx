@@ -1,12 +1,19 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { listBlogArticles } from '@/lib/blog';
+import { openGraph } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'Блог',
   description:
     'Статьи о вытяжных зонтах, гидрозатворах, гидрофильтрах, нормах СП 7.13130 и подборе оборудования для кухни и мангала.',
   alternates: { canonical: '/blog' },
+  openGraph: openGraph({
+    title: 'Блог FortInox',
+    description:
+      'Статьи о вытяжных зонтах, гидрозатворах, гидрофильтрах, нормах СП 7.13130 и подборе оборудования для кухни и мангала.',
+    url: '/blog',
+  }),
 };
 
 export default function BlogIndexPage() {

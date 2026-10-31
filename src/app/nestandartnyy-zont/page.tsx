@@ -7,6 +7,7 @@ import { PageBackdrop } from '@/components/page-backdrop';
 import { priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { site } from '@/lib/site';
+import { openGraph, pageTitle } from '@/lib/seo';
 
 /**
  * Зонт по чертежу заказчика.
@@ -22,15 +23,16 @@ import { site } from '@/lib/site';
  */
 
 export const metadata: Metadata = {
-  title: 'Нестандартный вытяжной зонт по чертежу и эскизу заказчика',
+  title: pageTitle('Нестандартный вытяжной зонт по чертежу и эскизу заказчика'),
   description:
     'Изготовление вытяжных зонтов нестандартных форм и размеров по чертежам и эскизам заказчика. ' +
     'Нержавеющая сталь AISI 430 и 304, расчёт расхода воздуха, чертёж на согласование до запуска.',
   alternates: { canonical: '/nestandartnyy-zont' },
-  openGraph: {
+  openGraph: openGraph({
     title: 'Нестандартный вытяжной зонт по чертежу заказчика',
     description: 'Форма и габариты под ваше место. Чертёж на согласование до запуска в производство.',
-  },
+    url: '/nestandartnyy-zont',
+  }),
 };
 
 /** Что реально делается — по возрастанию сложности согласования. */

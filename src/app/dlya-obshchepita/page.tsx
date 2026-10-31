@@ -9,17 +9,19 @@ import { PageBackdrop } from '@/components/page-backdrop';
 import { familyHref, priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { norms, site } from '@/lib/site';
+import { openGraph } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Вытяжка для ресторана и кухни общепита — зонты и гидрофильтры',
+  title: 'Вытяжка для ресторана и общепита: зонты и гидрофильтры',
   description:
     'Вытяжные зонты, гидрозонты и гидрофильтры для ресторанов, кафе, столовых и тёмных кухонь. ' +
     'Комплект под пп. 5.28–5.33 СП 7.13130.2013 для мангалов и тандыров, цена по типоразмеру, монтаж.',
   alternates: { canonical: '/dlya-obshchepita' },
-  openGraph: {
+  openGraph: openGraph({
     title: 'Вытяжка для ресторана и кухни общепита',
     description: 'Зонты и гидрофильтры под требования МЧС, цена по типоразмеру, чертежи для проекта.',
-  },
+    url: '/dlya-obshchepita',
+  }),
 };
 
 /** Боли объекта общепита — каждая привязана к проверяемому факту, не к лозунгу. */

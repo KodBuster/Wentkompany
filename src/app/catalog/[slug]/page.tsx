@@ -24,7 +24,7 @@ import { ExportButtons } from '@/components/export-buttons';
 import { ClauseRichText, ClauseTipBadge } from '@/components/clause-tip';
 import { JsonLd } from '@/components/json-ld';
 import { site } from '@/lib/site';
-import { ORG_ID, absUrl, breadcrumbJsonLd } from '@/lib/seo';
+import { ORG_ID, absUrl, breadcrumbJsonLd, openGraph, pageTitle } from '@/lib/seo';
 
 export function generateStaticParams() {
   return [
@@ -55,19 +55,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const family = familyBySlug(slug);
   if (family) {
     const sole = soleProductOf(family.code);
+    const description = `${family.title}: ${family.count} ${sizesWord(family.count)}${family.priceFrom ? `, от ${rub(family.priceFrom)}` : ''}. Нержавеющая сталь AISI 430 и 304, изготовление по размерам объекта.`;
+    // линейка из одного изделия дублирует его страницу — канонична страница изделия
+    const canonical = sole ? `/catalog/${sole.slug}` : `/catalog/${slug}`;
     return {
-      title: family.title,
-      description: `${family.title}: ${family.count} ${sizesWord(family.count)}${family.priceFrom ? `, от ${rub(family.priceFrom)}` : ''}. Нержавеющая сталь AISI 430 и 304, изготовление по размерам объекта.`,
-      // линейка из одного изделия дублирует его страницу — канонична страница изделия
-      alternates: { canonical: sole ? `/catalog/${sole.slug}` : `/catalog/${slug}` },
+      title: pageTitle(family.title),
+      description,
+      alternates: { canonical },
+      openGraph: openGraph({ title: family.title, description, url: canonical }),
     };
   }
   const product = productBySlug(slug);
   if (!product) return {};
+  const description = productDescription(product);
   return {
-    title: product.name,
-    description: productDescription(product),
+    title: pageTitle(product.name),
+    description,
     alternates: { canonical: `/catalog/${slug}` },
+    openGraph: openGraph({ title: product.name, description, url: `/catalog/${slug}` }),
   };
 }
 

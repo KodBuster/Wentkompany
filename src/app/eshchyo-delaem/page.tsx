@@ -5,6 +5,7 @@ import { CallLink } from '@/components/call-link';
 import { PageBackdrop } from '@/components/page-backdrop';
 import { neutralFullName, neutralItems } from '@/lib/neutral';
 import { site } from '@/lib/site';
+import { openGraph } from '@/lib/seo';
 
 /**
  * Оглавление нейтралки: карточки позиций.
@@ -17,10 +18,11 @@ export const metadata: Metadata = {
     'Барные станции (типы 1–5), шкафы для мусора и урны из нержавеющей стали по размерам заказчика. ' +
     'Изготовление на собственном производстве вместе с вентиляционным оборудованием.',
   alternates: { canonical: '/eshchyo-delaem' },
-  openGraph: {
+  openGraph: openGraph({
     title: 'Нейтральное оборудование из нержавеющей стали',
     description: 'Барные станции, шкафы для мусора и урны по размерам заказчика.',
-  },
+    url: '/eshchyo-delaem',
+  }),
 };
 
 export default function NeutralIndexPage() {

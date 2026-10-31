@@ -7,17 +7,19 @@ import { PageBackdrop } from '@/components/page-backdrop';
 import { familyHref, priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { site } from '@/lib/site';
+import { openGraph } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Вытяжной зонт над мангалом в частном доме — изготовление по размеру',
+  title: 'Вытяжной зонт над мангалом в частном доме',
   description:
     'Зонт над мангалом, хоспером и тандыром в доме, беседке и на летней кухне. Нержавеющая сталь, ' +
     'гидрозатвор вместо кассет, изготовление по замеру. Цена типоразмера сразу.',
   alternates: { canonical: '/chastnyy-dom' },
-  openGraph: {
+  openGraph: openGraph({
     title: 'Вытяжной зонт над мангалом в частном доме',
     description: 'Изготовление по замеру, нержавеющая сталь, гидрозатвор вместо кассет.',
-  },
+    url: '/chastnyy-dom',
+  }),
 };
 
 const SITUATIONS = [

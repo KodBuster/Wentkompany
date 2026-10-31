@@ -21,6 +21,7 @@ export const metadata: Metadata = {
   },
   description: site.description,
   openGraph: openGraph({ title: SITE_TITLE, description: site.description }),
+  twitter: { card: 'summary_large_image' },
   robots: { index: true, follow: true },
 };
 

@@ -14,6 +14,8 @@
 
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 const PORT = Number(process.env.CHECK_PORT || 3199);
@@ -40,8 +42,10 @@ async function waitForServer(timeoutMs = 40000) {
   return false;
 }
 
-const server = spawn('npx', ['next', 'start', '-p', String(PORT)], {
-  cwd: new URL('..', import.meta.url).pathname,
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+// node + JS-файл next вместо npx: на Windows npx — это .cmd, а kill() не гасит дочерний сервер через shell
+const server = spawn(process.execPath, [join(ROOT, 'node_modules', 'next', 'dist', 'bin', 'next'), 'start', '-p', String(PORT)], {
+  cwd: ROOT,
   stdio: 'ignore',
   env: { ...process.env, NODE_ENV: 'production' },
 });

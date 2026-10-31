@@ -9,6 +9,7 @@ import { ClauseAnchorFlash } from '@/components/clause-anchor-flash';
 import { complianceProducts, familyHref } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { norms, site } from '@/lib/site';
+import { openGraph } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'Мангал и тандыр по новым нормам МЧС с 1 июля 2025',
@@ -16,10 +17,11 @@ export const metadata: Metadata = {
     'Изменение № 3 к СП 7.13130.2013 (приказ МЧС № 251): пункты 5.28–5.33 о мангалах, тандырах и гидрофильтрах. ' +
     'Разбор требований, чек-лист соответствия объекта и комплект оборудования.',
   alternates: { canonical: '/normy-mchs' },
-  openGraph: {
+  openGraph: openGraph({
     title: 'Мангал и тандыр по новым нормам МЧС с 1 июля 2025',
     description: 'Разбор пунктов 5.28–5.33 СП 7.13130.2013 и комплект оборудования под требования.',
-  },
+    url: '/normy-mchs',
+  }),
 };
 
 const CLAUSES = [

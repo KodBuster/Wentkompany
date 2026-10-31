@@ -49,7 +49,7 @@ const nextConfig: NextConfig = {
           // HSTS включаем только когда сайт уже под HTTPS: иначе можно
           // закрыть себе доступ на время настройки сертификата
           ...(process.env.ENABLE_HSTS === '1'
-            ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' }]
+            ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000' }]
             : []),
         ],
       },

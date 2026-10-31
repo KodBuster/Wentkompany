@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { BlogProse } from '@/components/blog-prose';
 import { JsonLd } from '@/components/json-ld';
 import { allBlogSlugs, articleDates, getBlogArticle, listBlogArticles } from '@/lib/blog';
-import { ORG_ID, WEBSITE_ID, absUrl, breadcrumbJsonLd, openGraph } from '@/lib/seo';
+import { ORG_ID, WEBSITE_ID, absUrl, breadcrumbJsonLd, openGraph, pageTitle } from '@/lib/seo';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const dates = articleDates(article.filename);
   const description = article.excerpt || article.title;
   return {
-    title: article.title,
+    title: pageTitle(article.title),
     description,
     alternates: { canonical: `/blog/${article.slug}` },
     openGraph: openGraph({

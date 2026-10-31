@@ -21,8 +21,9 @@
 
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join, extname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const OUT_DIR = join(ROOT, 'public', 'catalog');
 const CATALOG = join(ROOT, 'src', 'data', 'catalog.json');
 const DRY = process.argv.includes('--dry');

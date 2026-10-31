@@ -9,11 +9,17 @@ import { PageBackdrop } from '@/components/page-backdrop';
 import { productBySlug, shortName, traitsOf, familyByCode } from '@/lib/catalog';
 import { calculate, defaultMaterialGrade, rub } from '@/lib/calc';
 import { site } from '@/lib/site';
+import { openGraph } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'Контакты и заявка',
   description: 'Расчёт комплекта, замер и изготовление зонтов по размерам объекта. Москва и область.',
   alternates: { canonical: '/contacts' },
+  openGraph: openGraph({
+    title: 'Контакты и заявка — FortInox',
+    description: 'Расчёт комплекта, замер и изготовление зонтов по размерам объекта. Москва и область.',
+    url: '/contacts',
+  }),
 };
 
 export default async function ContactsPage({

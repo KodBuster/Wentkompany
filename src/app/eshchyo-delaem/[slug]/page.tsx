@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { NeutralGallery } from '@/components/neutral-gallery';
 import { PageBackdrop } from '@/components/page-backdrop';
 import { neutralBySlug, neutralFullName, neutralItems } from '@/lib/neutral';
+import { openGraph, pageTitle } from '@/lib/seo';
 
 /**
  * Одна позиция нейтралки: только её фото и описание.
@@ -23,10 +24,12 @@ export async function generateMetadata({
   const item = neutralBySlug(slug);
   if (!item) return {};
   const name = neutralFullName(item);
+  const url = `/eshchyo-delaem/${item.slug}`;
   return {
-    title: `${name} на заказ`,
+    title: pageTitle(`${name} на заказ`),
     description: item.lead,
-    alternates: { canonical: `/eshchyo-delaem/${item.slug}` },
+    alternates: { canonical: url },
+    openGraph: openGraph({ title: `${name} на заказ`, description: item.lead, url }),
   };
 }
 
