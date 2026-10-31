@@ -200,6 +200,7 @@ function FamilyView({ slug }: { slug: string }) {
           <JsonLd
             data={breadcrumbJsonLd([
               { name: 'Главная', path: '/' },
+              { name: 'Каталог', path: '/#catalog' },
               { name: family.title, path: `/catalog/${family.slug}` },
             ])}
           />
@@ -224,7 +225,7 @@ function ProductView({ slug }: { slug: string }) {
   const familyCrumb = family && !soleProductOf(family.code) ? family : null;
   const url = absUrl(`/catalog/${p.slug}`);
 
-  // Без цены Google считает Product неполным (нет offers) — такую разметку не выводим
+  // Без цены Offer не выводим: сумму не выдумываем
   const productJsonLd = p.price
     ? {
         '@context': 'https://schema.org',
@@ -241,7 +242,9 @@ function ProductView({ slug }: { slug: string }) {
           '@type': 'Offer',
           price: p.price,
           priceCurrency: 'RUB',
-          availability: 'https://schema.org/InStock',
+          // эталон изготавливается под заказ, не со склада
+          availability: 'https://schema.org/MadeToOrder',
+          description: 'цена эталонного типоразмера',
           url,
           seller: { '@id': ORG_ID },
         },
@@ -250,6 +253,7 @@ function ProductView({ slug }: { slug: string }) {
 
   const crumbsJsonLd = breadcrumbJsonLd([
     { name: 'Главная', path: '/' },
+    { name: 'Каталог', path: '/#catalog' },
     ...(familyCrumb ? [{ name: familyCrumb.title, path: `/catalog/${familyCrumb.slug}` }] : []),
     { name: p.name, path: `/catalog/${p.slug}` },
   ]);

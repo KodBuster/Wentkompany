@@ -8,6 +8,7 @@ import { priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { site } from '@/lib/site';
 import { openGraph, pageTitle } from '@/lib/seo';
+import { JsonLd } from '@/components/json-ld';
 
 /**
  * Зонт по чертежу заказчика.
@@ -271,7 +272,7 @@ export default function CustomHoodPage() {
         </div>
       </section>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <JsonLd data={faqJsonLd} />
     </>
   );
 }

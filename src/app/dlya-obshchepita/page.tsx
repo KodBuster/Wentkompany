@@ -10,6 +10,7 @@ import { familyHref, priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { norms, site } from '@/lib/site';
 import { openGraph } from '@/lib/seo';
+import { JsonLd } from '@/components/json-ld';
 
 export const metadata: Metadata = {
   title: 'Вытяжка для ресторана и общепита: зонты и гидрофильтры',
@@ -307,7 +308,7 @@ export default function ObshchepitPage() {
         </div>
       </section>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <JsonLd data={faqJsonLd} />
     </>
   );
 }

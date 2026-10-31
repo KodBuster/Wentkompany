@@ -8,6 +8,7 @@ import { familyHref, priceFrom } from '@/lib/catalog';
 import { rub } from '@/lib/calc';
 import { site } from '@/lib/site';
 import { openGraph } from '@/lib/seo';
+import { JsonLd } from '@/components/json-ld';
 
 export const metadata: Metadata = {
   title: 'Вытяжной зонт над мангалом в частном доме',
@@ -237,7 +238,7 @@ export default function ChastnyyDomPage() {
         </div>
       </section>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <JsonLd data={faqJsonLd} />
     </>
   );
 }
