@@ -25,6 +25,7 @@ import { ClauseRichText, ClauseTipBadge } from '@/components/clause-tip';
 import { JsonLd } from '@/components/json-ld';
 import { site } from '@/lib/site';
 import { ORG_ID, absUrl, breadcrumbJsonLd, openGraph, pageTitle } from '@/lib/seo';
+import { productNormCards } from '@/lib/product-norms';
 
 export function generateStaticParams() {
   return [
@@ -252,6 +253,7 @@ function ProductView({ slug }: { slug: string }) {
     ...(familyCrumb ? [{ name: familyCrumb.title, path: `/catalog/${familyCrumb.slug}` }] : []),
     { name: p.name, path: `/catalog/${p.slug}` },
   ]);
+  const normCards = productNormCards(p.family);
 
   return (
     <section className="band band-shop">
@@ -433,16 +435,11 @@ function ProductView({ slug }: { slug: string }) {
           </>
         )}
 
-        {traits.hydro && p.family !== 'АВТ' && (
+        {normCards.length > 0 && (
           <>
             <div className="head mt-14"><p className="lbl">Нормы</p><h2>Требования к этому изделию</h2></div>
             <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
-              {[
-                ['5.28', 'п. 5.28', 'Удаление продуктов горения через дымоотвод наружу или самостоятельный дымовой канал от этого зонта.'],
-                ['5.30', 'п. 5.30', 'Датчики температуры, сигнализаторы 95 % от максимальной температуры и падения давления воды, питание по 1-й категории, сигнал ≥ 85 дБ на 1 м.'],
-                ['5.31', 'п. 5.31', 'Гидрозатвор внутри зонта — участка «зонт → отдельный фильтр» не возникает.'],
-                ['5.32', 'п. 5.32', 'Воздуховод после изделия до оголовка не ниже EI 45 по ГОСТ Р 53299.'],
-              ].map(([id, label, text]) => (
+              {normCards.map(({ id, label, text }) => (
                 <div key={id} className="tile">
                   <ClauseTipBadge clauseId={id} label={label} />
                   <p className="muted text-sm">{text}</p>

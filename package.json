@@ -12,7 +12,8 @@
     "check": "node --experimental-strip-types scripts/check-calc.mjs",
     "check:ifc": "node --experimental-strip-types scripts/check-ifc.mjs",
     "check:redirects": "node scripts/check-redirects.mjs",
-    "check:all": "npm run check && npm run check:ifc && npm run check:redirects",
+    "check:norms": "node --experimental-strip-types scripts/check-product-norms.mjs",
+    "check:all": "npm run check && npm run check:ifc && npm run check:redirects && npm run check:norms",
     "images": "node scripts/fetch-images.mjs",
     "prebuild": "node scripts/copy-fonts.mjs"
   },
