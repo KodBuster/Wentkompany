@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
 import { LeadForm } from '@/components/lead-form';
 import { StandardOrderForm } from '@/components/standard-order-form';
 import { HoodDrawing } from '@/components/hood-drawing';
+import { OrderPreviewPhoto } from '@/components/order-preview-photo';
 import { MessengerLinks } from '@/components/messenger-links';
 import { PageBackdrop } from '@/components/page-backdrop';
 import { productBySlug, shortName, traitsOf, familyByCode } from '@/lib/catalog';
@@ -88,18 +88,7 @@ export default async function ContactsPage({
 
           {isStandardOrder && product?.base && calc && traits && (
             <div className="order-preview mt-8">
-              {photo && (
-                <div className="order-preview__photo">
-                  <Image
-                    src={photo}
-                    alt={product.name}
-                    width={960}
-                    height={720}
-                    className="order-preview__img"
-                    sizes="(max-width: 900px) 100vw, 480px"
-                  />
-                </div>
-              )}
+              {photo && <OrderPreviewPhoto src={photo} alt={product.name} />}
               <div className="order-preview__drawing">
                 <HoodDrawing
                   compact

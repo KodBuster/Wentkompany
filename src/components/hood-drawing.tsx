@@ -203,7 +203,10 @@ export function HoodDrawing({
   return (
     <div className={`drawing-wrap${compact ? ' drawing-wrap--compact' : ''}`}>
       {compact ? (
-        <div className="drawing-zoom drawing-zoom--static">{svg}</div>
+        /* Компакт (заказ из каталога): сильнее лупа — иначе штамп/размеры не читаются */
+        <HoverZoom className="drawing-zoom" scale={2.2} maxScale={4}>
+          {svg}
+        </HoverZoom>
       ) : (
         <HoverZoom className="drawing-zoom" scale={1.55} maxScale={2.5}>
           {svg}

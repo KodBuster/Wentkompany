@@ -522,7 +522,8 @@ export function buildSheet(input: DrawingInput): Sheet {
     dims: planDims,
   };
 
-  const designation = `ВК.${article}.${dims.h}-${dims.w}-${dims.d}`;
+  /* ФИ — аббревиатура FortInox (рус.) */
+  const designation = `ФИ.${article}.${dims.h}-${dims.w}-${dims.d}`;
 
   const selectedOptions = (input.options ?? []).filter(Boolean);
   let noteN = 1;

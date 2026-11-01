@@ -15,6 +15,8 @@
  * «предварительная оценка» и не выдаётся за прайс.
  */
 
+import { roundPriceRub } from '@/lib/prices';
+
 export type Family = 'ЗВП' | 'ЗВО' | 'ЗПВП' | 'ЗПВО' | 'ЗВПГ' | 'ЗВОГ' | 'ПИР' | 'ГФ' | 'АВТ';
 
 export interface FamilyTraits {
@@ -254,8 +256,8 @@ export function price(
   const upgradedTo304 = material === '304' && !hydro;
   if (upgradedTo304) value *= AISI304_FACTOR;
   return {
-    /* Прайс уже по формуле; до 50 ₽ не округляем — только целые рубли */
-    value: Math.round(value),
+    /* После формулы / надбавки 304 — к ближайшей сотне ₽ */
+    value: roundPriceRub(value),
     estimate: upgradedTo304,
     note: upgradedTo304
       ? 'Надбавка за AISI 304 к цене эталона. Точную сумму подтверждает производство.'

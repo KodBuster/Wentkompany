@@ -49,9 +49,15 @@ function normalize(raw: unknown): PricesFile {
   };
 }
 
+/** Витринная цена: к ближайшей сотне рублей (без «хвостов» вроде 23 652). */
+export function roundPriceRub(value: number): number {
+  return Math.round(value / 100) * 100;
+}
+
 /**
  * Наша цена с витрины.
- * Строго по шагам: 1) отнять discount% от их цены; 2) к результату прибавить markup%.
+ * Строго по шагам: 1) отнять discount% от их цены; 2) к результату прибавить markup%;
+ * 3) округлить до сотни.
  */
 export function sellPriceFromSource(
   source: number,
@@ -59,7 +65,7 @@ export function sellPriceFromSource(
 ): number {
   const afterDiscount = source - source * (factors.discountPct / 100);
   const withMarkup = afterDiscount + afterDiscount * (factors.markupPct / 100);
-  return Math.round(withMarkup);
+  return roundPriceRub(withMarkup);
 }
 
 export function loadPricesFile(): PricesFile {

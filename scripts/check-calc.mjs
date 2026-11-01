@@ -253,7 +253,7 @@ for (const code of ['ЗВП', 'ЗПВО', 'ЗВОГ']) {
 
     assert.ok(SCALE_SERIES.includes(sheet.scale), `${code} ${dims.w}: масштаб вне ряда ГОСТ 2.302`);
     assert.equal(sheet.views.length, 3, `${code}: должно быть три проекции`);
-    assert.ok(/^ВК\./.test(sheet.designation), `${code}: не сформировано обозначение`);
+    assert.ok(/^ФИ\./.test(sheet.designation), `${code}: не сформировано обозначение`);
     assert.ok(sheet.stamp.length >= 6, `${code}: штамп пустой`);
     assert.ok(sheet.notes.length >= 5, `${code}: нет технических требований`);
     // строка техтребований не должна вылезти за правое поле рамки:

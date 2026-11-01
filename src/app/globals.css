@@ -96,6 +96,128 @@
 @layer components {
   .wrap { width: min(1180px, 100% - 2.75rem); margin-inline: auto; }
 
+  /* Пробные логотипы E–H */
+  .brand-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    line-height: 1;
+    color: var(--color-steel-100);
+  }
+  .brand-mark {
+    display: block;
+    flex-shrink: 0;
+    color: var(--color-steel-100);
+  }
+  .brand-logo__word {
+    font-family: var(--font-display);
+    font-size: 1.55rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+  .brand-logo__inox {
+    color: var(--color-extract);
+  }
+  .brand-logo--g {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.28rem;
+    font-family: var(--font-display);
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    white-space: nowrap;
+    line-height: 1;
+  }
+  .brand-logo__fort,
+  .brand-logo__inox-solid {
+    white-space: nowrap;
+  }
+  .brand-logo__fort {
+    color: var(--color-steel-100);
+  }
+  .brand-logo-g__vent {
+    flex-shrink: 0;
+    align-self: center;
+    /* Чуть вниз — оптический центр по высоте Oswald */
+    transform: translateY(0.12em);
+  }
+  .brand-logo__inox-solid {
+    color: var(--color-extract);
+  }
+  .brand-logo--h {
+    letter-spacing: 0.04em;
+  }
+  .brand-logo--h .brand-logo-g__vent {
+    transform: translateY(0.1em);
+  }
+  /* В шапке/подвале — компактно, в одну строку (как бывший text-xl) */
+  .brand-logo--site.brand-logo--g,
+  .brand-logo--site.brand-logo--h {
+    font-size: 1.25rem;
+    letter-spacing: 0.05em;
+  }
+  .brand-logo--site .brand-logo-g__vent {
+    width: 13px;
+    height: 14px;
+  }
+  .logo-preview {
+    padding-block: 2rem 4rem;
+  }
+  .logo-preview__intro {
+    margin-bottom: 2rem;
+  }
+  .logo-preview__intro h1 {
+    margin-top: 0.35rem;
+  }
+  .logo-preview__block {
+    margin-bottom: 2.75rem;
+  }
+  .logo-preview__meta {
+    margin-bottom: 0.75rem;
+  }
+  .logo-preview__meta h2 {
+    font-size: 1.15rem;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .logo-preview__bar {
+    border-block: 1px solid var(--hair);
+    background: rgba(245, 240, 234, 0.96);
+    margin-bottom: 1rem;
+  }
+  .logo-preview__nav-ghost {
+    flex: 1;
+    font-size: 0.85rem;
+    opacity: 0.55;
+  }
+  .logo-preview__btn-ghost {
+    pointer-events: none;
+    opacity: 0.7;
+  }
+  .logo-preview__solo {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 1rem;
+    background: var(--color-sheet);
+    border: 1px solid var(--hair);
+    border-radius: var(--radius-lg);
+  }
+  @media (max-width: 720px) {
+    .logo-preview__nav-ghost,
+    .logo-preview__btn-ghost {
+      display: none;
+    }
+    .brand-logo__word,
+    .brand-logo--g {
+      font-size: 1.25rem;
+    }
+  }
+
   .band { padding-block: clamp(2rem, 4vw, 3.25rem); position: relative; }
 
   /* Якоря пунктов СП — не прячутся под sticky-шапкой */
@@ -1471,8 +1593,17 @@
     max-width: 36rem;
   }
   .order-preview__photo {
+    position: relative;
     aspect-ratio: 4 / 3;
     background: #ebe4da;
+    overflow: hidden;
+  }
+  .order-preview__zoom {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
   }
   .order-preview__img {
     width: 100%;

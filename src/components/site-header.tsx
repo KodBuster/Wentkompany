@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BrandLogo } from '@/components/brand-logo';
 import { CallLink } from '@/components/call-link';
 import { MobileNav } from '@/components/mobile-nav';
 import { SiteNavLinks } from '@/components/site-nav-links';
@@ -23,9 +24,11 @@ export function SiteHeader() {
       <div className="wrap flex min-h-[4.25rem] items-center gap-5">
         <Link
           href="/"
-          className="font-[family-name:var(--font-display)] text-xl font-bold uppercase whitespace-nowrap no-underline tracking-wide transition-opacity duration-200 hover:opacity-90"
+          className="shrink-0 no-underline transition-opacity duration-200 hover:opacity-90"
+          aria-label="FortInox — на главную"
         >
-          Fort<span style={{ color: 'var(--color-extract)' }}>Inox</span>
+          {/* Примерка: 4H. Финал завтра: 3G или 4H */}
+          <BrandLogo variant="H" className="brand-logo--site" />
         </Link>
         <SiteNavLinks links={links} />
         <CallLink className="num hidden text-sm no-underline text-steel-300 transition-colors duration-200 hover:text-steel-100 sm:block" />

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BrandLogo } from '@/components/brand-logo';
 import { site } from '@/lib/site';
 import { familyHref, hoodFamilies } from '@/lib/catalog';
 import { CallLink } from '@/components/call-link';
@@ -10,9 +11,7 @@ export function SiteFooter() {
       <div className="wrap py-12">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <span className="font-[family-name:var(--font-display)] text-xl font-bold uppercase tracking-wide">
-              Fort<span style={{ color: 'var(--color-extract)' }}>Inox</span>
-            </span>
+            <BrandLogo variant="H" className="brand-logo--site" />
             <p className="muted mt-4 text-sm leading-relaxed max-w-[36ch]">{site.description}</p>
           </div>
           <div>

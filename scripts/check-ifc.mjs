@@ -119,11 +119,11 @@ for (const { code, dims, material, typeLabel } of CASES) {
 }
 
 /* GlobalId детерминирован и в алфавите IFC */
-const g1 = ifcGuid('ВК.ЗВОГ.450-1200-600|element');
-const g2 = ifcGuid('ВК.ЗВОГ.450-1200-600|element');
+const g1 = ifcGuid('ФИ.ЗВОГ.450-1200-600|element');
+const g2 = ifcGuid('ФИ.ЗВОГ.450-1200-600|element');
 assert.equal(g1, g2, 'GlobalId должен быть детерминированным');
 assert.equal(g1.length, 22, 'GlobalId должен быть длиной 22 символа');
 assert.ok(/^[0-9A-Za-z_$]{22}$/.test(g1), 'GlobalId вне алфавита IFC');
-assert.notEqual(g1, ifcGuid('ВК.ЗВОГ.450-1200-600|pset'), 'разные объекты не должны делить GlobalId');
+assert.notEqual(g1, ifcGuid('ФИ.ЗВОГ.450-1200-600|pset'), 'разные объекты не должны делить GlobalId');
 
 console.log(`\nOK · IFC: ${checked} модели открыты парсером web-ifc, свойства и геометрия на месте`);
