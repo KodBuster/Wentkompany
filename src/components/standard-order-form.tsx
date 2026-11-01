@@ -59,28 +59,16 @@ export function StandardOrderForm({
     const fullCfg = [configuration, optsLine].filter(Boolean).join(' · ');
 
     try {
-      const exportRes = await fetch('/api/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          kind: 'pdf',
-          slug,
-          dims,
-          ...(material ? { material } : {}),
-          options,
-        }),
-      });
-      if (!exportRes.ok) {
-        const info = await exportRes.json().catch(() => ({}));
-        throw new Error(info.error || 'Не удалось собрать чертёж');
-      }
-      const pdfBlob = await exportRes.blob();
-      const pdfFile = new File([pdfBlob], `${slug}-chertezh.pdf`, { type: 'application/pdf' });
-
       fd.set('page', window.location.pathname);
       fd.set('configuration', `[Заказ · эталон] ${fullCfg}`);
       fd.set('leadMode', 'order');
-      fd.set('drawing', pdfFile);
+      fd.set('drawSlug', slug);
+      fd.set('drawH', String(dims.h));
+      fd.set('drawW', String(dims.w));
+      fd.set('drawD', String(dims.d));
+      if (material) fd.set('drawMaterial', material);
+      fd.delete('drawOpt');
+      options.forEach((o) => fd.append('drawOpt', o));
       fd.delete('object');
 
       const res = await fetch('/api/lead', { method: 'POST', body: fd });

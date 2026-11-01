@@ -2,6 +2,7 @@
 
 import { useRef, useState, type DragEvent } from 'react';
 import { GOALS, track } from '@/lib/analytics';
+import type { Dims } from '@/lib/calc';
 import { isValidPhone } from '@/lib/phone';
 import { NOTES_PLACEHOLDER, PhoneInput } from '@/components/phone-input';
 
@@ -43,10 +44,19 @@ function sameFile(a: File, b: File) {
 export function LeadForm({
   configuration,
   mode,
+  drawing,
 }: {
   configuration?: string;
   /** order — заказ по сборке; quote — ручной пересчёт с файлами */
   mode?: 'order' | 'quote';
+  /** Есть изделие — сервер сам приложит PDF к Telegram и MAX. */
+  drawing?: {
+    slug: string;
+    dims: Dims;
+    material?: '430' | '304';
+    options?: string[];
+    captureVelocity?: number;
+  };
 }) {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
@@ -66,7 +76,9 @@ export function LeadForm({
       ? 'Запрос точной цены'
       : 'Конфигурация прикреплена';
 
-  const fileHint = isQuote
+  const fileHint = drawing
+    ? `Чертёж PDF уйдёт вместе с заявкой. Дополнительно — до ${MAX_FILES} файлов (каждый до ${MAX_MB} МБ): план, фото, свой эскиз. На сервере файлы не сохраняются.`
+    : isQuote
     ? `До ${MAX_FILES} файлов: эскизы, чертежи, PDF, DXF или фото (каждый до ${MAX_MB} МБ). Уходит менеджеру вместе с заявкой, на сервере не сохраняется.`
     : isOrder
       ? `По желанию — до ${MAX_FILES} файлов: план кухни, фото места (каждый до ${MAX_MB} МБ). Конфигурация уже в заявке; файлы на сервере не сохраняются.`
@@ -187,6 +199,16 @@ export function LeadForm({
         fd.set('configuration', `${prefix}${configuration}`);
       }
       if (mode) fd.set('leadMode', mode);
+      if (drawing) {
+        fd.set('drawSlug', drawing.slug);
+        fd.set('drawH', String(drawing.dims.h));
+        fd.set('drawW', String(drawing.dims.w));
+        fd.set('drawD', String(drawing.dims.d));
+        if (drawing.material) fd.set('drawMaterial', drawing.material);
+        if (drawing.captureVelocity != null) fd.set('drawV', String(drawing.captureVelocity));
+        fd.delete('drawOpt');
+        drawing.options?.forEach((o) => fd.append('drawOpt', o));
+      }
       fd.delete('drawing');
       files.forEach((f) => fd.append('drawing', f));
       const res = await fetch('/api/lead', { method: 'POST', body: fd });
@@ -194,7 +216,7 @@ export function LeadForm({
       setStatus('ok');
       track(GOALS.leadSent, {
         withConfiguration: Boolean(configuration),
-        withDrawing: files.length > 0,
+        withDrawing: Boolean(drawing) || files.length > 0,
         fileCount: files.length,
         mode: mode ?? 'plain',
       });
@@ -215,6 +237,9 @@ export function LeadForm({
         <p className="muted mt-2 text-sm">
           Свяжемся в течение рабочего дня. Если вопрос срочный — позвоните, ответим быстрее.
         </p>
+        {drawing && (
+          <p className="hint mt-3">Чертёж PDF ушёл вместе с заявкой — на сервере он не сохраняется.</p>
+        )}
         {filesSent > 0 && (
           <p className="hint mt-3">
             {filesSent === 1

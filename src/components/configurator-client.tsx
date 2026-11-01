@@ -441,8 +441,21 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     price: calc.price,
   });
 
-  const orderHref = `/contacts?mode=order&cfg=${encodeURIComponent(cfgText)}`;
-  const quoteHref = `/contacts?mode=quote&cfg=${encodeURIComponent(cfgText)}`;
+  const contactsHref = (mode: 'order' | 'quote') => {
+    const q = new URLSearchParams();
+    q.set('mode', mode);
+    q.set('cfg', cfgText);
+    q.set('slug', model.slug);
+    q.set('h', String(dims.h));
+    q.set('w', String(dims.w));
+    q.set('d', String(dims.d));
+    q.set('material', material);
+    q.set('v', String(captureVelocity));
+    for (const option of options) q.append('opt', option);
+    return `/contacts?${q.toString()}`;
+  };
+  const orderHref = contactsHref('order');
+  const quoteHref = contactsHref('quote');
 
   const spec: [string, string][] = [
     [`${model.article} · ${dims.h}/${dims.w}/${dims.d}`, '1 шт'],
@@ -616,7 +629,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
             Отправить заказ
           </Link>
           <p className="hint mt-2">
-            Берём сборку как на экране: чертёж, КП и спецификация уйдут в заявку.
+            Берём сборку как на экране: чертёж PDF уйдёт в заявку.
           </p>
         </div>
       </aside>

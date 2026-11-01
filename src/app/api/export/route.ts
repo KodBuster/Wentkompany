@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
-import { calculate, resolveMaterialGrade, type Dims } from '@/lib/calc';
-import { productBySlug, productsOf, traitsOf, familyByCode } from '@/lib/catalog';
+import { resolveDrawingInput, type DrawingRequest } from '@/lib/catalog-drawing';
 import { buildDxf, translit } from '@/lib/dxf';
 import { buildDrawingPdf, buildQuotePdf } from '@/lib/pdf';
 import { buildIfc } from '@/lib/ifc';
-import { buildSheet } from '@/lib/drawing';
 import { buildDrawingSvg } from '@/lib/svg-drawing';
 import { site } from '@/lib/site';
 
@@ -19,28 +17,11 @@ import { site } from '@/lib/site';
 
 export const runtime = 'nodejs';
 
-const LIMITS = {
-  w: [600, 3000],
-  d: [600, 1600],
-  h: [300, 700],
-} as const;
-
 const KINDS = ['pdf', 'svg', 'dxf', 'quote', 'ifc'] as const;
 type Kind = (typeof KINDS)[number];
 
-const OPTIONS = [
-  'Врезка присоединительная',
-  'Проушины для монтажа',
-  'Кран для слива жира и конденсата',
-  'Точечные светодиодные светильники',
-];
-
-interface Body {
+interface Body extends DrawingRequest {
   kind?: string;
-  slug?: string;
-  dims?: { h?: unknown; w?: unknown; d?: unknown };
-  material?: string;
-  options?: unknown;
 }
 
 /**
@@ -51,19 +32,6 @@ interface Body {
 function contentDisposition(name: string): string {
   const ascii = translit(name).replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
-}
-
-const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
-
-function validateDims(raw: Body['dims']): Dims | null {
-  const h = num(raw?.h);
-  const w = num(raw?.w);
-  const d = num(raw?.d);
-  if ([h, w, d].some(Number.isNaN)) return null;
-  if (h < LIMITS.h[0] || h > LIMITS.h[1]) return null;
-  if (w < LIMITS.w[0] || w > LIMITS.w[1]) return null;
-  if (d < LIMITS.d[0] || d > LIMITS.d[1]) return null;
-  return { h: Math.round(h), w: Math.round(w), d: Math.round(d) };
 }
 
 export async function POST(request: Request) {
@@ -77,45 +45,12 @@ export async function POST(request: Request) {
   const kind = (KINDS as readonly string[]).includes(body.kind ?? '') ? (body.kind as Kind) : null;
   if (!kind) return NextResponse.json({ error: 'Неизвестный тип выгрузки' }, { status: 400 });
 
-  const product = body.slug ? productBySlug(body.slug) : undefined;
-  if (!product || !product.base) {
-    return NextResponse.json({ error: 'Изделие не найдено в каталоге' }, { status: 404 });
+  const resolved = resolveDrawingInput(body);
+  if (!resolved.ok) {
+    return NextResponse.json({ error: resolved.error }, { status: resolved.status });
   }
-
-  const dims = validateDims(body.dims);
-  if (!dims) {
-    return NextResponse.json(
-      { error: 'Некорректные габариты: укажите H/W/D в допустимых пределах' },
-      { status: 400 },
-    );
-  }
-  const options = Array.isArray(body.options)
-    ? body.options.filter((o): o is string => typeof o === 'string' && OPTIONS.includes(o))
-    : [];
-
-  const traits = traitsOf(product.family);
-  const family = familyByCode(product.family);
-  /* Без явного выбора — марка по умолчанию для линейки (304 гидро / 430 сухой). */
-  const material = resolveMaterialGrade(body.material, traits.hydro);
-
-  /* Базовая цена — из каталога, а не из запроса. */
-  const basePrice = product.price ?? productsOf(product.family).find((p) => p.price)?.price ?? null;
-  const calc = calculate(dims, traits, product.base, basePrice, material, {
-    typeLabel: product.type,
-  });
-
-  const input = {
-    dims,
-    traits,
-    calc,
-    article: product.article,
-    productName: family?.title ?? product.name,
-    material: material as '430' | '304',
-    lamps: options.includes(OPTIONS[3]),
-    options,
-    typeLabel: product.type,
-  };
-  const designation = buildSheet(input).designation;
+  const { input, designation } = resolved;
+  const options = input.options ?? [];
 
   try {
     if (kind === 'svg') {

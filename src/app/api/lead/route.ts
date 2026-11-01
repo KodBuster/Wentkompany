@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { resolveDrawingInput, type DrawingRequest } from '@/lib/catalog-drawing';
 import { deliverLeadToMax, normalizeMaxToken } from '@/lib/max-delivery';
+import { buildDrawingPdf } from '@/lib/pdf';
 import { formatPhone, isValidPhone } from '@/lib/phone';
 import { deliverLeadToTelegram, normalizeTelegramToken } from '@/lib/telegram-delivery';
 import { checkUpload } from '@/lib/upload';
@@ -13,8 +15,10 @@ import { checkUpload } from '@/lib/upload';
  *   CRM_WEBHOOK_URL
  * Без каналов роут пишет заявку в лог и отвечает успехом (стенд).
  *
- * multipart/form-data: до трёх чертежей (drawing). Файлы не пишутся на диск —
- * уходят в Telegram и в MAX (upload → attachment).
+ * multipart/form-data: до трёх файлов заказчика (drawing).
+ * Если в форме есть изделие (drawSlug + габариты), PDF чертежа собирается
+ * здесь и уходит в Telegram и в MAX — клиент его не прикладывает.
+ * Файлы не пишутся на диск.
  */
 
 export const runtime = 'nodejs';
@@ -56,6 +60,40 @@ function rateLimited(ip: string): boolean {
 const clean = (v: unknown, max = 300) =>
   typeof v === 'string' ? v.replace(/[\u0000-\u001F\u007F]/g, ' ').trim().slice(0, max) : '';
 
+function drawingRequestFromForm(form: FormData): DrawingRequest | null {
+  const slug = clean(form.get('drawSlug'), 160);
+  if (!slug) return null;
+  return {
+    slug,
+    dims: { h: form.get('drawH'), w: form.get('drawW'), d: form.get('drawD') },
+    material: form.get('drawMaterial'),
+    options: form.getAll('drawOpt').filter((v): v is string => typeof v === 'string'),
+    captureVelocity: form.get('drawV'),
+  };
+}
+
+/** PDF нашего чертежа. Без drawSlug — заявке нечего прикладывать (пустая форма, свой эскиз). */
+async function catalogDrawingFile(raw: DrawingRequest | null) {
+  if (!raw) return { ok: true as const, file: null };
+  const resolved = resolveDrawingInput(raw);
+  if (!resolved.ok) return resolved;
+  try {
+    const bytes = await buildDrawingPdf(resolved.input);
+    return {
+      ok: true as const,
+      file: {
+        ok: true as const,
+        bytes,
+        meta: { ext: 'pdf' as const, mime: 'application/pdf', kind: 'document' as const },
+        filename: `${resolved.designation}-чертеж.pdf`,
+      },
+    };
+  } catch (error) {
+    console.error('[lead] не удалось собрать чертёж', error);
+    return { ok: false as const, status: 500, error: 'Не удалось собрать чертёж' };
+  }
+}
+
 export async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
   if (rateLimited(ip)) {
@@ -65,6 +103,7 @@ export async function POST(request: Request) {
   const type = request.headers.get('content-type') || '';
   let body: Lead;
   let rawFiles: File[] = [];
+  let drawingRequest: DrawingRequest | null = null;
 
   try {
     if (type.includes('multipart/form-data')) {
@@ -76,6 +115,7 @@ export async function POST(request: Request) {
         .getAll('drawing')
         .filter((v): v is File => v instanceof File && v.size > 0)
         .slice(0, MAX_FILES);
+      drawingRequest = drawingRequestFromForm(form);
     } else {
       body = (await request.json()) as Lead;
     }
@@ -119,7 +159,19 @@ export async function POST(request: Request) {
     uploads.push(checked as typeof checked & { ok: true });
   }
 
-  const fileNames = uploads.map((u) => u.filename).filter(Boolean) as string[];
+  const readyFiles = uploads.flatMap((u) =>
+    u.bytes && u.meta && u.filename
+      ? [{ ok: true as const, bytes: u.bytes, meta: u.meta, filename: u.filename }]
+      : [],
+  );
+
+  const drawn = await catalogDrawingFile(drawingRequest);
+  if (!drawn.ok) {
+    return NextResponse.json({ error: drawn.error }, { status: drawn.status });
+  }
+  if (drawn.file) readyFiles.unshift(drawn.file);
+
+  const fileNames = readyFiles.map((u) => u.filename);
   const text =
     `📩 Заявка с сайта «FortInox»\n` +
     `\n` +
@@ -132,12 +184,6 @@ export async function POST(request: Request) {
       ? `📎 Файлы (${fileNames.length}): ${fileNames.join(', ')}\n`
       : '') +
     `🔗 Страница: ${lead.page || '/'}`;
-
-  const readyFiles = uploads.flatMap((u) =>
-    u.bytes && u.meta && u.filename
-      ? [{ ok: true as const, bytes: u.bytes, meta: u.meta, filename: u.filename }]
-      : [],
-  );
 
   const tgToken = normalizeTelegramToken(process.env.TELEGRAM_BOT_TOKEN || '');
   const tgChats = splitIds(
@@ -207,7 +253,7 @@ export async function POST(request: Request) {
   if (tasks.length === 0) {
     console.info('[lead] интеграции не настроены, заявка только в логе:', {
       ...lead,
-      drawings: uploads.map((u) => `${u.filename} (${u.bytes!.length} Б)`),
+      drawings: readyFiles.map((u) => `${u.filename} (${u.bytes.length} Б)`),
     });
     return NextResponse.json({ ok: true, delivered: 'log' });
   }
@@ -230,7 +276,9 @@ export async function POST(request: Request) {
       ok: true,
       delivered: results.length - failed.length,
       partial: true,
-      failedChannels: reasons.map((m) => (m.startsWith('MAX') ? 'max' : m.startsWith('Telegram') || m.includes('telegram') ? 'telegram' : 'other')),
+      failedChannels: reasons.map((m) =>
+        m.startsWith('MAX') ? 'max' : m.startsWith('Telegram') || m.includes('telegram') ? 'telegram' : 'other',
+      ),
       debug: reasons.map((m) => m.slice(0, 180)),
     });
   }

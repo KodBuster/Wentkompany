@@ -25,14 +25,34 @@ export const metadata: Metadata = {
 export default async function ContactsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cfg?: string; mode?: string; slug?: string }>;
+  searchParams: Promise<{
+    cfg?: string;
+    mode?: string;
+    slug?: string;
+    h?: string;
+    w?: string;
+    d?: string;
+    material?: string;
+    v?: string;
+    opt?: string | string[];
+  }>;
 }) {
-  const { cfg, mode: rawMode, slug } = await searchParams;
+  const { cfg, mode: rawMode, slug, h, w, d, material: materialParam, v, opt } = await searchParams;
   const mode = rawMode === 'order' || rawMode === 'quote' ? rawMode : undefined;
 
   const product = slug ? productBySlug(slug) : undefined;
+  const queryNum = (value?: string) => {
+    if (value == null || value === '') return undefined;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const queryH = queryNum(h);
+  const queryW = queryNum(w);
+  const queryD = queryNum(d);
+  /** Габарит из конфигуратора — не эталон карточки, даже если slug тот же. */
+  const customDims = queryH != null || queryW != null || queryD != null;
   /** Заказ эталона: короткий формат + авто-PDF + превью фото/чертежа */
-  const isStandardOrder = mode === 'order' && !!product?.base;
+  const isStandardOrder = mode === 'order' && !!product?.base && !customDims;
 
   const traits = product ? traitsOf(product.family) : null;
   const family = product ? familyByCode(product.family) : null;
@@ -56,6 +76,21 @@ export default async function ContactsPage({
   const isOrder = mode === 'order';
   const isQuote = mode === 'quote';
   const photo = product?.images[0];
+  const optList = (Array.isArray(opt) ? opt : opt ? [opt] : []).filter(Boolean);
+  const drawMaterial = materialParam === '304' || materialParam === '430' ? materialParam : material;
+  const drawing = product?.base
+    ? {
+        slug: product.slug,
+        dims: {
+          h: queryH ?? product.base.h,
+          w: queryW ?? product.base.w,
+          d: queryD ?? product.base.d,
+        },
+        material: drawMaterial,
+        options: optList,
+        captureVelocity: queryNum(v),
+      }
+    : undefined;
 
   return (
     <section className="band band-shop page-hero band--backdrop">
@@ -78,8 +113,10 @@ export default async function ContactsPage({
                 {isStandardOrder
                   ? 'Имя, телефон, при необходимости доп. оборудование и примечание — чертёж выбранного типоразмера уйдёт вместе с заказом. На сервере файл не сохраняется.'
                   : isOrder
-                    ? 'Конфигурация уже в заявке. Нужен пакет документов: чертёж, КП и спецификация — производство подтвердит срок и сумму.'
-                    : isQuote
+                    ? 'Конфигурация уже в заявке, чертёж PDF уйдёт вместе с заказом. На сервере файл не сохраняется.'
+                    : isQuote && drawing
+                      ? 'Чертёж изделия уйдёт вместе с заявкой. Если узел отличается от типового — приложите эскиз или пояснение.'
+                      : isQuote
                       ? 'Приложите эскизы, чертежи и пояснения — производство пересчитает по вашим вводным, а не только по типовому габариту.'
                       : 'Опишите задачу — ответим с ориентиром по сроку и цене. Для объектов с открытым огнём приложим схему тракта по пп. 5.28–5.33 и спецификацию комплекта.'}
               </p>
@@ -152,7 +189,7 @@ export default async function ContactsPage({
             availableOptions={product.options}
           />
         ) : (
-          <LeadForm configuration={cfg} mode={mode} />
+          <LeadForm configuration={cfg} mode={mode} drawing={drawing} />
         )}
       </div>
     </section>
