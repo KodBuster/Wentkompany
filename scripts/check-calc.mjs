@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calculate, pickDucts, steelArea } from '../src/lib/calc.ts';
+import { calculate, pickDucts, steelArea, roundPriceRub } from '../src/lib/calc.ts';
 import { buildLayout, wallType2Chamfer, islandType2Chamfer } from '../src/lib/geometry.ts';
 import { buildSheet, toSheet, SCALE_SERIES, SHEET_FIELDS, chooseScale } from '../src/lib/drawing.ts';
 import { buildDxf, translit } from '../src/lib/dxf.ts';
@@ -36,7 +36,12 @@ for (const p of catalog.products) {
   );
   assert.ok(c.mass > 0 && c.mass < 500, `${p.article}: масса вне разумного диапазона`);
   if (p.price) {
-    assert.equal(c.price.value, p.price, `${p.article}: эталонный типоразмер должен отдавать цену прайса`);
+    /* calculate округляет до сотни; в catalog.json могут лежать «сырые» цифры */
+    assert.equal(
+      c.price.value,
+      roundPriceRub(p.price),
+      `${p.article}: эталонный типоразмер должен отдавать цену прайса`,
+    );
     assert.equal(c.price.estimate, false, `${p.article}: эталон не должен помечаться оценкой`);
   }
   checked++;

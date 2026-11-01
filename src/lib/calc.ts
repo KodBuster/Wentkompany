@@ -15,7 +15,14 @@
  * «предварительная оценка» и не выдаётся за прайс.
  */
 
-import { roundPriceRub } from '@/lib/prices';
+/**
+ * К ближайшей сотне ₽.
+ * Дублирует prices.roundPriceRub — без импорта prices (Node check-скрипты
+ * не резолвят @/ и падают на JSON без import attribute).
+ */
+export function roundPriceRub(value: number): number {
+  return Math.round(value / 100) * 100;
+}
 
 export type Family = 'ЗВП' | 'ЗВО' | 'ЗПВП' | 'ЗПВО' | 'ЗВПГ' | 'ЗВОГ' | 'ПИР' | 'ГФ' | 'АВТ';
 
