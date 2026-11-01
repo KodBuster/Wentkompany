@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- >;>A:8 <564C Fort 8 Inox: A;520 #B85C38, A?@020 #1C2429 -->
+  <g transform="translate(3 3.5)">
+    <rect x="8.5" y="1.2" width="4.5" height="2.2" fill="#B85C38"/>
+    <rect x="13" y="1.2" width="4.5" height="2.2" fill="#1C2429"/>
+    <rect x="0" y="8.7" width="13" height="2.2" fill="#B85C38"/>
+    <rect x="13" y="8.7" width="13" height="2.2" fill="#1C2429"/>
+    <rect x="0" y="15.2" width="13" height="2.2" fill="#B85C38"/>
+    <rect x="13" y="15.2" width="13" height="2.2" fill="#1C2429"/>
+    <rect x="8.5" y="21.7" width="4.5" height="2.2" fill="#B85C38"/>
+    <rect x="13" y="21.7" width="4.5" height="2.2" fill="#1C2429"/>
+  </g>
+</svg>
