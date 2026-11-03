@@ -1,10 +1,16 @@
 /**
- * Компоновка изделия: из габаритов H/W/D считаем размещение узлов.
+ * Компоновка изделия: из габаритов H/D/W (поля h, d, w) считаем размещение узлов.
  * Чистые функции без Three.js — их проверяет `npm run check`,
  * а сцена только рисует то, что здесь посчитано. Все величины в миллиметрах.
  */
 
-import type { Dims, FamilyTraits, DuctPick } from './calc.ts';
+import {
+  pickSupplyDucts,
+  pickSupplyGrilles,
+  type Dims,
+  type FamilyTraits,
+  type DuctPick,
+} from './calc.ts';
 
 /** Конструктивные константы изделия. Уточняются по чертежам производства. */
 export const BUILD = {
@@ -554,19 +560,19 @@ function taperForProfile(
  * Центры врезок по ширине крышки: 1 → 0; 2 → ⅓ и ⅔; иначе равные доли.
  * Не к боковинам (edge-hugging ломает схему на ЗПВП/ЗПВО).
  */
+/**
+ * Центры вытяжных патрубков по ширине крыши: равные сегменты W/(n+1).
+ * diameter/edge оставлены в сигнатуре для совместимости вызовов.
+ */
 export function spigotCentersX(
   topWidth: number,
   count: number,
-  diameter: number,
-  edge = 14,
+  _diameter?: number,
+  _edge = 14,
 ): number[] {
   const n = Math.max(1, count);
-  const xMax = Math.max(0, topWidth / 2 - diameter / 2 - edge);
-  return Array.from({ length: n }, (_, i) => {
-    if (n === 1) return 0;
-    const raw = -topWidth / 2 + (topWidth * (i + 1)) / (n + 1);
-    return clamp(raw, -xMax, xMax);
-  });
+  if (n === 1) return [0];
+  return Array.from({ length: n }, (_, i) => -topWidth / 2 + (topWidth * (i + 1)) / (n + 1));
 }
 
 /** Раскладка вытяжных патрубков: диаметр не больше глубины крышки (Φ ≤ L). */
@@ -602,12 +608,19 @@ export function layoutSpigots(
 /**
  * Вытяжка + приток на крышке (ЗПВП).
  * ЗПВП = ЗВП + камера ③: вытяжка A=B в зоне ①; приток в ③ у фронта крыши.
+ * Число приточных — из таблицы; Ø на меше — display-const камеры.
  */
 export function withSupplySpigot(
   spigots: Spigot[],
   top: { w: number; d: number },
   plenumDepth: number,
-  opts?: { profile?: Layout['profile']; h?: number; frontRise?: number },
+  opts?: {
+    profile?: Layout['profile'];
+    h?: number;
+    frontRise?: number;
+    /** Число приточных врезок по таблице (расстановка по W). */
+    supplyCount?: number;
+  },
 ): Spigot[] {
   const { dia: supplyDia } = BUILD.supplyChamber;
   const depth = Math.max(plenumDepth, supplyDia + 2 * 12);
@@ -618,6 +631,7 @@ export function withSupplySpigot(
   const half = top.d / 2;
   const profile = opts?.profile;
   const h = opts?.h ?? 350;
+  const supplyN = Math.max(1, opts?.supplyCount ?? 1);
 
   /* ТИП 2: наружный профиль как ЗВП; вытяжка в центре зоны ① */
   if (profile === 'trapezoid') {
@@ -634,7 +648,15 @@ export function withSupplySpigot(
       diameter: A,
       role: 'exhaust' as const,
     }));
-    return [...exhaust, { x: 0, z: zSup, diameter: Math.min(supplyDia, A), role: 'supply' }];
+    const sDia = Math.min(supplyDia, A);
+    const supplyXs = spigotCentersX(top.w, supplyN, sDia);
+    const supply = supplyXs.map((x) => ({
+      x,
+      z: zSup,
+      diameter: sDia,
+      role: 'supply' as const,
+    }));
+    return [...exhaust, ...supply];
   }
 
   const zF = half;
@@ -676,23 +698,32 @@ export function withSupplySpigot(
     diameter: dia,
     role: 'exhaust' as const,
   }));
-  return [...exhaust, { x: 0, z: zSup, diameter: supplyDia, role: 'supply' }];
+  const supplyXs = spigotCentersX(top.w, supplyN, supplyDia);
+  const supply = supplyXs.map((x) => ({
+    x,
+    z: zSup,
+    diameter: supplyDia,
+    role: 'supply' as const,
+  }));
+  return [...exhaust, ...supply];
 }
 
 /**
- * ЗПВО: вытяжка по центру, две врезки притока.
- * ТИП 2 (схема): Ø вытяжки const для отображения; поле до ребра крыши const;
- * мин. N при мин. D; рост D расширяет зону между трубой и швом (P).
+ * ЗПВО: вытяжка по центру; приток — половина на фронт, половина на тыл.
+ * Число из таблицы (2 или 4); Ø на меше — display-const.
  */
 export function withIslandSupplySpigots(
   spigots: Spigot[],
   top: { w: number; d: number },
   plenumDepth: number,
-  opts?: { profile?: Layout['profile']; h?: number },
+  opts?: { profile?: Layout['profile']; h?: number; supplyCount?: number },
 ): Spigot[] {
   const edge = 40;
   const half = top.d / 2;
   const type2 = opts?.profile === 'trapezoid';
+  /* Excel: 2 или 4 → по 1 или 2 на сторону */
+  const supplyTotal = Math.max(2, opts?.supplyCount ?? 2);
+  const perSide = Math.max(1, Math.round(supplyTotal / 2));
 
   let zFlat = half;
   if (type2) {
@@ -725,11 +756,12 @@ export function withIslandSupplySpigots(
       diameter: exD,
       role: 'exhaust' as const,
     }));
-    return [
-      ...exhaust,
-      { x: 0, z: zSup, diameter: sDia, role: 'supply' },
-      { x: 0, z: -zSup, diameter: sDia, role: 'supply' },
-    ];
+    const supplyXs = spigotCentersX(top.w, perSide, sDia, edge);
+    const supply = supplyXs.flatMap((x) => [
+      { x, z: zSup, diameter: sDia, role: 'supply' as const },
+      { x, z: -zSup, diameter: sDia, role: 'supply' as const },
+    ]);
+    return [...exhaust, ...supply];
   }
 
   /* ТИП 1 / ТИП 3: Ø const для отображения, полость с каждой стороны */
@@ -756,11 +788,12 @@ export function withIslandSupplySpigots(
     diameter: dia,
     role: 'exhaust' as const,
   }));
-  return [
-    ...exhaust,
-    { x: 0, z: zSup, diameter: supplyDia, role: 'supply' },
-    { x: 0, z: -zSup, diameter: supplyDia, role: 'supply' },
-  ];
+  const supplyXs = spigotCentersX(top.w, perSide, supplyDia, edge);
+  const supply = supplyXs.flatMap((x) => [
+    { x, z: zSup, diameter: supplyDia, role: 'supply' as const },
+    { x, z: -zSup, diameter: supplyDia, role: 'supply' as const },
+  ]);
+  return [...exhaust, ...supply];
 }
 
 /** Глубина приточной полости ЗПВО — const (не от D). ТИП 2 — type2PlenumDepth. */
@@ -790,19 +823,21 @@ export function layoutFilters(dims: Dims, traits: FamilyTraits): FilterRow[] {
 }
 
 /**
- * Щели/панели притока: число по ширине (как кассеты), боковые — для острова.
+ * Щелевые решётки притока: число из таблицы производства.
+ * На острове сцена рисует frontCount на фронт и на тыл → в frontCount кладём половину.
  */
 export function layoutSupplySlot(
   dims: Dims,
   traits: FamilyTraits,
 ): Layout['supplySlot'] {
   if (!traits.supply) return null;
-  const { panelW, gap, frontCount: minN, sideCount } = BUILD.supplySlot;
-  const usable = Math.max(dims.w - 80, panelW);
-  const frontCount = Math.max(minN, Math.floor((usable + gap) / (panelW + gap)));
+  const total = pickSupplyGrilles(dims, traits) ?? BUILD.supplySlot.frontCount;
+  const frontCount = traits.island
+    ? Math.max(1, Math.round(total / 2))
+    : Math.max(1, total);
   return {
     frontCount,
-    sideCount: traits.island ? sideCount : 0,
+    sideCount: 0,
     faces: traits.island ? 'both' : 'front',
   };
 }
@@ -873,7 +908,7 @@ export function buildLayout(
   dims: Dims,
   traits: FamilyTraits,
   pick: DuctPick,
-  options: { lamps?: boolean; typeLabel?: string | null } = {},
+  options: { lamps?: boolean; typeLabel?: string | null; includeSpigots?: boolean } = {},
 ): Layout {
   /*
    * ЗВПГ / ЗВОГ без «ТИП n» — прямоугольный короб (фронт 90°).
@@ -916,55 +951,70 @@ export function buildLayout(
         : Math.min(supplyFrontRise(profile, dims.h), dims.h - BUILD.gutter - 80)
       : 0;
 
-  const spigots0 = layoutSpigots(top.w, top.d, pick, { island: traits.island });
-  let spigots = traits.supply
-    ? traits.island
-      ? withIslandSupplySpigots(spigots0, top, plenumDepth, { profile, h: dims.h })
-      : withSupplySpigot(spigots0, top, plenumDepth, { profile, h: dims.h, frontRise })
-    : spigots0;
+  /* По умолчанию патрубки есть (тесты/геометрия); UI передаёт false без опции врезки. */
+  const includeSpigots = options.includeSpigots !== false;
+  const supplyCount = pickSupplyDucts(dims, traits)?.count;
+  let spigots: Spigot[] = [];
+  if (includeSpigots) {
+    const spigots0 = layoutSpigots(top.w, top.d, pick, { island: traits.island });
+    spigots = traits.supply
+      ? traits.island
+        ? withIslandSupplySpigots(spigots0, top, plenumDepth, {
+            profile,
+            h: dims.h,
+            supplyCount,
+          })
+        : withSupplySpigot(spigots0, top, plenumDepth, {
+            profile,
+            h: dims.h,
+            frontRise,
+            supplyCount,
+          })
+      : spigots0;
 
-  /*
-   * ЗВП/ЗВО/гидро без притока: Ø как в расчёте (таблица врезок), не display-const.
-   * Иначе на схеме «маловатый» патрубок и камера читается не по размерам.
-   * Пристен: z — середина камеры; остров: z = 0.
-   */
-  if (!traits.supply) {
-    const edge = 14;
-    const half = top.d / 2;
-    spigots = spigots.map((s) => {
-      const dia = s.diameter;
-      if (traits.island) {
-        return { ...s, diameter: dia, z: 0 };
-      }
-      const pipeZ = wallExhaustPipeZ(dims, dia, { bottomRise });
-      const zLim = half - dia / 2 - edge;
-      const z = clamp(pipeZ - top.z, -zLim, zLim);
-      return { ...s, diameter: dia, z };
-    });
-  } else if (!traits.island) {
-    /* ЗПВП: вытяжка под α, но с зазором до приточных врезок */
-    const edge = 14;
-    const half = top.d / 2;
-    spigots = spigots.map((s) => {
-      if (s.role !== 'exhaust') return s;
-      const pipeZ = wallExhaustPipeZ(dims, s.diameter, {
-        wallGap: BUILD.exhaustChamber.wallGap,
-        bottomRise: frontRise,
-        plenumDepth,
+    /*
+     * ЗВП/ЗВО/гидро без притока: Ø как в расчёте (таблица врезок), не display-const.
+     * Иначе на схеме «маловатый» патрубок и камера читается не по размерам.
+     * Пристен: z — середина камеры; остров: z = 0.
+     */
+    if (!traits.supply) {
+      const edge = 14;
+      const half = top.d / 2;
+      spigots = spigots.map((s) => {
+        const dia = s.diameter;
+        if (traits.island) {
+          return { ...s, diameter: dia, z: 0 };
+        }
+        const pipeZ = wallExhaustPipeZ(dims, dia, { bottomRise });
+        const zLim = half - dia / 2 - edge;
+        const z = clamp(pipeZ - top.z, -zLim, zLim);
+        return { ...s, diameter: dia, z };
       });
-      const zLim = half - s.diameter / 2 - edge;
-      let z = clamp(pipeZ - top.z, -zLim, zLim);
-      for (const sup of spigots) {
-        if (sup.role !== 'supply') continue;
-        const need = (s.diameter + sup.diameter) / 2 + 20;
-        const dx = Math.abs(s.x - sup.x);
-        if (dx >= need) continue;
-        const dzNeed = Math.sqrt(need * need - dx * dx);
-        z = Math.min(z, sup.z - dzNeed);
-      }
-      z = clamp(z, -zLim, zLim);
-      return { ...s, z };
-    });
+    } else if (!traits.island) {
+      /* ЗПВП: вытяжка под α, но с зазором до приточных врезок */
+      const edge = 14;
+      const half = top.d / 2;
+      spigots = spigots.map((s) => {
+        if (s.role !== 'exhaust') return s;
+        const pipeZ = wallExhaustPipeZ(dims, s.diameter, {
+          wallGap: BUILD.exhaustChamber.wallGap,
+          bottomRise: frontRise,
+          plenumDepth,
+        });
+        const zLim = half - s.diameter / 2 - edge;
+        let z = clamp(pipeZ - top.z, -zLim, zLim);
+        for (const sup of spigots) {
+          if (sup.role !== 'supply') continue;
+          const need = (s.diameter + sup.diameter) / 2 + 20;
+          const dx = Math.abs(s.x - sup.x);
+          if (dx >= need) continue;
+          const dzNeed = Math.sqrt(need * need - dx * dx);
+          z = Math.min(z, sup.z - dzNeed);
+        }
+        z = clamp(z, -zLim, zLim);
+        return { ...s, z };
+      });
+    }
   }
 
   const roofInsetZ =

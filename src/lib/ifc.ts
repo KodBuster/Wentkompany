@@ -12,6 +12,7 @@
  */
 
 import type { Dims, FamilyTraits, Calculation } from './calc.ts';
+import { hasCollarOption } from './calc.ts';
 import { buildLayout, BUILD } from './geometry.ts';
 
 const M = 0.001;
@@ -73,11 +74,17 @@ export interface IfcInput {
   material: '430' | '304';
   lamps?: boolean;
   typeLabel?: string | null;
+  options?: string[];
 }
 
 export function buildIfc(input: IfcInput): string {
   const { dims, traits, calc, article, productName, designation, material } = input;
-  const layout = buildLayout(dims, traits, calc.ducts, { lamps: input.lamps, typeLabel: input.typeLabel });
+  const withCollar = hasCollarOption(input.options);
+  const layout = buildLayout(dims, traits, calc.ducts, {
+    lamps: input.lamps,
+    typeLabel: input.typeLabel,
+    includeSpigots: withCollar,
+  });
   const s = new Step();
   const guid = (part: string) => ifcGuid(`${designation}|${material}|${part}`);
 
@@ -207,15 +214,31 @@ export function buildIfc(input: IfcInput): string {
     prop('Артикул', text(article)),
     prop('Обозначение', text(designation)),
     prop('Высота H', len(dims.h * M)),
-    prop('Ширина W', len(dims.w * M)),
-    prop('Глубина D', len(dims.d * M)),
+    prop('Глубина D (вылет)', len(dims.d * M)),
+    prop('Ширина W (длина)', len(dims.w * M)),
     prop('Материал', text(`AISI ${material}`)),
     prop('РасходВоздуха_м3ч', real(Math.round(calc.airflow))),
-    prop('Патрубки', text(`${calc.ducts.count} × Ø${calc.ducts.diameter}`)),
-    prop('СкоростьВПатрубке_мс', real(Number(calc.ducts.velocity.toFixed(2)))),
+    ...(withCollar
+      ? [
+          prop('ВытяжныеПатрубки', text(`${calc.ducts.count} × Ø${calc.ducts.diameter}`)),
+          prop('СкоростьВВытяжке_мс', real(Number(calc.ducts.velocity.toFixed(2)))),
+        ]
+      : []),
+    ...(withCollar && calc.supplyDucts
+      ? [
+          prop(
+            'ПриточныеПатрубки',
+            text(`${calc.supplyDucts.count} × Ø${calc.supplyDucts.diameter}`),
+          ),
+        ]
+      : []),
+    prop('ВрезкаПрисоединительная', bool(withCollar)),
     prop('ПлощадьЗахвата_м2', real(Number(calc.captureArea.toFixed(3)))),
     prop('ПериметрЗахвата_м', real(Number(calc.perimeter.toFixed(2)))),
     prop('Жироуловители_шт', real(layout.filters.reduce((acc, r) => acc + r.count, 0))),
+    ...(calc.supplyGrilles != null
+      ? [prop('РешеткиПритока_шт', real(calc.supplyGrilles))]
+      : []),
     prop('Гидрозатвор', bool(traits.hydro)),
     prop('ПриточнаяРаздача', bool(traits.supply)),
     prop('Исполнение', text(traits.island ? 'островное' : 'пристенное')),

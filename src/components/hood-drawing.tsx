@@ -2,8 +2,15 @@
 
 import { useMemo } from 'react';
 import {
-  buildSheet, toSheet, STAMP_BOX,
-  type DrawingInput, type Point, type Polyline, type View, type Dimension,
+  buildSheet,
+  toSheet,
+  STAMP_BOX,
+  wrapStampValue,
+  type DrawingInput,
+  type Point,
+  type Polyline,
+  type View,
+  type Dimension,
 } from '@/lib/drawing';
 import { HoverZoom } from './hover-zoom';
 
@@ -78,7 +85,33 @@ export function HoodDrawing({
   /** Превью на главной: без зума и подписи листа */
   compact?: boolean;
 }) {
-  const sheet = useMemo(() => buildSheet(input), [input]);
+  // Зависимости по полям: иначе при клиентской навигации между карточками
+  // с тем же габаритом, но другим типом/артикулом, лист мог не пересобраться.
+  const sheet = useMemo(
+    () => buildSheet(input),
+    [
+      input.article,
+      input.productName,
+      input.material,
+      input.typeLabel,
+      input.lamps,
+      input.dims.h,
+      input.dims.w,
+      input.dims.d,
+      input.traits.island,
+      input.traits.supply,
+      input.traits.hydro,
+      input.calc.airflow,
+      input.calc.mass,
+      input.calc.ducts.count,
+      input.calc.ducts.diameter,
+      input.calc.ducts.velocity,
+      input.calc.supplyDucts?.count,
+      input.calc.supplyDucts?.diameter,
+      input.calc.supplyGrilles,
+      input.options?.join('|'),
+    ],
+  );
 
   const stampX = sheet.width - sheet.margin.other - STAMP_BOX.width;
   const stampY = sheet.height - sheet.margin.other - STAMP_BOX.height;
@@ -176,23 +209,41 @@ export function HoodDrawing({
           {sheet.stamp.map((row, i) => {
             const col = i % 2;
             const line = Math.floor(i / 2);
-            const x = stampX + 3 + col * (STAMP_BOX.width / 2);
+            const cellW = STAMP_BOX.width / 2;
+            const padX = 3;
+            const x = stampX + padX + col * cellW;
             const y = stampY + rowH * line;
             const isStatus = row.label === 'Статус';
+            const isName = row.label === 'Наименование';
+            /* Имя — целиком в 2 строки; обозначение компактнее */
+            const maxChars = isName ? 24 : 28;
+            const maxLines = isName ? 2 : 1;
+            const valueLines = wrapStampValue(row.value, maxChars, maxLines);
+            const valueSize = valueLines.length > 1 || row.value.length > 26 ? 3.1 : 4.1;
             return (
               <g key={row.label}>
-                <text x={x} y={y + 5} fill={THIN} fontSize={2.9} fontFamily="var(--font-mono)" letterSpacing={0.3}>
-                  {row.label.toUpperCase()}
-                </text>
                 <text
                   x={x}
-                  y={y + 11}
-                  fill={isStatus ? ACCENT : INK}
-                  fontSize={row.value.length > 26 ? 3.4 : 4.1}
+                  y={y + 3.6}
+                  fill={THIN}
+                  fontSize={2.6}
                   fontFamily="var(--font-mono)"
+                  letterSpacing={0.3}
                 >
-                  {row.value}
+                  {row.label.toUpperCase()}
                 </text>
+                {valueLines.map((vl, li) => (
+                  <text
+                    key={li}
+                    x={x}
+                    y={y + 7.2 + li * (valueSize + 0.6)}
+                    fill={isStatus ? ACCENT : INK}
+                    fontSize={valueSize}
+                    fontFamily="var(--font-mono)"
+                  >
+                    {vl}
+                  </text>
+                ))}
               </g>
             );
           })}

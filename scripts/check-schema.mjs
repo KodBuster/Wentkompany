@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Offer карточки: эталон под заказ, витринная цена гидрофильтра 129600,
+ * Offer карточки: стандарт под заказ, витринная цена гидрофильтра 129600,
  * оговорка в Offer совпадает с бейджем на странице.
  */
 import assert from 'node:assert/strict';
@@ -15,7 +15,7 @@ assert.equal(sell, 129600, 'витрина ГФ: −10% затем +20%');
 
 const page = readFileSync(new URL('../src/app/catalog/[slug]/page.tsx', import.meta.url), 'utf8');
 assert.match(page, /schema\.org\/MadeToOrder/);
-assert.match(page, /цена эталонного типоразмера/);
+assert.match(page, /цена стандартного типоразмера/);
 assert.doesNotMatch(page, /InStock/);
 assert.match(page, /name: 'Каталог', path: '\/#catalog'/);
 
@@ -30,4 +30,4 @@ for (const file of [
   assert.doesNotMatch(src, /JSON\.stringify\(faqJsonLd\)/, `${file}: сырой stringify`);
 }
 
-console.log('OK · Offer: MadeToOrder, оговорка эталона, витрина ГФ 129600, FAQ через JsonLd');
+console.log('OK · Offer: MadeToOrder, оговорка стандарта, витрина ГФ 129600, FAQ через JsonLd');

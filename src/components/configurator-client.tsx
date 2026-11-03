@@ -22,6 +22,9 @@ import {
   type CaptureVelocity,
   type Dims,
   type FamilyTraits,
+  SIZE_ORDER,
+  sizeCompact,
+  sizeLabelMm,
 } from '@/lib/calc';
 import { buildLayout } from '@/lib/geometry';
 import { HoodDrawing } from './hood-drawing';
@@ -142,19 +145,35 @@ function buildCfgText(input: {
   captureVelocity: number;
   airflow: number;
   ducts: { count: number; diameter: number };
+  supplyDucts: { count: number; diameter: number } | null;
+  supplyGrilles: number | null;
   price: { value: number; estimate: boolean } | null;
 }) {
-  const { family, model, dims, mount, material, options, captureVelocity, airflow, ducts, price } =
-    input;
+  const {
+    family,
+    model,
+    dims,
+    mount,
+    material,
+    options,
+    captureVelocity,
+    airflow,
+    ducts,
+    supplyDucts,
+    supplyGrilles,
+    price,
+  } = input;
   const bits = [
     `${family.code} · ${model.article}`,
-    `H/W/D ${dims.h}/${dims.w}/${dims.d} мм`,
+    `${SIZE_ORDER} ${sizeLabelMm(dims)}`,
     `кромка от пола ${mount} мм`,
     `AISI ${material}`,
     options.length ? `опции: ${options.join(', ')}` : 'опции: нет',
     `v захвата ${dec(captureVelocity, 1)} м/с`,
     `расход ${ru(airflow)} м³/ч`,
-    `патрубки ${ducts.count}×Ø${ducts.diameter}`,
+    `вытяжка ${ducts.count}×Ø${ducts.diameter}`,
+    ...(supplyDucts ? [`приток ${supplyDucts.count}×Ø${supplyDucts.diameter}`] : []),
+    ...(supplyGrilles != null ? [`решётки притока ${supplyGrilles} шт`] : []),
     price
       ? `${price.estimate ? '≈ ' : ''}${rub(price.value)}`
       : 'после расчёта',
@@ -387,19 +406,36 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
 
   const traits: FamilyTraits = { island: family.island, supply: family.supply, hydro: family.hydro };
   const base: Dims = { h: model.h, w: model.w, d: model.d };
+  const withCollar = options.includes(OPTIONS[0]);
   const calc = useMemo(
     () =>
       calculate(dims, traits, base, model.price, material, {
         captureVelocity,
         typeLabel: model.type,
+        options,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dims, model.slug, model.type, material, captureVelocity],
+    [dims, model.slug, model.type, material, captureVelocity, options],
   );
   const layout = useMemo(
-    () => buildLayout(dims, traits, calc.ducts, { lamps: options.includes(OPTIONS[3]), typeLabel: model.type }),
+    () =>
+      buildLayout(dims, traits, calc.ducts, {
+        lamps: options.includes(OPTIONS[3]),
+        typeLabel: model.type,
+        includeSpigots: withCollar,
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dims, model.slug, model.type, calc.ducts.count, calc.ducts.diameter, options],
+    [
+      dims,
+      model.slug,
+      model.type,
+      calc.ducts.count,
+      calc.ducts.diameter,
+      calc.supplyDucts?.count,
+      calc.supplyGrilles,
+      options,
+      withCollar,
+    ],
   );
 
   function selectModel(slug: string) {
@@ -425,7 +461,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
   }
 
   const isBase = dims.h === base.h && dims.w === base.w && dims.d === base.d;
-  const title = `${model.article} · ${dims.h}/${dims.w}/${dims.d}`;
+  const title = `${model.article} · ${sizeCompact(dims)}`;
   const familyModels = models.filter((m) => m.family === model.family);
 
   const cfgText = buildCfgText({
@@ -438,6 +474,8 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     captureVelocity,
     airflow: calc.airflow,
     ducts: calc.ducts,
+    supplyDucts: calc.supplyDucts,
+    supplyGrilles: calc.supplyGrilles,
     price: calc.price,
   });
 
@@ -458,11 +496,25 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
   const quoteHref = contactsHref('quote');
 
   const spec: [string, string][] = [
-    [`${model.article} · ${dims.h}/${dims.w}/${dims.d}`, '1 шт'],
+    [`${model.article} · ${sizeCompact(dims)}`, '1 шт'],
     ['Жироуловители лабиринтные', `${layout.filters.reduce((s, r) => s + r.count, 0)} шт`],
     [`Сталь AISI ${material} · ${dec(calc.area)} м²`, ''],
-    [`Патрубки Ø${calc.ducts.diameter}`, `${calc.ducts.count} шт`],
-    ...options.map((o) => [o, 'запрос'] as [string, string]),
+    ...(withCollar
+      ? ([[`Вытяжные патрубки Ø${calc.ducts.diameter}`, `${calc.ducts.count} шт`]] as [
+          string,
+          string,
+        ][])
+      : []),
+    ...(withCollar && calc.supplyDucts
+      ? ([[`Приточные патрубки Ø${calc.supplyDucts.diameter}`, `${calc.supplyDucts.count} шт`]] as [
+          string,
+          string,
+        ][])
+      : []),
+    ...(calc.supplyGrilles != null
+      ? ([[`Щелевые решётки притока 20×400`, `${calc.supplyGrilles} шт`]] as [string, string][])
+      : []),
+    ...options.map((o) => [o, ''] as [string, string]),
     ...(traits.hydro
       ? ([
           ['Щит управления и диспетчеризации', '1 шт'],
@@ -612,7 +664,6 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
                 }
               />
               <span>{o}</span>
-              <span className="lbl ml-auto">запрос</span>
             </label>
           ))}
         </div>
@@ -675,6 +726,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
                 productName: family.title,
                 material,
                 lamps: options.includes(OPTIONS[3]),
+                options,
                 typeLabel: model.type,
               }}
             />
@@ -697,6 +749,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
               mode={mode}
               material={material}
               lamps={options.includes(OPTIONS[3])}
+              includeSpigots={withCollar}
               typeLabel={model.type}
               fitRequest={sceneFit}
             />
@@ -707,9 +760,8 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
             МОДЕЛЬ <b>{model.article}</b>
           </span>
           <span>
-            ГАБАРИТ H/W/D <b>
-              {dims.h}/{dims.w}/{dims.d}
-            </b>
+            ГАБАРИТ {SIZE_ORDER}{' '}
+            <b>{sizeCompact(dims)}</b>
           </span>
           <span>
             МАТЕРИАЛ <b>AISI {material}</b>
@@ -742,7 +794,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
       {/* ---------------- правая панель ---------------- */}
       <aside className="cfg-pane cfg-pane--aside">
         <div className="cfg-group">
-          <span className="lbl">{calc.price ? 'Цена эталона' : 'Цена'}</span>
+          <span className="lbl">{calc.price ? 'Цена стандарта' : 'Цена'}</span>
           <div className="cfg-price">
             {calc.price
               ? `${calc.price.estimate ? '≈ ' : ''}${rub(calc.price.value)}`
@@ -780,8 +832,21 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
           <dl className="cfg-kv">
             <Row k="Расход воздуха" v={`${ru(calc.airflow)} м³/ч`} />
             <Row k="Скорость захвата" v={`${dec(calc.captureVelocity, 1)} м/с`} />
-            <Row k="Патрубки" v={`${calc.ducts.count} × Ø${calc.ducts.diameter}`} />
-            <Row k="Скорость в патрубке" v={`${dec(calc.ducts.velocity)} м/с`} />
+            {withCollar && (
+              <>
+                <Row k="Вытяжка" v={`${calc.ducts.count} × Ø${calc.ducts.diameter}`} />
+                <Row k="Скорость в вытяжке" v={`${dec(calc.ducts.velocity)} м/с`} />
+                {calc.supplyDucts && (
+                  <Row
+                    k="Приток"
+                    v={`${calc.supplyDucts.count} × Ø${calc.supplyDucts.diameter}`}
+                  />
+                )}
+              </>
+            )}
+            {calc.supplyGrilles != null && (
+              <Row k="Решётки притока" v={`${calc.supplyGrilles} шт (20×400)`} />
+            )}
             <Row k="Площадь захвата" v={`${dec(calc.captureArea, 2)} м²`} />
             <Row k="Периметр захвата" v={`${dec(calc.perimeter)} м`} />
             <Row k="Площадь стали" v={`${dec(calc.area)} м²`} />

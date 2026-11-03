@@ -6,7 +6,14 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calculate, pickDucts, steelArea, roundPriceRub } from '../src/lib/calc.ts';
+import {
+  calculate,
+  pickDucts,
+  pickSupplyDucts,
+  pickSupplyGrilles,
+  steelArea,
+  roundPriceRub,
+} from '../src/lib/calc.ts';
 import { buildLayout, wallType2Chamfer, islandType2Chamfer } from '../src/lib/geometry.ts';
 import { buildSheet, toSheet, SCALE_SERIES, SHEET_FIELDS, chooseScale } from '../src/lib/drawing.ts';
 import { buildDxf, translit } from '../src/lib/dxf.ts';
@@ -40,14 +47,14 @@ for (const p of catalog.products) {
     assert.equal(
       c.price.value,
       roundPriceRub(p.price),
-      `${p.article}: эталонный типоразмер должен отдавать цену прайса`,
+      `${p.article}: стандартный типоразмер должен отдавать цену прайса`,
     );
     assert.equal(c.price.estimate, false, `${p.article}: эталон не должен помечаться оценкой`);
   }
   checked++;
   rows.push([
     p.article.padEnd(6),
-    `${p.base.h}/${p.base.w}/${p.base.d}`.padEnd(16),
+    `${p.base.h}/${p.base.d}/${p.base.w}`.padEnd(16),
     `${Math.round(c.airflow)} м³/ч`.padStart(11),
     `${c.ducts.count}×Ø${c.ducts.diameter}`.padStart(8),
     `${c.ducts.velocity.toFixed(1)} м/с`.padStart(9),
@@ -78,6 +85,22 @@ assert.equal(pickDucts({ h: 350, w: 1600, d: 600 }, wallTraits).diameter, 200);
 assert.equal(pickDucts({ h: 350, w: 1000, d: 1000 }, islandTraits).diameter, 315);
 assert.equal(pickDucts({ h: 450, w: 1000, d: 1000 }, islandTraits).diameter, 250);
 assert.equal(pickDucts({ h: 450, w: 2500, d: 1000 }, islandTraits).diameter, 355);
+
+/* приток и решётки — таблица производства */
+const wallSupply = { island: false, supply: true, hydro: false };
+const islandSupply = { island: true, supply: true, hydro: false };
+assert.equal(pickSupplyDucts({ h: 350, w: 1000, d: 600 }, wallSupply)?.count, 1);
+assert.equal(pickSupplyDucts({ h: 350, w: 1000, d: 600 }, wallSupply)?.diameter, 160);
+assert.equal(pickSupplyDucts({ h: 350, w: 1200, d: 600 }, wallSupply)?.count, 2);
+assert.equal(pickSupplyDucts({ h: 350, w: 2000, d: 600 }, wallSupply)?.diameter, 200);
+assert.equal(pickSupplyDucts({ h: 350, w: 1000, d: 1000 }, islandSupply)?.count, 2);
+assert.equal(pickSupplyDucts({ h: 350, w: 1200, d: 1000 }, islandSupply)?.count, 4);
+assert.equal(pickSupplyDucts({ h: 350, w: 2000, d: 1000 }, islandSupply)?.diameter, 200);
+assert.equal(pickSupplyDucts({ h: 350, w: 1200, d: 600 }, wallTraits), null);
+assert.equal(pickSupplyGrilles({ h: 350, w: 1200, d: 600 }, wallSupply), 3);
+assert.equal(pickSupplyGrilles({ h: 350, w: 1200, d: 1000 }, islandSupply), 6);
+assert.equal(pickSupplyGrilles({ h: 450, w: 2500, d: 600 }, wallSupply), 5);
+assert.equal(pickSupplyGrilles({ h: 450, w: 2500, d: 1000 }, islandSupply), 10);
 
 /* ---------- компоновка изделия (этап 4) ---------- */
 const GEOM = [
@@ -155,17 +178,22 @@ for (const code of ['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'З�
         );
       }
     }
-    const expectSpigots = Math.min(c.ducts.count, 4) + (tr.supply ? (tr.island ? 2 : 1) : 0);
+    const expectSupply = c.supplyDucts?.count ?? 0;
+    const expectSpigots = Math.min(c.ducts.count, 4) + expectSupply;
     assert.equal(l.spigots.length, expectSpigots, `${code}: число патрубков разошлось с расчётом`);
     if (tr.supply) {
       assert.ok(l.spigots.some((s) => s.role === 'supply'), `${code}: нет врезки притока`);
       const supplyN = l.spigots.filter((s) => s.role === 'supply').length;
-      assert.equal(supplyN, tr.island ? 2 : 1, `${code}: число врезок притока`);
+      assert.equal(supplyN, expectSupply, `${code}: число врезок притока`);
       assert.ok(l.supplySlot?.faces === (tr.island ? 'both' : 'front'), `${code}: стороны щелей притока`);
       assert.ok(l.supplyPlenum && l.supplyPlenum.depth > 40, `${code}: нет приточной камеры`);
-      assert.ok(
-        (l.supplySlot?.frontCount ?? 0) >= 3,
-        `${code}: мало щелей притока (${l.supplySlot?.frontCount})`,
+      const expectFront = tr.island
+        ? Math.max(1, Math.round((c.supplyGrilles ?? 2) / 2))
+        : Math.max(1, c.supplyGrilles ?? 1);
+      assert.equal(
+        l.supplySlot?.frontCount,
+        expectFront,
+        `${code}: щели притока ${l.supplySlot?.frontCount} ≠ ${expectFront}`,
       );
       if (tr.island) {
         const zs = l.spigots.filter((s) => s.role === 'supply').map((s) => s.z);
@@ -260,7 +288,8 @@ for (const code of ['ЗВП', 'ЗПВО', 'ЗВОГ']) {
     assert.equal(sheet.views.length, 3, `${code}: должно быть три проекции`);
     assert.ok(/^ФИ\./.test(sheet.designation), `${code}: не сформировано обозначение`);
     assert.ok(sheet.stamp.length >= 6, `${code}: штамп пустой`);
-    assert.ok(sheet.notes.length >= 5, `${code}: нет технических требований`);
+    /* без врезки: расход + сталь + жировики + статус (≥4); с опциями — больше */
+    assert.ok(sheet.notes.length >= 4, `${code}: нет технических требований`);
     // строка техтребований не должна вылезти за правое поле рамки:
     // поле 170 мм, моноширинный 3.7 мм → примерно 2.2 мм на символ
     for (const note of sheet.notes) {

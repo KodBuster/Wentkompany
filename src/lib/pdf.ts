@@ -11,9 +11,16 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import { buildSheet, toSheet, STAMP_BOX, type DrawingInput, type Point } from './drawing.ts';
+import {
+  buildSheet,
+  toSheet,
+  STAMP_BOX,
+  wrapStampValue,
+  type DrawingInput,
+  type Point,
+} from './drawing.ts';
 import { buildLayout } from './geometry.ts';
-import { ru, rub, dec } from './calc.ts';
+import { ru, rub, dec, hasCollarOption } from './calc.ts';
 
 /** 1 мм в пунктах PDF. */
 const MM = 72 / 25.4;
@@ -179,9 +186,14 @@ export async function buildDrawingPdf(input: DrawingInput): Promise<Uint8Array> 
     const lineIndex = Math.floor(i / 2);
     const x = sx + 3 + col * (STAMP_BOX.width / 2);
     const y = sy + rowH * lineIndex;
-    drawText(ctx, row.label.toUpperCase(), [x, y + 5], 2.6, THIN);
-    drawText(ctx, row.value, [x, y + 11], row.value.length > 26 ? 3 : 3.6, row.label === 'Статус' ? ACCENT : INK, {
-      bold: row.label === 'Обозначение',
+    const isName = row.label === 'Наименование';
+    const valueLines = wrapStampValue(row.value, isName ? 24 : 28, isName ? 2 : 1);
+    const valueSize = valueLines.length > 1 || row.value.length > 26 ? 2.8 : 3.6;
+    drawText(ctx, row.label.toUpperCase(), [x, y + 3.4], 2.4, THIN);
+    valueLines.forEach((vl, li) => {
+      drawText(ctx, vl, [x, y + 7 + li * (valueSize + 0.55)], valueSize, row.label === 'Статус' ? ACCENT : INK, {
+        bold: row.label === 'Обозначение',
+      });
     });
   });
 
@@ -200,9 +212,11 @@ export interface QuoteInput extends DrawingInput {
 
 export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
   const sheet = buildSheet(input);
+  const withCollar = hasCollarOption(input.options);
   const layout = buildLayout(input.dims, input.traits, input.calc.ducts, {
     lamps: input.lamps,
     typeLabel: input.typeLabel,
+    includeSpigots: withCollar,
   });
   const { calc, dims, material, company } = input;
 
@@ -238,7 +252,7 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
   y += 8;
   drawText(ctx, sheet.title, [left, y], 4, INK);
   y += 6;
-  drawText(ctx, `Габарит H/W/D: ${dims.h} / ${dims.w} / ${dims.d} мм · сталь AISI ${material}`, [left, y], 3.6, THIN);
+  drawText(ctx, `Габарит H/D/W: ${dims.h} / ${dims.d} / ${dims.w} мм · сталь AISI ${material}`, [left, y], 3.6, THIN);
 
   // спецификация
   y += 12;
@@ -248,11 +262,25 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
   y += 6;
 
   const rows: [string, string][] = [
-    [`${input.article} · ${dims.h}/${dims.w}/${dims.d}`, '1 шт'],
+    [`${input.article} · ${dims.h}/${dims.d}/${dims.w}`, '1 шт'],
     ['Жироуловители лабиринтные', `${layout.filters.reduce((sum, r) => sum + r.count, 0)} шт`],
     [`Сталь AISI ${material}, площадь ${dec(calc.area)} м²`, ''],
-    [`Патрубки Ø${calc.ducts.diameter}`, `${calc.ducts.count} шт`],
-    ...input.options.map((o) => [o, 'по запросу'] as [string, string]),
+    ...(withCollar
+      ? ([[`Вытяжные патрубки Ø${calc.ducts.diameter}`, `${calc.ducts.count} шт`]] as [
+          string,
+          string,
+        ][])
+      : []),
+    ...(withCollar && calc.supplyDucts
+      ? ([[`Приточные патрубки Ø${calc.supplyDucts.diameter}`, `${calc.supplyDucts.count} шт`]] as [
+          string,
+          string,
+        ][])
+      : []),
+    ...(calc.supplyGrilles != null
+      ? ([[`Щелевые решётки притока 20×400`, `${calc.supplyGrilles} шт`]] as [string, string][])
+      : []),
+    ...input.options.map((o) => [o, ''] as [string, string]),
     ...(input.traits.hydro
       ? ([
           ['Щит управления и диспетчеризации', '1 шт'],
@@ -277,7 +305,25 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
   const params: [string, string][] = [
     ['Расход воздуха', `${ru(calc.airflow)} м³/ч`],
     ['Скорость захвата', `${dec(calc.captureVelocity, 1)} м/с`],
-    ['Патрубки', `${calc.ducts.count} × Ø${calc.ducts.diameter}, ${dec(calc.ducts.velocity)} м/с`],
+    ...(withCollar
+      ? ([
+          [
+            'Вытяжка',
+            `${calc.ducts.count} × Ø${calc.ducts.diameter}, ${dec(calc.ducts.velocity)} м/с`,
+          ],
+        ] as [string, string][])
+      : []),
+    ...(withCollar && calc.supplyDucts
+      ? ([
+          [
+            'Приток',
+            `${calc.supplyDucts.count} × Ø${calc.supplyDucts.diameter}`,
+          ],
+        ] as [string, string][])
+      : []),
+    ...(calc.supplyGrilles != null
+      ? ([[`Решётки притока`, `${calc.supplyGrilles} шт (20×400)`]] as [string, string][])
+      : []),
     ['Площадь захвата', `${dec(calc.captureArea, 2)} м²`],
     ['Периметр захвата', `${dec(calc.perimeter)} м`],
     ['Масса, ориентир', `${ru(calc.mass)} кг`],

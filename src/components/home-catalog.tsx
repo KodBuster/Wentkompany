@@ -15,7 +15,7 @@ import {
 import { calculate, rub, ru } from '@/lib/calc';
 import neutral from '@/data/neutral.json';
 
-/** Ссылка на форму заказа эталона с уже выбранным slug. */
+/** Ссылка на форму заказа стандартного типоразмера с уже выбранным slug. */
 export function orderHref(slug: string) {
   return `/contacts?mode=order&slug=${encodeURIComponent(slug)}`;
 }
@@ -111,8 +111,8 @@ function TypeCard({
         {p.base && (
           <dl className="home-catalog__specs">
             <div>
-              <dt>Габарит H/W/D</dt>
-              <dd>{`${p.base.h}/${p.base.w}/${p.base.d} мм`}</dd>
+              <dt>Габарит H/D/W</dt>
+              <dd>{`${p.base.h}/${p.base.d}/${p.base.w} мм`}</dd>
             </div>
             {c && (
               <>
@@ -121,11 +121,25 @@ function TypeCard({
                   <dd>{ru(c.airflow)} м³/ч</dd>
                 </div>
                 <div>
-                  <dt>Патрубки</dt>
+                  <dt>Вытяжка</dt>
                   <dd>
                     {c.ducts.count} × Ø{c.ducts.diameter}
                   </dd>
                 </div>
+                {c.supplyDucts && (
+                  <div>
+                    <dt>Приток</dt>
+                    <dd>
+                      {c.supplyDucts.count} × Ø{c.supplyDucts.diameter}
+                    </dd>
+                  </div>
+                )}
+                {c.supplyGrilles != null && (
+                  <div>
+                    <dt>Решётки притока</dt>
+                    <dd>{c.supplyGrilles} шт</dd>
+                  </div>
+                )}
               </>
             )}
           </dl>

@@ -7,7 +7,7 @@ import { AutomationModes } from '@/components/automation-modes';
 import { PageBackdrop } from '@/components/page-backdrop';
 import { ClauseAnchorFlash } from '@/components/clause-anchor-flash';
 import { complianceProducts, familyHref } from '@/lib/catalog';
-import { rub } from '@/lib/calc';
+import { rub, sizeLabelMm } from '@/lib/calc';
 import { norms, site } from '@/lib/site';
 import { openGraph } from '@/lib/seo';
 import { JsonLd } from '@/components/json-ld';
@@ -282,14 +282,14 @@ export default function NormyPage() {
           <div className="head">
             <p className="lbl">Комплект соответствия</p>
             <h2>Что производим под это требование</h2>
-            <p>Цены — для эталонного типоразмера в формате «высота / ширина / глубина». Нестандарт считаем по объекту.</p>
+            <p>Цены — для стандартного типоразмера в формате «высота / ширина / глубина». Нестандарт считаем по объекту.</p>
           </div>
           <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
             {complianceProducts().map((p) => (
               <Link key={p.id} href={`/catalog/${p.slug}`} className="tile no-underline">
                 <span className="lbl">
                   {p.article}
-                  {p.base ? ` · ${p.base.h}/${p.base.w}/${p.base.d} мм` : ''}
+                  {p.base ? ` · ${sizeLabelMm(p.base)}` : ''}
                 </span>
                 <h3>{p.name.replace(/\s*\([^)]*\)\s*$/, '')}</h3>
                 <p className="muted line-clamp-4 text-sm">{p.short || p.description}</p>

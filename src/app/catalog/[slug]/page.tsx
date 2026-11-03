@@ -3,9 +3,19 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   families, products, familyBySlug, familyByCode, productBySlug, productsOf, traitsOf, shortName, schemeOf,
-  soleProductOf, type Product,
+  soleProductOf, supportsParametricDrawing, type Product,
 } from '@/lib/catalog';
-import { calculate, rub, ru, dec, defaultMaterialGrade } from '@/lib/calc';
+import {
+  calculate,
+  rub,
+  ru,
+  dec,
+  defaultMaterialGrade,
+  sizeCompact,
+  sizeLabelMm,
+  sizeOrderCaption,
+  sizeSpaced,
+} from '@/lib/calc';
 import { HoodDiagram } from '@/components/hood-diagram';
 
 /** Линейки коробчатой формы, к которым подходит схема с выносками.
@@ -45,9 +55,11 @@ function productDescription(p: Product): string {
   const traits = traitsOf(p.family);
   const c = calculate(p.base, traits, p.base, p.price, defaultMaterialGrade(traits.hydro), { typeLabel: p.type });
   return [
-    `${p.name}: габарит H/W/D ${p.base.h}/${p.base.w}/${p.base.d} мм`,
-    `расчётный расход ${ru(c.airflow)} м³/ч, патрубки ${c.ducts.count} × Ø${c.ducts.diameter}`,
-    p.price ? `цена эталона ${rub(p.price)}` : 'цена после расчёта',
+    `${p.name}: габарит H/D/W ${sizeLabelMm(p.base)}`,
+    `расчётный расход ${ru(c.airflow)} м³/ч, вытяжка ${c.ducts.count} × Ø${c.ducts.diameter}` +
+      (c.supplyDucts ? `, приток ${c.supplyDucts.count} × Ø${c.supplyDucts.diameter}` : '') +
+      (c.supplyGrilles != null ? `, решётки ${c.supplyGrilles} шт` : ''),
+    p.price ? `цена стандартного типоразмера ${rub(p.price)}` : 'цена после расчёта',
   ].join(', ') + `. Нержавеющая сталь ${p.materials.join(' / ')}, изготовление по размерам объекта.`;
 }
 
@@ -134,9 +146,15 @@ function FamilyView({ slug }: { slug: string }) {
                   <h3>{p.name.replace(/\s*\([^)]*\)\s*$/, '')}</h3>
                 </Link>
                 <dl className="mt-1 flex flex-col gap-1.5 text-sm">
-                  <Row k="Габарит H/W/D" v={p.base ? `${p.base.h}/${p.base.w}/${p.base.d} мм` : '—'} />
+                  <Row k={sizeOrderCaption()} v={p.base ? sizeLabelMm(p.base) : '—'} />
                   {c && <Row k="Расход, расчёт" v={`${ru(c.airflow)} м³/ч`} />}
-                  {c && <Row k="Патрубки" v={`${c.ducts.count} × Ø${c.ducts.diameter}`} />}
+                  {c && <Row k="Вытяжка" v={`${c.ducts.count} × Ø${c.ducts.diameter}`} />}
+                  {c?.supplyDucts && (
+                    <Row k="Приток" v={`${c.supplyDucts.count} × Ø${c.supplyDucts.diameter}`} />
+                  )}
+                  {c?.supplyGrilles != null && (
+                    <Row k="Решётки притока" v={`${c.supplyGrilles} шт`} />
+                  )}
                 </dl>
                 <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t pt-3" style={{ borderColor: 'var(--hair)' }}>
                   <span className="num text-xl">{p.price ? rub(p.price) : 'после расчёта'}</span>
@@ -242,9 +260,9 @@ function ProductView({ slug }: { slug: string }) {
           '@type': 'Offer',
           price: p.price,
           priceCurrency: 'RUB',
-          // эталон изготавливается под заказ, не со склада
+          // стандартный типоразмер изготавливается под заказ, не со склада
           availability: 'https://schema.org/MadeToOrder',
-          description: 'цена эталонного типоразмера',
+          description: 'цена стандартного типоразмера',
           url,
           seller: { '@id': ORG_ID },
         },
@@ -268,7 +286,7 @@ function ProductView({ slug }: { slug: string }) {
           {familyCrumb && (<><Link href={`/catalog/${familyCrumb.slug}`} className="no-underline">{familyCrumb.code}</Link><span>/</span></>)}
           <span>
             {p.type
-              ?? (p.base ? `${p.base.h}/${p.base.w}/${p.base.d}` : null)
+              ?? (p.base ? sizeCompact(p.base) : null)
               ?? (p.article === family?.code ? p.name : p.article)}
           </span>
         </nav>
@@ -276,7 +294,7 @@ function ProductView({ slug }: { slug: string }) {
         <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
             <p className="lbl" style={{ color: 'var(--color-extract)' }}>
-              {shortName(p)}{p.base ? ` · ${p.base.h}/${p.base.w}/${p.base.d} мм` : ''}
+              {shortName(p)}{p.base ? ` · ${sizeLabelMm(p.base)}` : ''}
             </p>
             <h1 className="mt-3">{p.name.replace(/\s*\([^)]*\)\s*$/, '')}</h1>
             <p className="muted mt-5 max-w-[60ch]">{p.short}</p>
@@ -289,7 +307,7 @@ function ProductView({ slug }: { slug: string }) {
 
             <div className="mt-8 flex flex-wrap items-baseline gap-4">
               <span className="num text-4xl">{p.price ? rub(p.price) : 'после расчёта'}</span>
-              {p.price && <span className="badge">цена для эталонного типоразмера</span>}
+              {p.price && <span className="badge">цена для стандартного типоразмера</span>}
               {!p.price && <span className="badge badge-warn">после расчёта</span>}
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
@@ -341,7 +359,7 @@ function ProductView({ slug }: { slug: string }) {
                   <tr><th>Артикул</th><td>{p.article}</td></tr>
                   <tr><th>Тип</th><td>{family?.title.toLowerCase()}</td></tr>
                   {p.base && (
-                    <tr><th>Габарит H/W/D</th><td>{`${p.base.h} / ${p.base.w} / ${p.base.d} мм`}</td></tr>
+                    <tr><th>{sizeOrderCaption()}</th><td>{`${sizeSpaced(p.base)} мм`}</td></tr>
                   )}
                   {p.family !== 'АВТ' && (
                     <>
@@ -378,8 +396,14 @@ function ProductView({ slug }: { slug: string }) {
                 <table className="spec">
                   <tbody>
                     <tr><th>Расход воздуха, расчёт</th><td style={{ color: 'var(--color-supply)' }}>{ru(c.airflow)} м³/ч</td></tr>
-                    <tr><th>Патрубки</th><td style={{ color: 'var(--color-supply)' }}>{c.ducts.count} × Ø{c.ducts.diameter}</td></tr>
-                    <tr><th>Скорость в патрубке</th><td style={{ color: 'var(--color-supply)' }}>{dec(c.ducts.velocity)} м/с</td></tr>
+                    <tr><th>Вытяжка</th><td style={{ color: 'var(--color-supply)' }}>{c.ducts.count} × Ø{c.ducts.diameter}</td></tr>
+                    <tr><th>Скорость в вытяжке</th><td style={{ color: 'var(--color-supply)' }}>{dec(c.ducts.velocity)} м/с</td></tr>
+                    {c.supplyDucts && (
+                      <tr><th>Приток</th><td style={{ color: 'var(--color-supply)' }}>{c.supplyDucts.count} × Ø{c.supplyDucts.diameter}</td></tr>
+                    )}
+                    {c.supplyGrilles != null && (
+                      <tr><th>Решётки притока</th><td style={{ color: 'var(--color-supply)' }}>{c.supplyGrilles} шт (20×400)</td></tr>
+                    )}
                     <tr><th>Площадь захвата</th><td style={{ color: 'var(--color-supply)' }}>{dec(c.captureArea, 2)} м²</td></tr>
                     <tr><th>Периметр захвата</th><td style={{ color: 'var(--color-supply)' }}>{dec(c.perimeter)} м</td></tr>
                     <tr><th>Площадь стали</th><td style={{ color: 'var(--color-supply)' }}>{dec(c.area)} м²</td></tr>
@@ -394,18 +418,20 @@ function ProductView({ slug }: { slug: string }) {
           </div>
         </div>
 
-        {c && p.base && (
+        {c && p.base && supportsParametricDrawing(p.family) && (
           <>
             <div className="head mt-14"><p className="lbl">Чертёж</p><h2>Эталонный типоразмер в трёх проекциях</h2></div>
             <div className="drawing-card">
               <HoodDrawing
+                key={p.slug}
                 input={{
                   dims: p.base,
                   traits,
                   calc: c,
                   article: p.article,
-                  productName: family?.title ?? p.name,
+                  productName: p.name,
                   material,
+                  typeLabel: p.type,
                 }}
               />
             </div>
@@ -424,6 +450,16 @@ function ProductView({ slug }: { slug: string }) {
             </div>
           </>
         )}
+        {c && p.base && !supportsParametricDrawing(p.family) && (
+          <div className="head mt-14">
+            <p className="lbl">Чертёж</p>
+            <h2>По запросу</h2>
+            <p className="muted max-w-[60ch]">
+              У этой линейки другая геометрия (не коробчатый зонт) — параметрический чертёж
+              на сайте не строится. Рабочий чертёж подготовим под ваш объект вместе с заказом.
+            </p>
+          </div>
+        )}
 
         {HOODS.includes(p.family) && p.options.length > 0 && (
           <>
@@ -432,7 +468,7 @@ function ProductView({ slug }: { slug: string }) {
               {p.options.map((o) => (
                 <div key={o} className="tile">
                   <h3 style={{ fontFamily: 'var(--font-body)', fontWeight: 600, textTransform: 'none' }}>{o}</h3>
-                  <span className="lbl mt-auto">надбавка по запросу</span>
+                  <span className="lbl mt-auto">опция</span>
                 </div>
               ))}
             </div>
@@ -485,7 +521,7 @@ function ProductView({ slug }: { slug: string }) {
               {related.map((r) => (
                 <Link key={r.id} href={`/catalog/${r.slug}`} className="tile no-underline">
                   <span className="lbl">{shortName(r)}</span>
-                  <h3>{r.base ? `${r.base.h}/${r.base.w}/${r.base.d} мм` : r.name}</h3>
+                  <h3>{r.base ? sizeLabelMm(r.base) : r.name}</h3>
                   <span className="num mt-auto border-t pt-3" style={{ borderColor: 'var(--hair)' }}>
                     {r.price ? rub(r.price) : 'после расчёта'}
                   </span>

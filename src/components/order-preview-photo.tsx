@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { HoverZoom } from '@/components/hover-zoom';
 
-/** Фото эталона в форме заказа — с лупой, как в каталоге. */
+/** Фото стандарта в форме заказа — с лупой, как в каталоге. */
 export function OrderPreviewPhoto({
   src,
   alt,
@@ -21,7 +21,8 @@ export function OrderPreviewPhoto({
             fill
             className="order-preview__img"
             sizes="(max-width: 900px) 100vw, 480px"
-            style={{ objectFit: 'cover' }}
+            /* Как в галерее каталога: весь кадр, без «приближения» cover */
+            style={{ objectFit: 'contain' }}
           />
         </div>
       </HoverZoom>

@@ -5,7 +5,13 @@
  */
 
 import { calculate, resolveMaterialGrade, type Dims } from '@/lib/calc';
-import { familyByCode, productBySlug, productsOf, traitsOf } from '@/lib/catalog';
+import {
+  familyByCode,
+  productBySlug,
+  productsOf,
+  supportsParametricDrawing,
+  traitsOf,
+} from '@/lib/catalog';
 import { buildSheet, type DrawingInput } from '@/lib/drawing';
 
 export const DRAWING_LIMITS = {
@@ -60,12 +66,21 @@ export function resolveDrawingInput(raw: DrawingRequest): ResolvedDrawing {
     return { ok: false, status: 404, error: 'Изделие не найдено в каталоге' };
   }
 
+  if (!supportsParametricDrawing(product.family)) {
+    return {
+      ok: false,
+      status: 422,
+      error:
+        'Для этой линейки параметрический чертёж короба не строится (другая геометрия). Чертёж — по запросу.',
+    };
+  }
+
   const dims = validateDims(raw.dims);
   if (!dims) {
     return {
       ok: false,
       status: 400,
-      error: 'Некорректные габариты: укажите H/W/D в допустимых пределах',
+      error: 'Некорректные габариты: укажите H/D/W в допустимых пределах',
     };
   }
 
@@ -83,6 +98,7 @@ export function resolveDrawingInput(raw: DrawingRequest): ResolvedDrawing {
   const calc = calculate(dims, traits, product.base, basePrice, material, {
     typeLabel: product.type,
     captureVelocity: Number.isFinite(velocity) ? velocity : undefined,
+    options,
   });
 
   const input: DrawingInput = {

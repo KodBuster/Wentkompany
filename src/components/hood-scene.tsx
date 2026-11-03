@@ -1868,14 +1868,15 @@ function SupplyChamber({
    * ЗПВП: плоские щелевые решётки // полу внутри приточной полости.
    * На передней зоне короба, ряд по центру W (равные поля от боковин).
    */
+  /* Число из таблицы производства — равномерно по W, без урезания maxN */
   const sideMarg = 50;
-  const panelWmm = BUILD.supplySlot.panelW;
-  const gapUmm = BUILD.supplySlot.gap;
-  const maxN = Math.max(
-    1,
-    Math.floor((dims.w - 2 * sideMarg + gapUmm) / (panelWmm + gapUmm)),
+  const n = Math.max(1, supplySlot.frontCount);
+  const usable = Math.max(dims.w - 2 * sideMarg, 80);
+  const gapUmm = n > 1 ? BUILD.supplySlot.gap : 0;
+  const panelWmm = Math.min(
+    BUILD.supplySlot.panelW,
+    Math.max(40, (usable - gapUmm * (n - 1)) / n),
   );
-  const n = Math.min(Math.max(1, supplySlot.frontCount), maxN);
   const panelW = panelWmm * MM;
   const gapU = gapUmm * MM;
   const totalW = n * panelW + Math.max(0, n - 1) * gapU;
@@ -2203,6 +2204,8 @@ export interface HoodSceneProps {
   lamps: boolean;
   /** Подпись типа из каталога («ТИП 1»…) — меняет профиль корпуса. */
   typeLabel?: string | null;
+  /** Показывать патрубки (опция «Врезка присоединительная»). */
+  includeSpigots?: boolean;
   /** Инкремент снаружи (сброс конфигурации) — снова вписать зонт в окно. */
   fitRequest?: number;
 }
@@ -2215,11 +2218,12 @@ export function HoodScene({
   material,
   lamps,
   typeLabel,
+  includeSpigots = false,
   fitRequest = 0,
 }: HoodSceneProps) {
   const layout = useMemo(
-    () => buildLayout(dims, traits, ducts, { lamps, typeLabel }),
-    [dims, traits, ducts, lamps, typeLabel],
+    () => buildLayout(dims, traits, ducts, { lamps, typeLabel, includeSpigots }),
+    [dims, traits, ducts, lamps, typeLabel, includeSpigots],
   );
 
   /* Пользователь крутит/зумит/панит — не затираем ракурс при смене мм */

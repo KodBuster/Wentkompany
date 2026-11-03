@@ -9,8 +9,9 @@ import { NOTES_PLACEHOLDER, PhoneInput } from '@/components/phone-input';
 type Status = 'idle' | 'sending' | 'ok' | 'error';
 
 /**
- * Короткий заказ эталонного типоразмера: имя, телефон, опции, примечание.
+ * Короткий заказ стандартного типоразмера: имя, телефон, опции, примечание.
  * Чертёж PDF собирается сам (с выбранными опциями) и уходит в заявку.
+ * Опции и цена живут снаружи — чтобы чертёж и сумма обновлялись сразу.
  */
 export function StandardOrderForm({
   slug,
@@ -18,6 +19,8 @@ export function StandardOrderForm({
   configuration,
   material,
   availableOptions = [],
+  options,
+  onOptionsChange,
 }: {
   slug: string;
   dims: Dims;
@@ -26,10 +29,11 @@ export function StandardOrderForm({
   material?: '430' | '304';
   /** Доп. оборудование из карточки каталога. */
   availableOptions?: string[];
+  options: string[];
+  onOptionsChange: (next: string[]) => void;
 }) {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
-  const [options, setOptions] = useState<string[]>([]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -52,7 +56,7 @@ export function StandardOrderForm({
     setError('');
 
     const optsLine = options.length
-      ? `опции: ${options.join(', ')} · цена выше базовой (надбавка по запросу)`
+      ? `опции: ${options.join(', ')}`
       : availableOptions.length
         ? 'опции: нет'
         : '';
@@ -60,7 +64,7 @@ export function StandardOrderForm({
 
     try {
       fd.set('page', window.location.pathname);
-      fd.set('configuration', `[Заказ · эталон] ${fullCfg}`);
+      fd.set('configuration', `[Заказ · стандарт] ${fullCfg}`);
       fd.set('leadMode', 'order');
       fd.set('drawSlug', slug);
       fd.set('drawH', String(dims.h));
@@ -84,7 +88,7 @@ export function StandardOrderForm({
         optionsCount: options.length,
       });
       form.reset();
-      setOptions([]);
+      onOptionsChange([]);
     } catch (err) {
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Не удалось отправить заказ');
@@ -124,36 +128,29 @@ export function StandardOrderForm({
         style={{ borderColor: 'var(--color-supply)', background: 'rgba(88,180,220,.1)' }}
       >
         <span className="lbl" style={{ color: 'var(--color-supply)' }}>
-          Заказ эталонного типоразмера
+          Заказ стандартного типоразмера
         </span>
         <p className="num mt-1 text-sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
           {cfgPreview}
         </p>
-        {hasOptions && (
-          <p className="hint mt-2" style={{ color: 'var(--color-extract)' }}>
-            С выбранным оборудованием итоговая цена будет выше базовой — надбавка уточняется по запросу.
-          </p>
-        )}
         <p className="hint mt-2">Чертёж PDF приложится автоматически при отправке.</p>
       </div>
 
       {availableOptions.length > 0 && (
         <div className="cfg-group" style={{ margin: 0 }}>
           <span className="lbl">Дополнительное оборудование</span>
-          <p className="hint" style={{ marginBottom: '0.35rem' }}>
-            Любая опция увеличивает цену относительно базовой.
-          </p>
           {availableOptions.map((o) => (
             <label key={o} className="cfg-opt">
               <input
                 type="checkbox"
                 checked={options.includes(o)}
                 onChange={(e) =>
-                  setOptions((s) => (e.target.checked ? [...s, o] : s.filter((x) => x !== o)))
+                  onOptionsChange(
+                    e.target.checked ? [...options, o] : options.filter((x) => x !== o),
+                  )
                 }
               />
               <span>{o}</span>
-              <span className="lbl ml-auto">+ к базе</span>
             </label>
           ))}
         </div>

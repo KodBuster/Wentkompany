@@ -1,4 +1,4 @@
-import pricesJson from '../../data/prices.json';
+import pricesJson from '../../data/prices.json' with { type: 'json' };
 
 /** Факторы прайса: сначала −discount%, затем +markup% к результату. */
 export type PriceFactors = {
@@ -10,6 +10,12 @@ export type PricesFile = {
   version: number;
   updatedAt: string | null;
   factors: PriceFactors;
+  /**
+   * Надбавки доп. оборудования к витринной цене, ₽ за единицу (уже «наши», без factors).
+   * Ключ — точное имя опции в чекбоксе / каталоге.
+   * «Врезка присоединительная» — за один патрубок; умножается на число врезок.
+   */
+  options: Record<string, number>;
   /** Их (исходные) цены по артикулу — до формулы. */
   sources: Record<string, number>;
 };
@@ -36,6 +42,13 @@ function normalize(raw: unknown): PricesFile {
       if (Number.isFinite(n) && n > 0) sources[k] = Math.round(n);
     }
   }
+  const options: Record<string, number> = {};
+  if (o.options && typeof o.options === 'object') {
+    for (const [k, v] of Object.entries(o.options)) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n >= 0) options[k] = Math.round(n);
+    }
+  }
   return {
     version: typeof o.version === 'number' ? o.version : 1,
     updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : null,
@@ -45,6 +58,7 @@ function normalize(raw: unknown): PricesFile {
           markupPct: o.factors.markupPct,
         }
       : { ...DEFAULT.factors },
+    options: Object.keys(options).length ? options : { ...DEFAULT.options },
     sources: Object.keys(sources).length ? sources : { ...DEFAULT.sources },
   };
 }
@@ -89,4 +103,26 @@ export function displayPriceMap(file?: PricesFile): Record<string, number> {
     if (p != null) out[article] = p;
   }
   return out;
+}
+
+/**
+ * Сумма надбавок выбранных опций, ₽.
+ * qty — множитель по имени опции (для врезки = число патрубков); иначе 1.
+ */
+export function optionSurchargeRub(
+  selected?: readonly string[] | null,
+  qty?: Readonly<Record<string, number>>,
+  file?: PricesFile,
+): number {
+  if (!selected?.length) return 0;
+  const table = (file ?? loadPricesFile()).options;
+  let sum = 0;
+  for (const name of selected) {
+    const unit = table[name];
+    if (typeof unit !== 'number' || !Number.isFinite(unit) || unit <= 0) continue;
+    const n = qty?.[name];
+    const count = typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.round(n) : 1;
+    sum += unit * count;
+  }
+  return sum;
 }

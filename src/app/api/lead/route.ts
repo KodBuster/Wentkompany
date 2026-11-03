@@ -76,7 +76,11 @@ function drawingRequestFromForm(form: FormData): DrawingRequest | null {
 async function catalogDrawingFile(raw: DrawingRequest | null) {
   if (!raw) return { ok: true as const, file: null };
   const resolved = resolveDrawingInput(raw);
-  if (!resolved.ok) return resolved;
+  /* 422 — линейка без параметрического чертежа (ПИР и т.п.): заявку принимаем без PDF */
+  if (!resolved.ok) {
+    if (resolved.status === 422) return { ok: true as const, file: null };
+    return resolved;
+  }
   try {
     const bytes = await buildDrawingPdf(resolved.input);
     return {

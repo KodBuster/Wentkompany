@@ -1,6 +1,23 @@
 import data from '@/data/catalog.json';
 import type { Family, FamilyTraits, Dims } from './calc';
+import { sizeSpaced } from './calc';
 import { displayPriceMap, loadPricesFile } from './prices';
+
+/**
+ * Линейки с коробчатой геометрией — для них есть параметрический чертёж/3D.
+ * ПИР (купол-пирамида), ГФ и АВТ — другая форма; генератор короба к ним не подходит.
+ */
+export const PARAMETRIC_DRAWING_FAMILIES: readonly Family[] = [
+  'ЗВП',
+  'ЗВО',
+  'ЗПВП',
+  'ЗПВО',
+  'ЗВПГ',
+  'ЗВОГ',
+] as const;
+
+export const supportsParametricDrawing = (code: Family) =>
+  (PARAMETRIC_DRAWING_FAMILIES as readonly string[]).includes(code);
 
 export interface FamilyRecord extends FamilyTraits {
   code: Family;
@@ -128,4 +145,5 @@ export const priceFrom = (code: string) => familyByCode(code)?.priceFrom ?? null
 export const shortName = (p: Product) =>
   `${p.article}${p.type ? ` · ${p.type}` : ''}`;
 
-export const sizeLabel = (d: Dims | null) => (d ? `${d.h} / ${d.w} / ${d.d}` : '—');
+/** Габарит в порядке H/D/W (высота / вылет / ширина). */
+export const sizeLabel = (d: Dims | null) => (d ? sizeSpaced(d) : '—');

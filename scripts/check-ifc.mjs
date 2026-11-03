@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calculate } from '../src/lib/calc.ts';
+import { calculate, OPTION_COLLAR } from '../src/lib/calc.ts';
 import { buildSheet } from '../src/lib/drawing.ts';
 import { buildLayout } from '../src/lib/geometry.ts';
 import { buildIfc, ifcGuid } from '../src/lib/ifc.ts';
@@ -34,17 +34,21 @@ const near = (a, b) => Math.abs(a - b) < 1e-6;
 let checked = 0;
 for (const { code, dims, material, typeLabel } of CASES) {
   const traits = traitsOf(code);
-  const calc = calculate(dims, traits, dims, 20000, material);
+  const options = [OPTION_COLLAR];
+  const calc = calculate(dims, traits, dims, 20000, material, { options, typeLabel });
   const input = {
     dims, traits, calc,
     article: code,
     productName: `Зонт ${code}`,
-    designation: buildSheet({ dims, traits, calc, article: code, productName: `Зонт ${code}`, material }).designation,
+    designation: buildSheet({
+      dims, traits, calc, article: code, productName: `Зонт ${code}`, material, options, typeLabel,
+    }).designation,
     material,
     typeLabel,
+    options,
   };
   const ifc = buildIfc(input);
-  const layout = buildLayout(dims, traits, calc.ducts, { typeLabel });
+  const layout = buildLayout(dims, traits, calc.ducts, { typeLabel, includeSpigots: true });
 
   /* --- структура STEP --- */
   assert.ok(ifc.startsWith('ISO-10303-21;'), `${code}: нет заголовка STEP`);
@@ -70,8 +74,12 @@ for (const { code, dims, material, typeLabel } of CASES) {
   assert.ok(psets.size() >= 1, `${code}: нет набора свойств`);
   const pset = api.GetLine(model, psets.get(0), true);
   const names = pset.HasProperties.map((p) => p.Name.value);
-  for (const required of ['Артикул', 'РасходВоздуха_м3ч', 'Патрубки', 'Материал']) {
+  for (const required of ['Артикул', 'РасходВоздуха_м3ч', 'ВытяжныеПатрубки', 'Материал']) {
     assert.ok(names.includes(required), `${code}: в Pset нет свойства ${required}`);
+  }
+  if (traits.supply) {
+    assert.ok(names.includes('ПриточныеПатрубки'), `${code}: нет ПриточныеПатрубки`);
+    assert.ok(names.includes('РешеткиПритока_шт'), `${code}: нет РешеткиПритока_шт`);
   }
   const airflow = pset.HasProperties.find((p) => p.Name.value === 'РасходВоздуха_м3ч').NominalValue.value;
   assert.equal(Math.round(airflow), Math.round(calc.airflow), `${code}: расход в IFC разошёлся с расчётом`);
@@ -111,7 +119,7 @@ for (const { code, dims, material, typeLabel } of CASES) {
 
   api.CloseModel(model);
   console.log(
-    `  ${code.padEnd(5)} ${`${dims.h}/${dims.w}/${dims.d}`.padEnd(16)} ` +
+    `  ${code.padEnd(5)} ${`${dims.h}/${dims.d}/${dims.w}`.padEnd(16)} ` +
       `AISI ${material}  сущностей: ${String(ids.length).padStart(4)}  ` +
       `мешей: ${meshes}  треугольников: ${triangles}  расход: ${Math.round(airflow)} м³/ч`,
   );

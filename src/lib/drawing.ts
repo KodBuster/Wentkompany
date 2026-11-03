@@ -10,7 +10,7 @@
  */
 
 import type { Dims, FamilyTraits, Calculation } from './calc.ts';
-import { ru, dec } from './calc.ts';
+import { ru, dec, hasCollarOption } from './calc.ts';
 import { buildLayout, BUILD, supplyType2Chamfer, islandSupplyType2Chamfer, islandSupplyType1Seam, wallType2Chamfer, islandType2Chamfer, type Layout } from './geometry.ts';
 
 export type Point = [number, number];
@@ -462,9 +462,14 @@ export interface DrawingInput {
 
 export function buildSheet(input: DrawingInput): Sheet {
   const { dims, traits, calc, article, productName, material } = input;
-  const layout = buildLayout(dims, traits, calc.ducts, { lamps: input.lamps, typeLabel: input.typeLabel });
+  const withCollar = hasCollarOption(input.options);
+  const layout = buildLayout(dims, traits, calc.ducts, {
+    lamps: input.lamps,
+    typeLabel: input.typeLabel,
+    includeSpigots: withCollar,
+  });
 
-  const totalFrontHeight = dims.h + BUILD.spigot + 8;
+  const totalFrontHeight = dims.h + (withCollar ? BUILD.spigot + 8 : 8);
   const required = Math.min(
     FIELDS.front.w / (dims.w + layout.lip * 2 + 60),
     FIELDS.front.h / (totalFrontHeight + 30),
@@ -501,16 +506,22 @@ export function buildSheet(input: DrawingInput): Sheet {
     { axis: 'h', from: [-dims.w / 2, -dims.d / 2], to: [dims.w / 2, -dims.d / 2], offset: 12, text: String(dims.w) },
     { axis: 'v', from: [dims.w / 2, -dims.d / 2], to: [dims.w / 2, dims.d / 2], offset: 12, text: String(dims.d) },
   ];
-  if (layout.spigots.length > 1) {
-    const first = layout.spigots[0];
-    const last = layout.spigots[layout.spigots.length - 1];
-    planDims.push({
-      axis: 'h',
-      from: [first.x, dims.d / 2],
-      to: [last.x, dims.d / 2],
-      offset: 10,
-      text: `${ru(Math.abs(last.x - first.x))}`,
-    });
+  /* Цепочка от края до края через центры вытяжных: равные сегменты W/(n+1). */
+  const exhaustXs = layout.spigots
+    .filter((s) => s.role === 'exhaust')
+    .map((s) => s.x)
+    .sort((a, b) => a - b);
+  if (exhaustXs.length > 0) {
+    const chain = [-dims.w / 2, ...exhaustXs, dims.w / 2];
+    for (let i = 0; i < chain.length - 1; i++) {
+      planDims.push({
+        axis: 'h',
+        from: [chain[i], dims.d / 2],
+        to: [chain[i + 1], dims.d / 2],
+        offset: 10 + (i % 2) * 5,
+        text: String(Math.round(Math.abs(chain[i + 1] - chain[i]))),
+      });
+    }
   }
 
   const plan: View = {
@@ -523,21 +534,35 @@ export function buildSheet(input: DrawingInput): Sheet {
   };
 
   /* ФИ — аббревиатура FortInox (рус.) */
-  const designation = `ФИ.${article}.${dims.h}-${dims.w}-${dims.d}`;
+  const designation = `ФИ.${article}.${dims.h}-${dims.d}-${dims.w}`;
 
   const selectedOptions = (input.options ?? []).filter(Boolean);
   let noteN = 1;
   const notes = [
     `${noteN++}. Расход воздуха расчётный ${ru(calc.airflow)} м³/ч.`,
-    `${noteN++}. Патрубки ${calc.ducts.count} × Ø${calc.ducts.diameter}, скорость ${dec(calc.ducts.velocity)} м/с.`,
+    ...(withCollar
+      ? [
+          `${noteN++}. Вытяжные патрубки ${calc.ducts.count} × Ø${calc.ducts.diameter}, скорость ${dec(calc.ducts.velocity)} м/с.`,
+        ]
+      : []),
+    ...(withCollar && calc.supplyDucts
+      ? [
+          `${noteN++}. Приточные патрубки ${calc.supplyDucts.count} × Ø${calc.supplyDucts.diameter}.`,
+        ]
+      : []),
     `${noteN++}. Сталь AISI ${material}, сварка инверторная аргонодуговая.`,
     `${noteN++}. Жироуловители лабиринтные съёмные — ${layout.filters.reduce((s, r) => s + r.count, 0)} шт.`,
+    ...(calc.supplyGrilles != null
+      ? [
+          `${noteN++}. Щелевые решётки притока 20×400 — ${calc.supplyGrilles} шт.`,
+        ]
+      : []),
     ...(traits.hydro
       ? [`${noteN++}. Гидрозатвор: обвязка и автоматика по п. 5.30 СП 7.13130.`]
       : []),
     ...(selectedOptions.length
       ? [
-          `${noteN++}. Доп. оборудование — цена выше базовой (надбавка по запросу): ${selectedOptions.join('; ')}.`,
+          `${noteN++}. Доп. оборудование: ${selectedOptions.join('; ')}.`,
         ]
       : []),
     `${noteN++}. Размеры для справок, чертёж предварительный.`,
@@ -571,6 +596,36 @@ export function buildSheet(input: DrawingInput): Sheet {
 
 export const STAMP_BOX = STAMP;
 export const SHEET_FIELDS = FIELDS;
+
+/**
+ * Перенос длинного значения штампа по словам — без обрезки «…».
+ * Последняя строка забирает остаток целиком (имя читается полностью).
+ */
+export function wrapStampValue(text: string, maxChars: number, maxLines: number): string[] {
+  const raw = text.trim();
+  if (!raw) return [''];
+  if (maxLines <= 1 || raw.length <= maxChars) return [raw];
+
+  const words = raw.split(/\s+/);
+  const lines: string[] = [];
+  let i = 0;
+  while (i < words.length && lines.length < maxLines) {
+    if (lines.length === maxLines - 1) {
+      lines.push(words.slice(i).join(' '));
+      break;
+    }
+    let cur = words[i]!;
+    i += 1;
+    while (i < words.length) {
+      const trial = `${cur} ${words[i]}`;
+      if (trial.length > maxChars) break;
+      cur = trial;
+      i += 1;
+    }
+    lines.push(cur);
+  }
+  return lines.length ? lines : [raw];
+}
 
 /** Перевод точки вида в координаты листа: масштаб + инверсия оси Y. */
 export function toSheet(view: View, p: Point, scale: number): Point {

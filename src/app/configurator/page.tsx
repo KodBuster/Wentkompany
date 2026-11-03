@@ -68,7 +68,7 @@ export default async function ConfiguratorPage({
           <p className="muted mt-2 max-w-[58ch] leading-relaxed">
             Габариты задаёте вы — корпус, жёлоб, кассеты, гидроконтур и патрубки
             пересчитываются вместе с ними, как и расход воздуха и спецификация. Цена на сайте —
-            только для эталонного типоразмера.
+            только для стандартного типоразмера.
           </p>
         </div>
 
@@ -82,8 +82,8 @@ export default async function ConfiguratorPage({
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <span className="lbl">Если размер нестандартный</span>
           <p className="muted max-w-[46ch] text-sm">
-            Цену вне эталона на сайте не публикуем — оставьте заявку, производство посчитает
-            точно и подтвердит срок.
+            Цену вне стандартного типоразмера на сайте не публикуем — оставьте заявку,
+            производство посчитает точно и подтвердит срок.
           </p>
           <Link href="/#catalog" className="btn btn-ghost">Каталог с ценами</Link>
         </div>

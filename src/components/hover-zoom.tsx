@@ -64,6 +64,8 @@ export function HoverZoom({
   const desktop = useDesktopPointer();
   const clipId = useId().replace(/:/g, '');
   const ref = useRef<HTMLDivElement>(null);
+  /** Свой выход из лупы — не дублировать сброс в pointerlockchange. */
+  const selfExitRef = useRef(false);
   const [internalOn, setInternalOn] = useState(false);
   const [pos, setPos] = useState<Pt>({ x: 50, y: 50 });
   const [liveScale, setLiveScale] = useState(minScale);
@@ -81,10 +83,25 @@ export function HoverZoom({
   }, []);
 
   const stopLoupe = useCallback(() => {
+    /* Сброс origin/scale — иначе уход с угла «сбивает» кадр листа. */
+    setPos({ x: 50, y: 50 });
     setLiveScale(minScale);
+    /* Только свой контейнер: обход родителей сбрасывал scroll страницы. */
+    if (ref.current) {
+      ref.current.scrollLeft = 0;
+      ref.current.scrollTop = 0;
+    }
+    /* exitPointerLock часто дёргает window.scroll — возвращаем позицию. */
+    const sx = window.scrollX;
+    const sy = window.scrollY;
+    selfExitRef.current = true;
     if (document.pointerLockElement === ref.current) {
       document.exitPointerLock();
     }
+    requestAnimationFrame(() => {
+      window.scrollTo(sx, sy);
+      selfExitRef.current = false;
+    });
     if (controlled) onActiveChange?.(false);
     else setInternalOn(false);
   }, [minScale, controlled, onActiveChange]);
@@ -124,14 +141,22 @@ export function HoverZoom({
 
   useEffect(() => {
     const onLockChange = () => {
-      if (document.pointerLockElement !== ref.current && on) {
-        /* Потеряли lock — выключаем лупу */
-        if (controlled) onActiveChange?.(false);
-        else {
-          setInternalOn(false);
-          setLiveScale(minScale);
-        }
+      if (document.pointerLockElement === ref.current || !on) return;
+      if (selfExitRef.current) return;
+      /* Потеряли lock извне (Esc системы и т.п.) */
+      const sx = window.scrollX;
+      const sy = window.scrollY;
+      setPos({ x: 50, y: 50 });
+      setLiveScale(minScale);
+      if (ref.current) {
+        ref.current.scrollLeft = 0;
+        ref.current.scrollTop = 0;
       }
+      if (controlled) onActiveChange?.(false);
+      else setInternalOn(false);
+      requestAnimationFrame(() => {
+        window.scrollTo(sx, sy);
+      });
     };
     document.addEventListener('pointerlockchange', onLockChange);
     return () => document.removeEventListener('pointerlockchange', onLockChange);
@@ -232,6 +257,8 @@ export function HoverZoom({
         width: '100%',
         height: '100%',
         position: 'relative',
+        /* Не даём раздутому scale утащить скролл родителя */
+        overflow: 'hidden',
         /* В лупе системный курсор скрыт — рисуем свою «мышь» */
         cursor: on ? 'none' : clickToggle ? 'zoom-in' : 'default',
         userSelect: 'none',
@@ -243,12 +270,11 @@ export function HoverZoom({
         style={{
           width: '100%',
           height: '100%',
-          transformOrigin: origin,
-          transform: on ? `scale(${liveScale})` : 'scale(1)',
-          transition: on
-            ? 'transform 0.12s ease-out'
-            : 'transform 0.35s var(--ease-out, ease)',
-          willChange: 'transform',
+          transformOrigin: on ? origin : '50% 50%',
+          transform: on ? `scale(${liveScale})` : 'none',
+          /* Выход без анимации — иначе кадр «плывёт» от угла курсора */
+          transition: on ? 'transform 0.12s ease-out' : 'none',
+          willChange: on ? 'transform' : undefined,
           /* В лупе блокируем орбиту; вне лупы при clickToggle=false — события идут на canvas */
           pointerEvents: on ? 'none' : clickToggle ? 'none' : 'auto',
         }}
@@ -319,15 +345,39 @@ export function HoverZoom({
               y2="14.5"
               className="hover-zoom__mouse-split"
             />
-            {/* Колёсико */}
-            <rect
-              x="10"
-              y="8"
-              width="4"
-              height="7"
-              rx="2"
-              className="hover-zoom__mouse-wheel"
-            />
+            {/* Вариант F: колёсико B+C; ЛКМ — «плямк» с блеском */}
+            <g className="hover-zoom__wheel">
+              <defs>
+                <clipPath id={`${clipId}-wheel`}>
+                  <rect x="9.5" y="7.4" width="5" height="8" rx="2.4" />
+                </clipPath>
+              </defs>
+              <path
+                className="hover-zoom__wheel-chevron hover-zoom__wheel-chevron--up"
+                d="M12 3.9 L8.9 7.35 H15.1 Z"
+              />
+              <rect
+                x="9.5"
+                y="7.4"
+                width="5"
+                height="8"
+                rx="2.4"
+                className="hover-zoom__mouse-wheel"
+              />
+              <g clipPath={`url(#${clipId}-wheel)`}>
+                <line
+                  className="hover-zoom__wheel-notch"
+                  x1="10.15"
+                  y1="11.4"
+                  x2="13.85"
+                  y2="11.4"
+                />
+              </g>
+              <path
+                className="hover-zoom__wheel-chevron hover-zoom__wheel-chevron--dn"
+                d="M12 18.9 L8.9 15.45 H15.1 Z"
+              />
+            </g>
           </svg>
         </span>
       )}

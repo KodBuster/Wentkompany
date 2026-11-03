@@ -13,13 +13,13 @@
  * жироуловители, рамы и крепёж.
  * Всё, что помечено estimate: true, на сайте показывается с бейджем
  * «предварительная оценка» и не выдаётся за прайс.
+ *
+ * Надбавки опций — data/prices.json → options (через prices.ts).
  */
 
-/**
- * К ближайшей сотне ₽.
- * Дублирует prices.roundPriceRub — без импорта prices (Node check-скрипты
- * не резолвят @/ и падают на JSON без import attribute).
- */
+import { optionSurchargeRub } from './prices.ts';
+
+/** К ближайшей сотне ₽ (дубль prices.roundPriceRub без цикличного импорта). */
 export function roundPriceRub(value: number): number {
   return Math.round(value / 100) * 100;
 }
@@ -37,6 +37,26 @@ export interface Dims {
   w: number;
   d: number;
 }
+
+/**
+ * Единый порядок записи габаритов FortInox:
+ * высота / вылет (глубина) / ширина (длина) → H/D/W.
+ * Внутренние поля модели остаются h, w, d.
+ */
+export const SIZE_ORDER = 'H/D/W' as const;
+
+/** Компактно: 350/600/1000 */
+export const sizeCompact = (d: Dims) => `${d.h}/${d.d}/${d.w}`;
+
+/** С пробелами: 350 / 600 / 1000 */
+export const sizeSpaced = (d: Dims) => `${d.h} / ${d.d} / ${d.w}`;
+
+/** Для UI/документов: «350/600/1000 мм» или «—» */
+export const sizeLabelMm = (d: Dims | null | undefined) =>
+  d ? `${sizeCompact(d)} мм` : '—';
+
+/** Подпись строки габарита: «Габарит H/D/W» */
+export const sizeOrderCaption = (prefix = 'Габарит') => `${prefix} ${SIZE_ORDER}`;
 
 /** Допустимые скорости в сечении захвата, м/с. */
 export const CAPTURE_VELOCITIES = [0.4, 0.5, 0.6, 0.7] as const;
@@ -66,15 +86,32 @@ export function hoodProfileOf(typeLabel: string | null | undefined): HoodProfile
 /** Передняя вертикаль «сотка» — для подъёма низа ТИП 1 (мм). */
 const FRONT_BOARD_H = 100;
 
+/** Опция присоединительной врезки — патрубки на изделии. */
+export const OPTION_COLLAR = 'Врезка присоединительная';
+
+export function hasCollarOption(options?: readonly string[] | null): boolean {
+  return !!options?.includes(OPTION_COLLAR);
+}
+
 export interface AirflowOpts {
   captureVelocity?: number;
   typeLabel?: string | null;
+  /** Выбранные опции — надбавки из data/prices.json → options. */
+  options?: string[];
 }
 
-/** Ряд диаметров врезок из таблицы производства, мм. */
-export const DUCT_SIZES = [200, 250, 315, 355, 400] as const;
+/** Ряд диаметров врезок из таблицы производства, мм (вытяжка + приток). */
+export const DUCT_SIZES = [160, 200, 250, 315, 355, 400] as const;
 
 type ExhaustRow = { w: number; count: number; diameter: number };
+type SupplyRow = { w: number; count: number; diameter: number };
+type GrilleRow = { w: number; count: number };
+
+/** Подбор приточных врезок (без скорости — для документов / раскладки). */
+export interface SupplyDuctPick {
+  count: number;
+  diameter: number;
+}
 
 /**
  * Сетка вытяжных врезок (Excel «количество врезок»).
@@ -114,13 +151,62 @@ const EXHAUST_ISLAND_450: ExhaustRow[] = [
   { w: 2500, count: 2, diameter: 355 },
 ];
 
+/**
+ * Приточные врезки (Excel): пристен / остров, от W; H 350 и 450 совпадают.
+ * На 3D используем только count; Ø — в подписях документов.
+ */
+const SUPPLY_WALL: SupplyRow[] = [
+  { w: 800, count: 1, diameter: 160 },
+  { w: 1000, count: 1, diameter: 160 },
+  { w: 1200, count: 2, diameter: 160 },
+  { w: 1400, count: 2, diameter: 160 },
+  { w: 1600, count: 2, diameter: 160 },
+  { w: 1800, count: 2, diameter: 160 },
+  { w: 2000, count: 2, diameter: 200 },
+  { w: 2500, count: 2, diameter: 200 },
+];
+
+const SUPPLY_ISLAND: SupplyRow[] = [
+  { w: 800, count: 2, diameter: 160 },
+  { w: 1000, count: 2, diameter: 160 },
+  { w: 1200, count: 4, diameter: 160 },
+  { w: 1400, count: 4, diameter: 160 },
+  { w: 1600, count: 4, diameter: 160 },
+  { w: 1800, count: 4, diameter: 160 },
+  { w: 2000, count: 4, diameter: 200 },
+  { w: 2500, count: 4, diameter: 200 },
+];
+
+/** Щелевые решётки притока 20×400, шт (Excel); остров ≈ 2× пристен. */
+const GRILLES_WALL: GrilleRow[] = [
+  { w: 800, count: 2 },
+  { w: 1000, count: 2 },
+  { w: 1200, count: 3 },
+  { w: 1400, count: 3 },
+  { w: 1600, count: 4 },
+  { w: 1800, count: 4 },
+  { w: 2000, count: 4 },
+  { w: 2500, count: 5 },
+];
+
+const GRILLES_ISLAND: GrilleRow[] = [
+  { w: 800, count: 4 },
+  { w: 1000, count: 4 },
+  { w: 1200, count: 6 },
+  { w: 1400, count: 6 },
+  { w: 1600, count: 8 },
+  { w: 1800, count: 8 },
+  { w: 2000, count: 8 },
+  { w: 2500, count: 10 },
+];
+
 /** Ближайшая высота сетки производства. */
 function exhaustTableH(h: number): 350 | 450 {
   return h < 400 ? 350 : 450;
 }
 
 /** Строка сетки по W: ближайшая длина; при ничьей — больший W (запас). */
-function nearestExhaustRow(rows: ExhaustRow[], w: number): ExhaustRow {
+function nearestByW<T extends { w: number }>(rows: T[], w: number): T {
   let best = rows[0]!;
   let bestDist = Math.abs(best.w - w);
   for (const row of rows) {
@@ -221,11 +307,29 @@ export function pickDucts(dims: Dims, traits: FamilyTraits, opts?: AirflowOpts):
       ? EXHAUST_ISLAND_350
       : EXHAUST_ISLAND_450
     : EXHAUST_WALL;
-  const { count, diameter } = nearestExhaustRow(rows, dims.w);
+  const { count, diameter } = nearestByW(rows, dims.w);
   const air = airflow(dims, traits, opts);
   const area = Math.PI * (diameter / 2000) ** 2;
   const velocity = air / 3600 / (count * area);
   return { count, diameter, velocity };
+}
+
+/**
+ * Приточные врезки по таблице производства (только ЗПВП/ЗПВО).
+ * Ø — для документов; на 3D берём count и эскизный display-Ø.
+ */
+export function pickSupplyDucts(dims: Dims, traits: FamilyTraits): SupplyDuctPick | null {
+  if (!traits.supply) return null;
+  const rows = traits.island ? SUPPLY_ISLAND : SUPPLY_WALL;
+  const { count, diameter } = nearestByW(rows, dims.w);
+  return { count, diameter };
+}
+
+/** Число щелевых решёток притока 20×400; без притока — null. */
+export function pickSupplyGrilles(dims: Dims, traits: FamilyTraits): number | null {
+  if (!traits.supply) return null;
+  const rows = traits.island ? GRILLES_ISLAND : GRILLES_WALL;
+  return nearestByW(rows, dims.w).count;
 }
 
 /** Площадь листа: верх и четыре стенки, низ открыт. м². */
@@ -245,9 +349,9 @@ export interface PriceResult {
 }
 
 /**
- * Цена изделия только для эталонного типоразмера (прайс).
+ * Цена изделия только для стандартного типоразмера (прайс).
  * Нестандартный габарит → null (на витрине «запросить цену», без оценки).
- * Надбавка AISI 304 — только апгрейд сухого зонта на эталоне (у гидро 304 уже в прайсе).
+ * Надбавка AISI 304 — только апгрейд сухого зонта на стандарте (у гидро 304 уже в прайсе).
  */
 export function price(
   dims: Dims,
@@ -267,8 +371,8 @@ export function price(
     value: roundPriceRub(value),
     estimate: upgradedTo304,
     note: upgradedTo304
-      ? 'Надбавка за AISI 304 к цене эталона. Точную сумму подтверждает производство.'
-      : 'Цена для эталонного типоразмера по прайсу.',
+      ? 'Надбавка за AISI 304 к цене стандартного типоразмера. Точную сумму подтверждает производство.'
+      : 'Цена для стандартного типоразмера по прайсу.',
   };
 }
 
@@ -280,7 +384,12 @@ export interface Calculation {
   /** Скорость в сечении захвата, м/с. */
   captureVelocity: CaptureVelocity;
   airflow: number;
+  /** Вытяжные патрубки (таблица производства). */
   ducts: DuctPick;
+  /** Приточные патрубки; null у чисто вытяжных линеек. */
+  supplyDucts: SupplyDuctPick | null;
+  /** Щелевые решётки притока, шт; null без притока. */
+  supplyGrilles: number | null;
   area: number;
   mass: number;
   price: PriceResult | null;
@@ -300,10 +409,12 @@ export function calculate(
   const airOpts: AirflowOpts = { captureVelocity, typeLabel: opts?.typeLabel };
   const air = airflow(dims, traits, airOpts);
   const ducts = pickDucts(dims, traits, airOpts);
+  const supplyDucts = pickSupplyDucts(dims, traits);
+  const supplyGrilles = pickSupplyGrilles(dims, traits);
   const warnings: string[] = [];
 
   if (ducts.velocity > 9) {
-    warnings.push('Скорость в патрубке выше 9 м/с — сверьте с сетью объекта.');
+    warnings.push('Скорость в вытяжном патрубке выше 9 м/с — сверьте с сетью объекта.');
   }
   if (base && (dims.w !== base.w || dims.d !== base.d || dims.h !== base.h)) {
     warnings.push('Нестандартный габарит: срок изготовления может увеличиться.');
@@ -312,15 +423,27 @@ export function calculate(
     warnings.push('п. 5.30 СП 7.13130.2013 — нужен щит автоматики и питание по 1-й категории надёжности.');
   }
 
+  const basePriceResult = price(dims, base, basePrice, grade, traits.hydro);
+  /* Врезка в прайсе — за штуку; множитель = число вытяжных патрубков из сетки. */
+  const optionsExtra = optionSurchargeRub(opts?.options, {
+    [OPTION_COLLAR]: ducts.count,
+  });
+  const priced =
+    basePriceResult && optionsExtra > 0
+      ? { ...basePriceResult, value: basePriceResult.value + optionsExtra }
+      : basePriceResult;
+
   return {
     captureArea: captureArea(dims, traits, opts?.typeLabel),
     perimeter: capturePerimeter(dims, traits),
     captureVelocity,
     airflow: air,
     ducts,
+    supplyDucts,
+    supplyGrilles,
     area: steelArea(dims),
     mass: mass(dims),
-    price: price(dims, base, basePrice, grade, traits.hydro),
+    price: priced,
     warnings,
   };
 }

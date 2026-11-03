@@ -71,6 +71,16 @@ function cleanShort(text) {
     .trim();
 }
 
+/** В short габарит всегда H/D/W, как на сайте (старый прайс писал H/W/D). */
+function shortWithHdW(short, size) {
+  if (!size || !short) return short;
+  const correct = `${size.h}/${size.d}/${size.w}`;
+  return short.replace(
+    /размером\s+\d+\s*\/\s*\d+\s*\/\s*\d+/i,
+    `размером ${correct}`,
+  );
+}
+
 /* --- изображения --- */
 const images = {};
 if (fs.existsSync(IMAGES)) {
@@ -84,11 +94,12 @@ if (fs.existsSync(IMAGES)) {
   }
 }
 
+/** Имена опций; цены — в data/prices.json → options. */
 const OPTIONS = [
-  { key: 'врезка',      name: 'Врезка присоединительная', price: null },
-  { key: 'проушины',    name: 'Проушины для монтажа',     price: null },
-  { key: 'кран',        name: 'Кран для слива жира и конденсата', price: null },
-  { key: 'светильники', name: 'Точечные светодиодные светильники', price: null },
+  { key: 'врезка', name: 'Врезка присоединительная' },
+  { key: 'проушины', name: 'Проушины для монтажа' },
+  { key: 'кран', name: 'Кран для слива жира и конденсата' },
+  { key: 'светильники', name: 'Точечные светодиодные светильники' },
 ];
 
 
@@ -186,7 +197,7 @@ for (const p of raw.products) {
     greaseTraps: !/без жироуловител/i.test(p.short_description || ''),
     materials: ['AISI 430', 'AISI 304'],
     options: OPTIONS.map((o) => o.name),
-    short: cleanShort(p.short_description),
+    short: shortWithHdW(cleanShort(p.short_description), size),
     description: (p.description || '').trim(),
     features: [],
     images: LOCAL_IMAGES[p.article || family] || [],
