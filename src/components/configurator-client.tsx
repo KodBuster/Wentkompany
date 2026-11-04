@@ -79,6 +79,18 @@ const OPTIONS = [
 ];
 
 const DEFAULT_MOUNT = 2000;
+/** Типовая высота варочной линии, мм (для ориентира свеса). */
+const COOK_LINE_H = 850;
+
+/**
+ * Минимальный горизонтальный свес за габарит оборудования, мм.
+ * Ориентир производителей: при z=H−h ≤ 1,2 м → 200; выше → +0,208·Δz (угол ~12°).
+ */
+function recommendOverhangMm(mountMm: number, lineH = COOK_LINE_H): number {
+  const z = Math.max(0, mountMm - lineH);
+  if (z <= 1200) return 200;
+  return Math.round(200 + (z - 1200) * 0.208);
+}
 
 function SceneStub({ text }: { text: string }) {
   return (
@@ -597,6 +609,12 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
           step={LIMITS.mount.step}
           ariaLabel="Высота нижней кромки от пола, мм"
           onChange={setMount}
+          hint={
+            <p className="hint">
+              Рекомендация: свес за оборудование ≥ {ru(recommendOverhangMm(mount))} мм
+              (линия ~{COOK_LINE_H} мм; при дверях — больше).
+            </p>
+          }
         />
 
         <div className="cfg-group">
