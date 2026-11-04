@@ -597,11 +597,6 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
           step={LIMITS.mount.step}
           ariaLabel="Высота нижней кромки от пола, мм"
           onChange={setMount}
-          hint={
-            <p className="hint">
-              Свес над оборудованием: {ru(mount - 850)} мм при высоте линии 850 мм.
-            </p>
-          }
         />
 
         <div className="cfg-group">
