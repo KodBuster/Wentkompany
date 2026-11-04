@@ -420,7 +420,7 @@ function ProductView({ slug }: { slug: string }) {
 
         {c && p.base && supportsParametricDrawing(p.family) && (
           <>
-            <div className="head mt-14"><p className="lbl">Чертёж</p><h2>Эталонный типоразмер в трёх проекциях</h2></div>
+            <div className="head mt-14"><p className="lbl">Чертёж</p><h2>Стандартный типоразмер в трёх проекциях</h2></div>
             <div className="drawing-card">
               <HoodDrawing
                 key={p.slug}

@@ -538,11 +538,11 @@ export function buildSheet(input: DrawingInput): Sheet {
 
   const selectedOptions = (input.options ?? []).filter(Boolean);
   let noteN = 1;
+  /* Примечания чертежа — состав изделия, без справочного расхода/v захвата. */
   const notes = [
-    `${noteN++}. Расход воздуха расчётный ${ru(calc.airflow)} м³/ч.`,
     ...(withCollar
       ? [
-          `${noteN++}. Вытяжные патрубки ${calc.ducts.count} × Ø${calc.ducts.diameter}, скорость ${dec(calc.ducts.velocity)} м/с.`,
+          `${noteN++}. Вытяжные патрубки ${calc.ducts.count} × Ø${calc.ducts.diameter}.`,
         ]
       : []),
     ...(withCollar && calc.supplyDucts

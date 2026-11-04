@@ -142,8 +142,8 @@ function buildCfgText(input: {
   mount: number;
   material: string;
   options: string[];
-  captureVelocity: number;
-  airflow: number;
+  /** Патрубки — только при опции «Врезка присоединительная». */
+  withCollar: boolean;
   ducts: { count: number; diameter: number };
   supplyDucts: { count: number; diameter: number } | null;
   supplyGrilles: number | null;
@@ -156,23 +156,23 @@ function buildCfgText(input: {
     mount,
     material,
     options,
-    captureVelocity,
-    airflow,
+    withCollar,
     ducts,
     supplyDucts,
     supplyGrilles,
     price,
   } = input;
+  /* В заявку — состав заказа, не справочный расход/захват (они остаются в UI «Расчёт»). */
   const bits = [
     `${family.code} · ${model.article}`,
     `${SIZE_ORDER} ${sizeLabelMm(dims)}`,
     `кромка от пола ${mount} мм`,
     `AISI ${material}`,
     options.length ? `опции: ${options.join(', ')}` : 'опции: нет',
-    `v захвата ${dec(captureVelocity, 1)} м/с`,
-    `расход ${ru(airflow)} м³/ч`,
-    `вытяжка ${ducts.count}×Ø${ducts.diameter}`,
-    ...(supplyDucts ? [`приток ${supplyDucts.count}×Ø${supplyDucts.diameter}`] : []),
+    ...(withCollar ? [`вытяжка ${ducts.count}×Ø${ducts.diameter}`] : []),
+    ...(withCollar && supplyDucts
+      ? [`приток ${supplyDucts.count}×Ø${supplyDucts.diameter}`]
+      : []),
     ...(supplyGrilles != null ? [`решётки притока ${supplyGrilles} шт`] : []),
     price
       ? `${price.estimate ? '≈ ' : ''}${rub(price.value)}`
@@ -471,8 +471,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     mount,
     material,
     options,
-    captureVelocity,
-    airflow: calc.airflow,
+    withCollar,
     ducts: calc.ducts,
     supplyDucts: calc.supplyDucts,
     supplyGrilles: calc.supplyGrilles,
@@ -514,14 +513,17 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     ...(calc.supplyGrilles != null
       ? ([[`Щелевые решётки притока 20×400`, `${calc.supplyGrilles} шт`]] as [string, string][])
       : []),
-    ...options.map((o) => [o, ''] as [string, string]),
+    /* Проушины — только из галки опций (не автодля всех островов как «Подвес к перекрытию») */
+    ...options.map(
+      (o) =>
+        (o === 'Проушины для монтажа' ? [o, '4 шт'] : [o, '']) as [string, string],
+    ),
     ...(traits.hydro
       ? ([
           ['Щит управления и диспетчеризации', '1 шт'],
           ['Воздуховод EI 45 после изделия', 'по проекту'],
         ] as [string, string][])
       : []),
-    ...(traits.island ? ([['Подвес к перекрытию', '4 точки']] as [string, string][]) : []),
   ];
 
   return (
@@ -581,7 +583,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
         ))}
 
         {isBase ? (
-          <p className="hint">Эталонный типоразмер линейки — цена из прайса.</p>
+          <p className="hint">Стандартный типоразмер линейки — цена из прайса.</p>
         ) : (
           <p className="hint">
             Нужна другая форма — вырез, скос, патрубок вбок?{' '}
@@ -880,7 +882,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
           </Link>
           <p className="hint mt-2">
             {calc.price && isBase
-              ? 'Эталонный типоразмер — цена из прайса. В заявке можно уточнить опции и сроки.'
+              ? 'Стандартный типоразмер — цена из прайса. В заявке можно уточнить опции и сроки.'
               : 'Нестандартный габарит: приложите эскизы — производство посчитает сумму и срок.'}
           </p>
         </div>

@@ -280,14 +280,17 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
     ...(calc.supplyGrilles != null
       ? ([[`Щелевые решётки притока 20×400`, `${calc.supplyGrilles} шт`]] as [string, string][])
       : []),
-    ...input.options.map((o) => [o, ''] as [string, string]),
+    /* Проушины — только из галки опций (не автодля всех островов) */
+    ...input.options.map(
+      (o) =>
+        (o === 'Проушины для монтажа' ? [o, '4 шт'] : [o, '']) as [string, string],
+    ),
     ...(input.traits.hydro
       ? ([
           ['Щит управления и диспетчеризации', '1 шт'],
           ['Воздуховод EI 45 после изделия', 'по проекту'],
         ] as [string, string][])
       : []),
-    ...(input.traits.island ? ([['Подвес к перекрытию', '4 точки']] as [string, string][]) : []),
   ];
 
   for (const [name, qty] of rows) {
@@ -302,14 +305,13 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
   y += 3;
   drawLine(ctx, [left, y], [right, y], THIN, 0.25);
   y += 6;
+  /* В PDF заказа — состав, не справочный расход/v захвата (они в UI конфигуратора). */
   const params: [string, string][] = [
-    ['Расход воздуха', `${ru(calc.airflow)} м³/ч`],
-    ['Скорость захвата', `${dec(calc.captureVelocity, 1)} м/с`],
     ...(withCollar
       ? ([
           [
             'Вытяжка',
-            `${calc.ducts.count} × Ø${calc.ducts.diameter}, ${dec(calc.ducts.velocity)} м/с`,
+            `${calc.ducts.count} × Ø${calc.ducts.diameter}`,
           ],
         ] as [string, string][])
       : []),
@@ -324,8 +326,6 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
     ...(calc.supplyGrilles != null
       ? ([[`Решётки притока`, `${calc.supplyGrilles} шт (20×400)`]] as [string, string][])
       : []),
-    ['Площадь захвата', `${dec(calc.captureArea, 2)} м²`],
-    ['Периметр захвата', `${dec(calc.perimeter)} м`],
     ['Масса, ориентир', `${ru(calc.mass)} кг`],
   ];
   for (const [k, v] of params) {
