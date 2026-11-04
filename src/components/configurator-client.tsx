@@ -518,12 +518,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
       (o) =>
         (o === 'Проушины для монтажа' ? [o, '4 шт'] : [o, '']) as [string, string],
     ),
-    ...(traits.hydro
-      ? ([
-          ['Щит управления и диспетчеризации', '1 шт'],
-          ['Воздуховод EI 45 после изделия', 'по проекту'],
-        ] as [string, string][])
-      : []),
+    /* Щит АВТ и EI 45 — не в комплекте/цене зонта; норма — в плашке «Внимание», не в спецификации */
   ];
 
   return (

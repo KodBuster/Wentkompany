@@ -558,7 +558,9 @@ export function buildSheet(input: DrawingInput): Sheet {
         ]
       : []),
     ...(traits.hydro
-      ? [`${noteN++}. Гидрозатвор: обвязка и автоматика по п. 5.30 СП 7.13130.`]
+      ? [
+          `${noteN++}. Гидрозатвор в изделии. Щит автоматики и воздуховод EI 45 — по п. 5.30/5.32 СП, отдельно от комплекта зонта.`,
+        ]
       : []),
     ...(selectedOptions.length
       ? [

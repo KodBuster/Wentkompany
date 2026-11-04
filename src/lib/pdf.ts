@@ -285,12 +285,7 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
       (o) =>
         (o === 'Проушины для монтажа' ? [o, '4 шт'] : [o, '']) as [string, string],
     ),
-    ...(input.traits.hydro
-      ? ([
-          ['Щит управления и диспетчеризации', '1 шт'],
-          ['Воздуховод EI 45 после изделия', 'по проекту'],
-        ] as [string, string][])
-      : []),
+    /* Щит АВТ и EI 45 — не комплект зонта; требование нормы не дублируем в спецификации */
   ];
 
   for (const [name, qty] of rows) {
