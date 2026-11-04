@@ -612,7 +612,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
           hint={
             <p className="hint">
               Рекомендация: свес за оборудование ≥ {ru(recommendOverhangMm(mount))} мм
-              (линия ~{COOK_LINE_H} мм; при дверях — больше).
+              (высота оборудования ~{COOK_LINE_H} мм; при дверях — больше).
             </p>
           }
         />
