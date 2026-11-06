@@ -95,6 +95,7 @@ export function HoodDrawing({
       input.material,
       input.typeLabel,
       input.lamps,
+      input.lampQty,
       input.dims.h,
       input.dims.w,
       input.dims.d,

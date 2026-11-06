@@ -1,7 +1,12 @@
 import data from '@/data/catalog.json';
 import type { Family, FamilyTraits, Dims } from './calc';
 import { sizeSpaced } from './calc';
-import { displayPriceMap, loadPricesFile } from './prices';
+import {
+  displayPriceForDims,
+  displayPriceMap,
+  isMatrixArticle,
+  loadPricesFile,
+} from './prices';
 
 /**
  * Линейки с коробчатой геометрией — для них есть параметрический чертёж/3D.
@@ -70,7 +75,10 @@ const rawProducts = (data.products as RawProduct[]).map((p) => ({
 
 export const generatedAt = data.generatedAt as string;
 
-/** Продукты с ценами из прайс-файла (формула −% затем +%). */
+/**
+ * Продукты с ценами из прайс-файла.
+ * ЗВП/ЗВО — минимум по матрице («от …»); legacy — −10%/+20%; ЗПВП/ЗПВО — null.
+ */
 export function getProducts(): Product[] {
   const file = loadPricesFile();
   const map = displayPriceMap(file);
@@ -79,6 +87,23 @@ export function getProducts(): Product[] {
     /* Витрина только из прайса; catalog.json.price не для показа */
     price: map[p.article] ?? null,
   }));
+}
+
+/**
+ * Витринная цена для заказа: матрица — точный H/D/W;
+ * legacy — только при совпадении с каталожным base.
+ */
+export function productPriceAt(
+  article: string,
+  dims: Dims | null | undefined,
+  base?: Dims | null,
+): number | null {
+  if (!dims) return null;
+  if (isMatrixArticle(article)) return displayPriceForDims(article, dims);
+  if (base && (dims.h !== base.h || dims.w !== base.w || dims.d !== base.d)) {
+    return null;
+  }
+  return displayPriceMap()[article] ?? null;
 }
 
 /** Линейки с пересчитанным «от …». */

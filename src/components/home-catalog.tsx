@@ -6,14 +6,18 @@ import {
   homeCatalogFamilies,
   productsOf,
   shortName,
-  traitsOf,
   schemeOf,
   familyByCode,
   type FamilyRecord,
   type Product,
 } from '@/lib/catalog';
-import { calculate, rub, ru } from '@/lib/calc';
+import { rub } from '@/lib/calc';
+import { isMatrixArticle } from '@/lib/prices';
+import { ProductSizeOrder } from '@/components/product-size-order';
 import neutral from '@/data/neutral.json';
+
+/** Линейки зонтов: на плитке каталога без расхода/вытяжки (размер — на карточке / в конфигураторе). */
+const HOOD_LIST_FAMILIES = new Set(['ЗВП', 'ЗВО', 'ЗПВП', 'ЗПВО', 'ЗВПГ', 'ЗВОГ', 'ПИР']);
 
 /** Ссылка на форму заказа стандартного типоразмера с уже выбранным slug. */
 export function orderHref(slug: string) {
@@ -52,18 +56,20 @@ function TypeCard({
   f: FamilyRecord;
   textOnly?: boolean;
 }) {
-  const traits = traitsOf(f.code);
-  const c = p.base
-    ? calculate(p.base, traits, p.base, p.price, undefined, { typeLabel: p.type })
-    : null;
+  const matrix = isMatrixArticle(p.article);
   const img = p.images[0];
   const scheme = schemeOf(p);
   const title = typeTitle(p, f);
   const showVisuals = !textOnly && (!!img || !!scheme);
-  // В длинной главной странице native lazy-loading иногда не запускается
-  // для второго блока каталога (ЗВО): карточки уже в viewport, а currentSrc
-  // остаётся пустым. Три оптимизированных фото весят мало — грузим их сразу.
-  const eagerVisuals = p.family === 'ЗВО';
+  // В длинной главной native lazy иногда не стартует у блоков ниже первого
+  // (ЗВО / ЗПВО / ЗПВП): карточка в viewport, а currentSrc пустой — схема «пропадает».
+  const eagerVisuals = p.family === 'ЗВО' || p.family === 'ЗПВО' || p.family === 'ЗПВП';
+  /**
+   * ЗВП/ЗВО — без габарита на плитке (размер на карточке).
+   * Остальные зонты — только габарит, без расхода/вытяжки/притока.
+   */
+  const showSizeOnly =
+    !!p.base && HOOD_LIST_FAMILIES.has(p.family) && !matrix;
 
   return (
     <article className={`home-catalog__type${textOnly ? ' home-catalog__type--text' : ''}`}>
@@ -108,40 +114,12 @@ function TypeCard({
             <ClauseRichText text={p.short} />
           </p>
         )}
-        {p.base && (
+        {showSizeOnly && p.base && (
           <dl className="home-catalog__specs">
             <div>
               <dt>Габарит H/D/W</dt>
               <dd>{`${p.base.h}/${p.base.d}/${p.base.w} мм`}</dd>
             </div>
-            {c && (
-              <>
-                <div>
-                  <dt>Расход, расчёт</dt>
-                  <dd>{ru(c.airflow)} м³/ч</dd>
-                </div>
-                <div>
-                  <dt>Вытяжка</dt>
-                  <dd>
-                    {c.ducts.count} × Ø{c.ducts.diameter}
-                  </dd>
-                </div>
-                {c.supplyDucts && (
-                  <div>
-                    <dt>Приток</dt>
-                    <dd>
-                      {c.supplyDucts.count} × Ø{c.supplyDucts.diameter}
-                    </dd>
-                  </div>
-                )}
-                {c.supplyGrilles != null && (
-                  <div>
-                    <dt>Решётки притока</dt>
-                    <dd>{c.supplyGrilles} шт</dd>
-                  </div>
-                )}
-              </>
-            )}
           </dl>
         )}
         {!p.base && p.features.length > 0 && !textOnly && (
@@ -151,23 +129,36 @@ function TypeCard({
             ))}
           </ul>
         )}
-        <div className="home-catalog__cta">
-          <span className="num home-catalog__price">
-            {p.price ? rub(p.price) : 'после расчёта'}
-          </span>
-          {p.base ? (
-            <StickyLink
-              href={p.price ? orderHref(p.slug) : `/contacts?mode=quote&slug=${encodeURIComponent(p.slug)}`}
-              className="btn home-catalog__btn"
-            >
-              {p.price ? 'Заказать' : 'Запросить расчёт'}
-            </StickyLink>
-          ) : (
-            <StickyLink href={`/catalog/${p.slug}`} className="btn btn-ghost home-catalog__btn">
-              Подробнее
-            </StickyLink>
-          )}
-        </div>
+        {matrix && p.base ? (
+          <ProductSizeOrder
+            slug={p.slug}
+            article={p.article}
+            initial={p.base}
+            layout="tile"
+          />
+        ) : (
+          <div className="home-catalog__cta">
+            <span className="num home-catalog__price">
+              {p.price ? rub(p.price) : 'после расчёта'}
+            </span>
+            {p.base ? (
+              <StickyLink
+                href={
+                  p.price
+                    ? orderHref(p.slug)
+                    : `/contacts?mode=quote&slug=${encodeURIComponent(p.slug)}`
+                }
+                className="btn home-catalog__btn"
+              >
+                {p.price ? 'Заказать' : 'Запросить расчёт'}
+              </StickyLink>
+            ) : (
+              <StickyLink href={`/catalog/${p.slug}`} className="btn btn-ghost home-catalog__btn">
+                Подробнее
+              </StickyLink>
+            )}
+          </div>
+        )}
       </div>
     </article>
   );

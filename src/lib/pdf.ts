@@ -20,7 +20,7 @@ import {
   type Point,
 } from './drawing.ts';
 import { buildLayout } from './geometry.ts';
-import { ru, rub, dec, hasCollarOption } from './calc.ts';
+import { ru, rub, dec, hasCollarOption, OPTION_LAMPS, clampLampQty } from './calc.ts';
 
 /** 1 мм в пунктах PDF. */
 const MM = 72 / 25.4;
@@ -215,10 +215,12 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
   const withCollar = hasCollarOption(input.options);
   const layout = buildLayout(input.dims, input.traits, input.calc.ducts, {
     lamps: input.lamps,
+    lampQty: input.lampQty,
     typeLabel: input.typeLabel,
     includeSpigots: withCollar,
   });
   const { calc, dims, material, company } = input;
+  const lampQty = input.lamps ? clampLampQty(input.lampQty ?? 1) : 0;
 
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
@@ -280,11 +282,12 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Uint8Array> {
     ...(calc.supplyGrilles != null
       ? ([[`Щелевые решётки притока 20×400`, `${calc.supplyGrilles} шт`]] as [string, string][])
       : []),
-    /* Проушины — только из галки опций (не автодля всех островов) */
-    ...input.options.map(
-      (o) =>
-        (o === 'Проушины для монтажа' ? [o, '4 шт'] : [o, '']) as [string, string],
-    ),
+    /* Проушины — комплект; светильники — выбранное число штук */
+    ...input.options.map((o) => {
+      if (o === 'Проушины для монтажа') return [o, '4 шт'] as [string, string];
+      if (o === OPTION_LAMPS) return [o, `${lampQty} шт`] as [string, string];
+      return [o, ''] as [string, string];
+    }),
     /* Щит АВТ и EI 45 — не комплект зонта; требование нормы не дублируем в спецификации */
   ];
 

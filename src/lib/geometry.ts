@@ -892,13 +892,19 @@ export function layoutHangers(
   });
 }
 
-/** Светильники в один ряд по длине, шаг ~800 мм. */
-export function layoutLamps(dims: Dims, enabled: boolean) {
+/**
+ * Светильники в один ряд по длине.
+ * Без явного count — ориентир по W (~800 мм); с count — раскладка выбранного числа.
+ */
+export function layoutLamps(dims: Dims, enabled: boolean, count?: number) {
   if (!enabled) return [];
-  const count = clamp(Math.round(dims.w / 800), 1, 6);
+  const n =
+    typeof count === 'number' && Number.isFinite(count) && count > 0
+      ? clamp(Math.round(count), 1, 12)
+      : clamp(Math.round(dims.w / 800), 1, 6);
   const usable = dims.w - 300;
-  return Array.from({ length: count }, (_, i) => ({
-    x: count === 1 ? 0 : -usable / 2 + (usable * i) / (count - 1),
+  return Array.from({ length: n }, (_, i) => ({
+    x: n === 1 ? 0 : -usable / 2 + (usable * i) / (n - 1),
     z: 0,
   }));
 }
@@ -908,7 +914,13 @@ export function buildLayout(
   dims: Dims,
   traits: FamilyTraits,
   pick: DuctPick,
-  options: { lamps?: boolean; typeLabel?: string | null; includeSpigots?: boolean } = {},
+  options: {
+    lamps?: boolean;
+    /** Явное число светильников; иначе ориентир по ширине. */
+    lampQty?: number;
+    typeLabel?: string | null;
+    includeSpigots?: boolean;
+  } = {},
 ): Layout {
   /*
    * ЗВПГ / ЗВОГ без «ТИП n» — прямоугольный короб (фронт 90°).
@@ -1035,7 +1047,7 @@ export function buildLayout(
     filters: layoutFilters(dims, traits),
     /* Подвесы ситуативные — в компоновке/сцене/чертеже не выдаём */
     hangers: [],
-    lamps: layoutLamps(dims, !!options.lamps),
+    lamps: layoutLamps(dims, !!options.lamps, options.lampQty),
     nozzles: traits.hydro ? Math.max(2, Math.round(dims.w / BUILD.nozzleStep)) : 0,
     supplySlot: layoutSupplySlot(dims, traits),
     supplyPlenum: traits.supply ? { depth: plenumDepth, frontRise } : null,

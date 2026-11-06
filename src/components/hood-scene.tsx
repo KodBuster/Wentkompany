@@ -2202,6 +2202,8 @@ export interface HoodSceneProps {
   mode: ViewMode;
   material: '430' | '304';
   lamps: boolean;
+  /** Явное число светильников; иначе ориентир по ширине. */
+  lampQty?: number;
   /** Подпись типа из каталога («ТИП 1»…) — меняет профиль корпуса. */
   typeLabel?: string | null;
   /** Показывать патрубки (опция «Врезка присоединительная»). */
@@ -2217,13 +2219,14 @@ export function HoodScene({
   mode,
   material,
   lamps,
+  lampQty,
   typeLabel,
   includeSpigots = false,
   fitRequest = 0,
 }: HoodSceneProps) {
   const layout = useMemo(
-    () => buildLayout(dims, traits, ducts, { lamps, typeLabel, includeSpigots }),
-    [dims, traits, ducts, lamps, typeLabel, includeSpigots],
+    () => buildLayout(dims, traits, ducts, { lamps, lampQty, typeLabel, includeSpigots }),
+    [dims, traits, ducts, lamps, lampQty, typeLabel, includeSpigots],
   );
 
   /* Пользователь крутит/зумит/панит — не затираем ракурс при смене мм */

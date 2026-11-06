@@ -82,8 +82,8 @@ export default async function ConfiguratorPage({
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <span className="lbl">Если размер нестандартный</span>
           <p className="muted max-w-[46ch] text-sm">
-            Цену вне стандартного типоразмера на сайте не публикуем — оставьте заявку,
-            производство посчитает точно и подтвердит срок.
+            Оставьте заявку с вашими размерами. Производство посчитает точно и подтвердит
+            заказ.
           </p>
           <Link href="/#catalog" className="btn btn-ghost">Каталог с ценами</Link>
         </div>

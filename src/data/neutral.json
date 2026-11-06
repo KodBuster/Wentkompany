@@ -1,5 +1,5 @@
 {
-  "comment": "Нейтральное оборудование — отдельные позиции. Барные станции — тип 1…5; урна и шкаф отдельно. Без прайса, по размерам заказчика.",
+  "comment": "Нейтральное оборудование — отдельные позиции. Без прайса, по размерам заказчика.",
   "items": [
     {
       "slug": "barnaya-stanciya-1",
@@ -57,6 +57,36 @@
         "/nejtralnoe/barnaya-stanciya-5-2.webp",
         "/nejtralnoe/barnaya-stanciya-5-4.webp"
       ]
+    },
+    {
+      "slug": "kuhni",
+      "kind": "other",
+      "label": "На заказ",
+      "title": "Кухни различных конфигураций",
+      "lead": "Кухни различных конфигураций из нержавеющей стали по вашим размерам.",
+      "photos": [
+        "/nejtralnoe/kuhni-1.webp",
+        "/nejtralnoe/kuhni-2.webp"
+      ]
+    },
+    {
+      "slug": "stoly-stellazhi",
+      "kind": "other",
+      "label": "На заказ",
+      "title": "Столы и стеллажи",
+      "lead": "Столы и стеллажи из нержавеющей стали по вашим размерам, различных конфигураций.",
+      "photos": [
+        "/nejtralnoe/stoly-stellazhi-1.webp",
+        "/nejtralnoe/stoly-stellazhi-2.webp"
+      ]
+    },
+    {
+      "slug": "mangalnaya-zona",
+      "kind": "other",
+      "label": "На заказ",
+      "title": "Мангальная зона",
+      "lead": "Мангальная зона из нержавеющей стали.",
+      "photos": ["/nejtralnoe/mangalnaya-zona-1.webp"]
     },
     {
       "slug": "urna",

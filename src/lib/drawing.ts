@@ -10,7 +10,7 @@
  */
 
 import type { Dims, FamilyTraits, Calculation } from './calc.ts';
-import { ru, dec, hasCollarOption } from './calc.ts';
+import { ru, dec, hasCollarOption, OPTION_LAMPS, clampLampQty } from './calc.ts';
 import { buildLayout, BUILD, supplyType2Chamfer, islandSupplyType2Chamfer, islandSupplyType1Seam, wallType2Chamfer, islandType2Chamfer, type Layout } from './geometry.ts';
 
 export type Point = [number, number];
@@ -454,6 +454,8 @@ export interface DrawingInput {
   productName: string;
   material: '430' | '304';
   lamps?: boolean;
+  /** Число светильников при выбранной опции. */
+  lampQty?: number;
   /** Выбранные опции доп. оборудования — в примечания листа. */
   options?: string[];
   /** Подпись типа из каталога — профиль сечения на чертеже. */
@@ -465,6 +467,7 @@ export function buildSheet(input: DrawingInput): Sheet {
   const withCollar = hasCollarOption(input.options);
   const layout = buildLayout(dims, traits, calc.ducts, {
     lamps: input.lamps,
+    lampQty: input.lampQty,
     typeLabel: input.typeLabel,
     includeSpigots: withCollar,
   });
@@ -536,7 +539,10 @@ export function buildSheet(input: DrawingInput): Sheet {
   /* ФИ — аббревиатура FortInox (рус.) */
   const designation = `ФИ.${article}.${dims.h}-${dims.d}-${dims.w}`;
 
-  const selectedOptions = (input.options ?? []).filter(Boolean);
+  const lampQty = input.lamps ? clampLampQty(input.lampQty ?? 1) : 0;
+  const selectedOptions = (input.options ?? [])
+    .filter(Boolean)
+    .map((o) => (o === OPTION_LAMPS ? `${o} — ${lampQty} шт` : o));
   let noteN = 1;
   /* Примечания чертежа — состав изделия, без справочного расхода/v захвата. */
   const notes = [
@@ -568,7 +574,7 @@ export function buildSheet(input: DrawingInput): Sheet {
         ]
       : []),
     `${noteN++}. Размеры для справок, чертёж предварительный.`,
-  ];
+  ].flatMap((line) => wrapDrawingNote(line));
 
   const stamp: StampRow[] = [
     { label: 'Наименование', value: productName },
@@ -598,6 +604,40 @@ export function buildSheet(input: DrawingInput): Sheet {
 
 export const STAMP_BOX = STAMP;
 export const SHEET_FIELDS = FIELDS;
+
+/**
+ * Перенос длинного примечания под колонку «Технические требования»
+ * (x≈245…415 мм ≈ 68 символов моноширинным 3.3).
+ * Продолжения с отступом, без обрезки.
+ */
+export function wrapDrawingNote(text: string, maxChars = 68): string[] {
+  const raw = text.trim();
+  if (!raw) return [];
+  if (raw.length <= maxChars) return [raw];
+
+  const words = raw.split(/\s+/);
+  const out: string[] = [];
+  let cur = '';
+
+  const flush = () => {
+    if (!cur) return;
+    out.push(out.length === 0 ? cur : `   ${cur}`);
+    cur = '';
+  };
+
+  for (const w of words) {
+    const limit = out.length === 0 ? maxChars : maxChars - 3;
+    const trial = cur ? `${cur} ${w}` : w;
+    if (trial.length > limit && cur) {
+      flush();
+      cur = w;
+    } else {
+      cur = trial;
+    }
+  }
+  flush();
+  return out.length ? out : [raw];
+}
 
 /**
  * Перенос длинного значения штампа по словам — без обрезки «…».

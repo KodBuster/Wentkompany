@@ -54,8 +54,9 @@ export function StandardOrderExperience({
       calculate(dims, traits, dims, basePrice, material, {
         typeLabel,
         options,
+        article,
       }),
-    [dims, traits, basePrice, material, typeLabel, options],
+    [dims, traits, basePrice, material, typeLabel, options, article],
   );
 
   const configuration = [

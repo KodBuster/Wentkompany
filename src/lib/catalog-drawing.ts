@@ -4,7 +4,13 @@
  * Тот же вход использует выгрузка (/api/export) и заявка (/api/lead).
  */
 
-import { calculate, resolveMaterialGrade, type Dims } from '@/lib/calc';
+import {
+  calculate,
+  clampLampQty,
+  OPTION_LAMPS,
+  resolveMaterialGrade,
+  type Dims,
+} from '@/lib/calc';
 import {
   familyByCode,
   productBySlug,
@@ -32,6 +38,8 @@ export interface DrawingRequest {
   dims?: { h?: unknown; w?: unknown; d?: unknown };
   material?: unknown;
   options?: unknown;
+  /** Число точечных светильников (если опция выбрана). */
+  lampQty?: unknown;
   captureVelocity?: unknown;
 }
 
@@ -89,6 +97,11 @@ export function resolveDrawingInput(raw: DrawingRequest): ResolvedDrawing {
         (o): o is string => typeof o === 'string' && (DRAWING_OPTIONS as readonly string[]).includes(o),
       )
     : [];
+  const lampsOn = options.includes(OPTION_LAMPS);
+  const lampQtyRaw = num(raw.lampQty);
+  const lampQty = lampsOn
+    ? clampLampQty(Number.isFinite(lampQtyRaw) ? lampQtyRaw : 1)
+    : undefined;
 
   const traits = traitsOf(product.family);
   const family = familyByCode(product.family);
@@ -99,6 +112,8 @@ export function resolveDrawingInput(raw: DrawingRequest): ResolvedDrawing {
     typeLabel: product.type,
     captureVelocity: Number.isFinite(velocity) ? velocity : undefined,
     options,
+    lampQty,
+    article: product.article,
   });
 
   const input: DrawingInput = {
@@ -108,7 +123,8 @@ export function resolveDrawingInput(raw: DrawingRequest): ResolvedDrawing {
     article: product.article,
     productName: family?.title ?? product.name,
     material,
-    lamps: options.includes(DRAWING_OPTIONS[3]),
+    lamps: lampsOn,
+    lampQty,
     options,
     typeLabel: product.type,
   };

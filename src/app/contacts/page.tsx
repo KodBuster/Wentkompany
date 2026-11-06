@@ -3,8 +3,14 @@ import { LeadForm } from '@/components/lead-form';
 import { StandardOrderExperience } from '@/components/standard-order-experience';
 import { MessengerLinks } from '@/components/messenger-links';
 import { PageBackdrop } from '@/components/page-backdrop';
-import { productBySlug, shortName, traitsOf, supportsParametricDrawing } from '@/lib/catalog';
-import { defaultMaterialGrade } from '@/lib/calc';
+import {
+  productBySlug,
+  productPriceAt,
+  shortName,
+  traitsOf,
+  supportsParametricDrawing,
+} from '@/lib/catalog';
+import { defaultMaterialGrade, type Dims } from '@/lib/calc';
 import { site } from '@/lib/site';
 import { openGraph } from '@/lib/seo';
 
@@ -46,10 +52,24 @@ export default async function ContactsPage({
   const queryH = queryNum(h);
   const queryW = queryNum(w);
   const queryD = queryNum(d);
-  /** Габарит из конфигуратора — не стандарт карточки, даже если slug тот же. */
-  const customDims = queryH != null || queryW != null || queryD != null;
-  /** Заказ стандарта: короткий формат + авто-PDF + превью фото/чертежа */
-  const isStandardOrder = mode === 'order' && !!product?.base && !customDims;
+  const orderDims: Dims | null = product?.base
+    ? {
+        h: queryH ?? product.base.h,
+        w: queryW ?? product.base.w,
+        d: queryD ?? product.base.d,
+      }
+    : null;
+  /**
+   * Заказ стандарта: короткий формат + авто-PDF.
+   * С cfg — сборка из конфигуратора (полная форма).
+   * Без cfg — карточка/каталог; габарит из query или base, если есть цена в прайсе.
+   */
+  const listPrice =
+    product && orderDims
+      ? productPriceAt(product.article, orderDims, product.base)
+      : null;
+  const isStandardOrder =
+    mode === 'order' && !!product?.base && !!orderDims && listPrice != null && !cfg;
 
   const traits = product ? traitsOf(product.family) : null;
   const material = traits ? defaultMaterialGrade(traits.hydro) : '430';
@@ -57,14 +77,10 @@ export default async function ContactsPage({
   const isQuote = mode === 'quote';
   const optList = (Array.isArray(opt) ? opt : opt ? [opt] : []).filter(Boolean);
   const drawMaterial = materialParam === '304' || materialParam === '430' ? materialParam : material;
-  const drawing = product?.base
+  const drawing = orderDims
     ? {
-        slug: product.slug,
-        dims: {
-          h: queryH ?? product.base.h,
-          w: queryW ?? product.base.w,
-          d: queryD ?? product.base.d,
-        },
+        slug: product!.slug,
+        dims: orderDims,
         material: drawMaterial,
         options: optList,
         captureVelocity: queryNum(v),
@@ -80,16 +96,16 @@ export default async function ContactsPage({
     <section className="band band-shop page-hero band--backdrop">
       <PageBackdrop theme="steel" />
       <div className="wrap grid gap-10 lg:grid-cols-[1fr_420px]">
-        {isStandardOrder && product?.base && traits ? (
+        {isStandardOrder && product && orderDims && traits ? (
           <StandardOrderExperience
             slug={product.slug}
             productName={product.name}
             shortLabel={shortName(product)}
             article={product.article}
-            dims={product.base}
+            dims={orderDims}
             traits={traits}
             typeLabel={product.type}
-            basePrice={product.price}
+            basePrice={listPrice}
             availableOptions={product.options}
             photoSrc={product.images[0]}
             supportsDrawing={supportsParametricDrawing(product.family)}

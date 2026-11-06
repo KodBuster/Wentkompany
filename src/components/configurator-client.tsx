@@ -16,9 +16,13 @@ import {
   rub,
   dec,
   defaultMaterialGrade,
+  clampLampQty,
   CAPTURE_VELOCITIES,
   CAPTURE_VELOCITY_LABELS,
   DEFAULT_CAPTURE_VELOCITY,
+  LAMP_QTY_MAX,
+  LAMP_QTY_MIN,
+  OPTION_LAMPS,
   type CaptureVelocity,
   type Dims,
   type FamilyTraits,
@@ -27,11 +31,19 @@ import {
   sizeLabelMm,
 } from '@/lib/calc';
 import { buildLayout } from '@/lib/geometry';
+import {
+  isMatrixArticle,
+  matrixStartDims,
+  matrixTicksForAxis,
+} from '@/lib/prices';
 import { HoodDrawing } from './hood-drawing';
 import { ExportButtons } from './export-buttons';
 import { ClauseRichText } from '@/components/clause-tip';
 import type { ViewMode } from './hood-scene';
 import { GOALS, track } from '@/lib/analytics';
+
+/** Типовые высоты нижней кромки от пола — быстрый snap. */
+const MOUNT_TICKS = [1900, 2000] as const;
 
 const HoodScene = dynamic(() => import('./hood-scene').then((m) => m.HoodScene), {
   ssr: false,
@@ -66,17 +78,27 @@ interface Props {
 
 const LIMITS = {
   w: { min: 600, max: 3000, step: 1 },
-  d: { min: 600, max: 1600, step: 1 },
+  /* Островная матрица ЗВО до 2500 по D */
+  d: { min: 600, max: 2500, step: 1 },
   h: { min: 300, max: 700, step: 1 },
   mount: { min: 1600, max: 2600, step: 1 },
 };
+
+/** Ширина бегунка .cfg-range — для совпадения рисок с визуальной позицией thumb. */
+const RANGE_THUMB_PX = 12;
+
+/** left% с учётом хода бегунка (не край в край трека). */
+function tickLeftCss(value: number, min: number, max: number): string {
+  const p = max > min ? (value - min) / (max - min) : 0;
+  return `calc(${p} * (100% - ${RANGE_THUMB_PX}px) + ${RANGE_THUMB_PX / 2}px)`;
+}
 
 const OPTIONS = [
   'Врезка присоединительная',
   'Проушины для монтажа',
   'Кран для слива жира и конденсата',
-  'Точечные светодиодные светильники',
-];
+  OPTION_LAMPS,
+] as const;
 
 const DEFAULT_MOUNT = 2000;
 /** Типовая высота варочной линии, мм (для ориентира свеса). */
@@ -133,17 +155,49 @@ function resolveInitialSlug(
   return defaultModelSlug(models, families);
 }
 
-function resolveInitialDims(model: ConfiguratorModel, initialDims?: Partial<Dims>): Dims {
-  const pick = (key: keyof Dims, lim: { min: number; max: number }) => {
-    const raw = initialDims?.[key];
-    if (typeof raw === 'number' && Number.isFinite(raw)) return clampDim(raw, lim.min, lim.max);
-    return model[key];
-  };
+/** Габарит модели: из query, иначе старт матрицы, иначе каталожный base. */
+function dimsForModel(
+  model: ConfiguratorModel,
+  initialDims?: Partial<Dims>,
+): Dims {
+  const fromQuery =
+    initialDims &&
+    (initialDims.h != null || initialDims.w != null || initialDims.d != null);
+  if (fromQuery) {
+    const pick = (key: keyof Dims, lim: { min: number; max: number }, fallback: number) => {
+      const raw = initialDims?.[key];
+      if (typeof raw === 'number' && Number.isFinite(raw)) return clampDim(raw, lim.min, lim.max);
+      return clampDim(fallback, lim.min, lim.max);
+    };
+    const start = isMatrixArticle(model.article)
+      ? matrixStartDims(model.article)
+      : null;
+    const fb = start ?? { h: model.h, w: model.w, d: model.d };
+    return {
+      h: pick('h', LIMITS.h, fb.h),
+      w: pick('w', LIMITS.w, fb.w),
+      d: pick('d', LIMITS.d, fb.d),
+    };
+  }
+  if (isMatrixArticle(model.article)) {
+    const start = matrixStartDims(model.article);
+    if (start) {
+      return {
+        h: clampDim(start.h, LIMITS.h.min, LIMITS.h.max),
+        w: clampDim(start.w, LIMITS.w.min, LIMITS.w.max),
+        d: clampDim(start.d, LIMITS.d.min, LIMITS.d.max),
+      };
+    }
+  }
   return {
-    h: pick('h', LIMITS.h),
-    w: pick('w', LIMITS.w),
-    d: pick('d', LIMITS.d),
+    h: clampDim(model.h, LIMITS.h.min, LIMITS.h.max),
+    w: clampDim(model.w, LIMITS.w.min, LIMITS.w.max),
+    d: clampDim(model.d, LIMITS.d.min, LIMITS.d.max),
   };
+}
+
+function resolveInitialDims(model: ConfiguratorModel, initialDims?: Partial<Dims>): Dims {
+  return dimsForModel(model, initialDims);
 }
 
 /** Полная строка конфигурации для заявки (заказ / точная цена). */
@@ -154,6 +208,7 @@ function buildCfgText(input: {
   mount: number;
   material: string;
   options: string[];
+  lampQty: number;
   /** Патрубки — только при опции «Врезка присоединительная». */
   withCollar: boolean;
   ducts: { count: number; diameter: number };
@@ -168,19 +223,23 @@ function buildCfgText(input: {
     mount,
     material,
     options,
+    lampQty,
     withCollar,
     ducts,
     supplyDucts,
     supplyGrilles,
     price,
   } = input;
+  const optionsLine = options
+    .map((o) => (o === OPTION_LAMPS ? `${o} ${lampQty} шт` : o))
+    .join(', ');
   /* В заявку — состав заказа, не справочный расход/захват (они остаются в UI «Расчёт»). */
   const bits = [
     `${family.code} · ${model.article}`,
     `${SIZE_ORDER} ${sizeLabelMm(dims)}`,
     `кромка от пола ${mount} мм`,
     `AISI ${material}`,
-    options.length ? `опции: ${options.join(', ')}` : 'опции: нет',
+    options.length ? `опции: ${optionsLine}` : 'опции: нет',
     ...(withCollar ? [`вытяжка ${ducts.count}×Ø${ducts.diameter}`] : []),
     ...(withCollar && supplyDucts
       ? [`приток ${supplyDucts.count}×Ø${supplyDucts.diameter}`]
@@ -206,6 +265,9 @@ function DimSlider({
   onChange,
   ariaLabel,
   hint,
+  ticks,
+  /** Точки (H) или чёрточки-линейка (W/D). */
+  tickStyle = 'dot',
 }: {
   label: string;
   value: number;
@@ -215,6 +277,9 @@ function DimSlider({
   onChange: (v: number) => void;
   ariaLabel: string;
   hint?: ReactNode;
+  /** Метки прайса на треке (клик → snap). */
+  ticks?: number[];
+  tickStyle?: 'dot' | 'rule';
 }) {
   const rangeRef = useRef<HTMLInputElement>(null);
   const valueRef = useRef(value);
@@ -227,6 +292,29 @@ function DimSlider({
   const [editing, setEditing] = useState(false);
 
   const set = (n: number) => onChange(clampDim(n, min, max));
+  const asRule = tickStyle === 'rule';
+  const ticksRef = useRef<HTMLDivElement>(null);
+
+  /** Клик по полосе → ближайший типоразмер (та же шкала, что у бегунка). */
+  const snapNearest = (clientX: number) => {
+    if (!ticks?.length || max <= min || !ticksRef.current) return;
+    const rect = ticksRef.current.getBoundingClientRect();
+    const usable = rect.width - RANGE_THUMB_PX;
+    if (usable <= 0) return;
+    const x = clientX - rect.left - RANGE_THUMB_PX / 2;
+    const p = Math.min(1, Math.max(0, x / usable));
+    const approx = min + p * (max - min);
+    let best = ticks[0];
+    let bestD = Math.abs(best - approx);
+    for (let i = 1; i < ticks.length; i++) {
+      const d = Math.abs(ticks[i] - approx);
+      if (d < bestD) {
+        bestD = d;
+        best = ticks[i];
+      }
+    }
+    set(best);
+  };
 
   const stopHold = () => {
     if (holdRef.current.delay != null) clearTimeout(holdRef.current.delay);
@@ -335,17 +423,55 @@ function DimSlider({
         >
           −
         </button>
-        <input
-          ref={rangeRef}
-          type="range"
-          className="cfg-range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          aria-label={`${ariaLabel}: ползунок`}
-          onChange={(e) => set(+e.target.value)}
-        />
+        <div className="cfg-range-wrap">
+          {ticks && ticks.length > 0 && max > min && (
+            <div
+              ref={ticksRef}
+              className={asRule ? 'cfg-range-ticks cfg-range-ticks--rule' : 'cfg-range-ticks'}
+              onPointerDown={(e) => {
+                /* На линейке клик «рядом» снэпит к ближайшей риске */
+                if (!asRule || e.button !== 0) return;
+                if ((e.target as HTMLElement).closest('.cfg-range-tick')) return;
+                e.preventDefault();
+                snapNearest(e.clientX);
+              }}
+            >
+              {ticks.map((t) => {
+                const on = t === value;
+                const major = asRule && t % 200 === 0;
+                const cls = [
+                  'cfg-range-tick',
+                  on ? 'cfg-range-tick--on' : '',
+                  major ? 'cfg-range-tick--major' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ');
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    className={cls}
+                    style={{ left: tickLeftCss(t, min, max) }}
+                    title={`${t} мм`}
+                    aria-label={`${ariaLabel}: типоразмер ${t} мм`}
+                    onClick={() => set(t)}
+                  />
+                );
+              })}
+            </div>
+          )}
+          <input
+            ref={rangeRef}
+            type="range"
+            className="cfg-range"
+            min={min}
+            max={max}
+            step={step}
+            value={value}
+            aria-label={`${ariaLabel}: ползунок`}
+            onChange={(e) => set(+e.target.value)}
+          />
+        </div>
         <button
           type="button"
           className="cfg-dim-btn"
@@ -378,6 +504,8 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     defaultMaterialGrade(family.hydro),
   );
   const [options, setOptions] = useState<string[]>([]);
+  /* Число светильников; учитывается только при галке OPTION_LAMPS */
+  const [lampQty, setLampQty] = useState(LAMP_QTY_MIN);
   const [captureVelocity, setCaptureVelocity] =
     useState<CaptureVelocity>(DEFAULT_CAPTURE_VELOCITY);
   const [mode, setMode] = useState<ViewMode>('solid');
@@ -396,6 +524,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     mount: number;
     material: '430' | '304';
     options: string[];
+    lampQty: number;
     captureVelocity: CaptureVelocity;
     mode: ViewMode;
     view: '3d' | 'draft';
@@ -407,6 +536,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
       mount,
       material,
       options: [...options],
+      lampQty,
       captureVelocity,
       mode,
       view,
@@ -419,20 +549,24 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
   const traits: FamilyTraits = { island: family.island, supply: family.supply, hydro: family.hydro };
   const base: Dims = { h: model.h, w: model.w, d: model.d };
   const withCollar = options.includes(OPTIONS[0]);
+  const lampsOn = options.includes(OPTION_LAMPS);
   const calc = useMemo(
     () =>
       calculate(dims, traits, base, model.price, material, {
         captureVelocity,
         typeLabel: model.type,
-        options,
+        options: [...options],
+        lampQty: lampsOn ? lampQty : undefined,
+        article: model.article,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dims, model.slug, model.type, material, captureVelocity, options],
+    [dims, model.slug, model.article, model.type, material, captureVelocity, options, lampQty, lampsOn],
   );
   const layout = useMemo(
     () =>
       buildLayout(dims, traits, calc.ducts, {
-        lamps: options.includes(OPTIONS[3]),
+        lamps: lampsOn,
+        lampQty: lampsOn ? lampQty : undefined,
         typeLabel: model.type,
         includeSpigots: withCollar,
       }),
@@ -446,6 +580,8 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
       calc.supplyDucts?.count,
       calc.supplyGrilles,
       options,
+      lampQty,
+      lampsOn,
       withCollar,
     ],
   );
@@ -454,7 +590,8 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     const next = models.find((m) => m.slug === slug)!;
     const nextFamily = families.find((f) => f.code === next.family)!;
     setModelSlug(slug);
-    setDims({ h: next.h, w: next.w, d: next.d });
+    /* Свободный выбор типа — старт сетки прайса, не каталожный «запомненный» base */
+    setDims(dimsForModel(next));
     setMaterial(defaultMaterialGrade(nextFamily.hydro));
   }
 
@@ -466,13 +603,15 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     setMount(e.mount);
     setMaterial(e.material);
     setOptions([...e.options]);
+    setLampQty(e.lampQty);
     setCaptureVelocity(e.captureVelocity);
     setMode(e.mode);
     setView(e.view);
     setSceneFit((n) => n + 1);
   }
 
-  const isBase = dims.h === base.h && dims.w === base.w && dims.d === base.d;
+  /** Прайс есть: матричный hit или legacy base. */
+  const hasListPrice = !!calc.price;
   const title = `${model.article} · ${sizeCompact(dims)}`;
   const familyModels = models.filter((m) => m.family === model.family);
 
@@ -482,7 +621,8 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     dims,
     mount,
     material,
-    options,
+    options: [...options],
+    lampQty,
     withCollar,
     ducts: calc.ducts,
     supplyDucts: calc.supplyDucts,
@@ -501,6 +641,7 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     q.set('material', material);
     q.set('v', String(captureVelocity));
     for (const option of options) q.append('opt', option);
+    if (lampsOn) q.set('lamps', String(lampQty));
     return `/contacts?${q.toString()}`;
   };
   const orderHref = contactsHref('order');
@@ -525,75 +666,97 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
     ...(calc.supplyGrilles != null
       ? ([[`Щелевые решётки притока 20×400`, `${calc.supplyGrilles} шт`]] as [string, string][])
       : []),
-    /* Проушины — только из галки опций (не автодля всех островов как «Подвес к перекрытию») */
-    ...options.map(
-      (o) =>
-        (o === 'Проушины для монтажа' ? [o, '4 шт'] : [o, '']) as [string, string],
-    ),
+    /* Проушины — комплект; светильники — выбранное число штук */
+    ...options.map((o) => {
+      if (o === 'Проушины для монтажа') return [o, '4 шт'] as [string, string];
+      if (o === OPTION_LAMPS) return [o, `${lampQty} шт`] as [string, string];
+      return [o, ''] as [string, string];
+    }),
     /* Щит АВТ и EI 45 — не в комплекте/цене зонта; норма — в плашке «Внимание», не в спецификации */
   ];
+
+  /* Два слота в DOM (controls / aside) — CSS показывает один; JSX каждый раз новый */
+  const renderMountSlider = () => (
+    <DimSlider
+      label="Нижняя кромка от пола"
+      value={mount}
+      min={LIMITS.mount.min}
+      max={LIMITS.mount.max}
+      step={LIMITS.mount.step}
+      ariaLabel="Высота нижней кромки от пола, мм"
+      onChange={setMount}
+      ticks={[...MOUNT_TICKS]}
+      hint={
+        <p className="hint">
+          Рекомендация: свес за оборудование ≥ {ru(recommendOverhangMm(mount))} мм
+          (высота оборудования ~{COOK_LINE_H} мм; при дверях — больше).
+        </p>
+      }
+    />
+  );
+
+  const renderVelocityGroup = () => (
+    <div className="cfg-group">
+      <span className="lbl">Скорость захвата, м/с</span>
+      <div className="cfg-chips">
+        {CAPTURE_VELOCITIES.map((v) => (
+          <button
+            key={v}
+            type="button"
+            className="cfg-chip"
+            aria-pressed={captureVelocity === v}
+            title={CAPTURE_VELOCITY_LABELS[v]}
+            onClick={() => setCaptureVelocity(v)}
+          >
+            {dec(v, 1)}
+          </button>
+        ))}
+      </div>
+      <p className="hint">{CAPTURE_VELOCITY_LABELS[captureVelocity]}</p>
+    </div>
+  );
 
   return (
     <div className={`cfg-shell${view === 'draft' ? ' cfg-shell--draft' : ''}`}>
       {/* ---------------- левая панель ---------------- */}
       <aside className="cfg-pane cfg-pane--controls">
-        <div className="cfg-group">
-          <span className="lbl">Семейство</span>
-          <div className="cfg-chips">
-            {families.map((f) => (
-              <button
-                key={f.code}
-                type="button"
-                className="cfg-chip"
-                aria-pressed={f.code === model.family}
-                title={f.title}
-                onClick={() => selectModel(models.find((m) => m.family === f.code)!.slug)}
-              >
-                {f.code}
-              </button>
-            ))}
-          </div>
-        </div>
+        {(['w', 'd', 'h'] as const).map((key) => {
+          const lim = LIMITS[key];
+          let ticks: number[] | undefined;
+          let min = lim.min;
+          let max = lim.max;
+          if (isMatrixArticle(model.article)) {
+            /* Только размеры с ценой при текущих остальных осях — без «пустых» рисок */
+            const axis = matrixTicksForAxis(model.article, key, dims).filter(
+              (n) => n >= lim.min && n <= lim.max,
+            );
+            if (axis.length > 0) {
+              ticks = axis;
+              min = lim.min;
+              max = Math.min(lim.max, Math.max(axis[axis.length - 1], dims[key]));
+            }
+          }
+          return (
+            <DimSlider
+              key={key}
+              label={key === 'w' ? 'Ширина W' : key === 'd' ? 'Глубина D (вылет)' : 'Высота короба H'}
+              value={dims[key]}
+              min={min}
+              max={max}
+              step={lim.step}
+              ariaLabel={
+                key === 'w' ? 'Ширина, мм' : key === 'd' ? 'Глубина (вылет), мм' : 'Высота короба, мм'
+              }
+              onChange={(v) => setDims((s) => ({ ...s, [key]: v }))}
+              ticks={ticks}
+              tickStyle={key === 'h' ? 'dot' : 'rule'}
+            />
+          );
+        })}
 
-        {familyModels.length > 1 && (
-          <div className="cfg-group">
-            <span className="lbl">Тип конструкции</span>
-            <div className="cfg-chips">
-              {familyModels.map((m) => (
-                <button
-                  key={m.slug}
-                  type="button"
-                  className="cfg-chip"
-                  aria-pressed={m.slug === model.slug}
-                  onClick={() => selectModel(m.slug)}
-                >
-                  {m.type ?? m.article}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="cfg-sep" />
-
-        {(['w', 'd', 'h'] as const).map((key) => (
-          <DimSlider
-            key={key}
-            label={key === 'w' ? 'Ширина W' : key === 'd' ? 'Глубина D (вылет)' : 'Высота короба H'}
-            value={dims[key]}
-            min={LIMITS[key].min}
-            max={LIMITS[key].max}
-            step={LIMITS[key].step}
-            ariaLabel={key === 'w' ? 'Ширина, мм' : key === 'd' ? 'Глубина (вылет), мм' : 'Высота короба, мм'}
-            onChange={(v) => setDims((s) => ({ ...s, [key]: v }))}
-          />
-        ))}
-
-        {isBase ? (
-          <p className="hint">Стандартный типоразмер линейки — цена из прайса.</p>
-        ) : (
+        {!hasListPrice && (
           <p className="hint">
-            Нужна другая форма — вырез, скос, патрубок вбок?{' '}
+            Габарит вне прайса или нужна другая форма — вырез, скос, патрубок вбок?{' '}
             <Link href="/nestandartnyy-zont" style={{ color: 'var(--color-supply)' }}>
               По вашему чертежу
             </Link>
@@ -601,40 +764,8 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
           </p>
         )}
 
-        <DimSlider
-          label="Нижняя кромка от пола"
-          value={mount}
-          min={LIMITS.mount.min}
-          max={LIMITS.mount.max}
-          step={LIMITS.mount.step}
-          ariaLabel="Высота нижней кромки от пола, мм"
-          onChange={setMount}
-          hint={
-            <p className="hint">
-              Рекомендация: свес за оборудование ≥ {ru(recommendOverhangMm(mount))} мм
-              (высота оборудования ~{COOK_LINE_H} мм; при дверях — больше).
-            </p>
-          }
-        />
-
-        <div className="cfg-group">
-          <span className="lbl">Скорость захвата, м/с</span>
-          <div className="cfg-chips">
-            {CAPTURE_VELOCITIES.map((v) => (
-              <button
-                key={v}
-                type="button"
-                className="cfg-chip"
-                aria-pressed={captureVelocity === v}
-                title={CAPTURE_VELOCITY_LABELS[v]}
-                onClick={() => setCaptureVelocity(v)}
-              >
-                {dec(v, 1)}
-              </button>
-            ))}
-          </div>
-          <p className="hint">{CAPTURE_VELOCITY_LABELS[captureVelocity]}</p>
-        </div>
+        <div className="cfg-slot-mount--controls">{renderMountSlider()}</div>
+        <div className="cfg-slot-velocity--controls">{renderVelocityGroup()}</div>
 
         <div className="cfg-sep" />
 
@@ -663,19 +794,53 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
         </div>
 
         <div className="cfg-group">
-          <span className="lbl">Дополнительное оборудование</span>
-          {OPTIONS.map((o) => (
-            <label key={o} className="cfg-opt">
-              <input
-                type="checkbox"
-                checked={options.includes(o)}
-                onChange={(e) =>
-                  setOptions((s) => (e.target.checked ? [...s, o] : s.filter((x) => x !== o)))
-                }
-              />
-              <span>{o}</span>
-            </label>
-          ))}
+          <span className="lbl">
+            Дополнительное оборудование{' '}
+            <span className="lbl-note">(увеличивает стоимость изделия)</span>
+          </span>
+          {OPTIONS.map((o) => {
+            const checked = options.includes(o);
+            const isLamps = o === OPTION_LAMPS;
+            return (
+              <div key={o} className={`cfg-opt-row${isLamps && checked ? ' cfg-opt-row--qty' : ''}`}>
+                <label className="cfg-opt">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setOptions((s) => (on ? [...s, o] : s.filter((x) => x !== o)));
+                      if (isLamps && on) setLampQty((q) => clampLampQty(q || LAMP_QTY_MIN));
+                    }}
+                  />
+                  <span>{o}</span>
+                </label>
+                {isLamps && checked && (
+                  <div className="cfg-opt-qty" aria-label="Число светильников">
+                    <button
+                      type="button"
+                      className="cfg-opt-qty__btn"
+                      aria-label="Меньше"
+                      disabled={lampQty <= LAMP_QTY_MIN}
+                      onClick={() => setLampQty((q) => clampLampQty(q - 1))}
+                    >
+                      −
+                    </button>
+                    <span className="cfg-opt-qty__val">{lampQty}</span>
+                    <button
+                      type="button"
+                      className="cfg-opt-qty__btn"
+                      aria-label="Больше"
+                      disabled={lampQty >= LAMP_QTY_MAX}
+                      onClick={() => setLampQty((q) => clampLampQty(q + 1))}
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <button type="button" className="btn btn-ghost w-full" onClick={reset}>
@@ -697,6 +862,43 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
 
       {/* ---------------- сцена ---------------- */}
       <div className="cfg-stage">
+        <div className="cfg-stage-pickers">
+          <div className="cfg-group">
+            <span className="lbl">Семейство</span>
+            <div className="cfg-chips">
+              {families.map((f) => (
+                <button
+                  key={f.code}
+                  type="button"
+                  className="cfg-chip"
+                  aria-pressed={f.code === model.family}
+                  title={f.title}
+                  onClick={() => selectModel(models.find((m) => m.family === f.code)!.slug)}
+                >
+                  {f.code}
+                </button>
+              ))}
+            </div>
+          </div>
+          {familyModels.length > 1 && (
+            <div className="cfg-group">
+              <span className="lbl">Тип конструкции</span>
+              <div className="cfg-chips">
+                {familyModels.map((m) => (
+                  <button
+                    key={m.slug}
+                    type="button"
+                    className="cfg-chip"
+                    aria-pressed={m.slug === model.slug}
+                    onClick={() => selectModel(m.slug)}
+                  >
+                    {m.type ?? m.article}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         <div className="cfg-toolbar">
           <div className="cfg-seg">
             <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}>
@@ -735,8 +937,9 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
                 article: model.article,
                 productName: family.title,
                 material,
-                lamps: options.includes(OPTIONS[3]),
-                options,
+                lamps: lampsOn,
+                lampQty: lampsOn ? lampQty : undefined,
+                options: [...options],
                 typeLabel: model.type,
               }}
             />
@@ -758,7 +961,8 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
               ducts={calc.ducts}
               mode={mode}
               material={material}
-              lamps={options.includes(OPTIONS[3])}
+              lamps={lampsOn}
+              lampQty={lampsOn ? lampQty : undefined}
               includeSpigots={withCollar}
               typeLabel={model.type}
               fitRequest={sceneFit}
@@ -878,20 +1082,29 @@ export function Configurator({ models, families, initialSlug, initialDims }: Pro
 
         <div className="cfg-group">
           <span className="lbl">Выгрузка</span>
-          <ExportButtons slug={model.slug} dims={dims} material={material} options={options} />
+          <ExportButtons
+            slug={model.slug}
+            dims={dims}
+            material={material}
+            options={[...options]}
+            lampQty={lampsOn ? lampQty : undefined}
+          />
           <p className="hint mt-2">
             IFC4: тело, патрубки, материал, количества и набор свойств конфигурации.
           </p>
         </div>
 
+        <div className="cfg-slot-mount--aside">{renderMountSlider()}</div>
+        <div className="cfg-slot-velocity--aside">{renderVelocityGroup()}</div>
+
         <div className="cfg-cta-block">
-          <Link href={calc.price && isBase ? orderHref : quoteHref} className="btn w-full">
-            {calc.price && isBase ? 'Заказать' : 'Запросить расчёт'}
+          <Link href={hasListPrice ? orderHref : quoteHref} className="btn w-full">
+            {hasListPrice ? 'Заказать' : 'Запросить расчёт'}
           </Link>
           <p className="hint mt-2">
-            {calc.price && isBase
-              ? 'Стандартный типоразмер — цена из прайса. В заявке можно уточнить опции и сроки.'
-              : 'Нестандартный габарит: приложите эскизы — производство посчитает сумму и срок.'}
+            {hasListPrice
+              ? 'Типоразмер из прайса. В заявке можно уточнить опции и сроки.'
+              : 'Габарит вне прайса: приложите эскизы — производство посчитает сумму и срок.'}
           </p>
         </div>
       </aside>

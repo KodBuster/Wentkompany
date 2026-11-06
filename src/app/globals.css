@@ -834,6 +834,15 @@
     font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.16em;
     text-transform: uppercase; color: var(--color-steel-400);
   }
+  /* Мелкая приписка у заголовка — не моно, не caps */
+  .lbl-note {
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--color-steel-500);
+  }
   .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   .muted { color: var(--color-steel-300); }
 
@@ -1258,7 +1267,8 @@
     min-width: 0;
     border: 1px solid var(--hair-l);
     border-radius: var(--radius-md);
-    overflow: hidden;
+    /* visible — иначе выпадающий список H/D/W обрезается */
+    overflow: visible;
     /* На тёплой полосе — белый лист, чтобы карточки не сливались */
     background: #fff;
     transition:
@@ -1395,6 +1405,101 @@
     text-align: right;
     font-variant-numeric: tabular-nums;
     color: var(--color-steel-200);
+  }
+  /* Выбор H/D/W: свой список с высотой ~7 пунктов и скроллом */
+  .product-size-order__dd {
+    position: relative;
+    min-width: 0;
+  }
+  .product-size-order__sel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    width: 100%;
+    min-height: 2.05rem;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    border-radius: 2px;
+  }
+  .product-size-order__caret {
+    opacity: 0.55;
+    font-size: 0.7rem;
+    line-height: 1;
+  }
+  .product-size-order__menu {
+    --dd-row: 2.05rem;
+    position: absolute;
+    z-index: 40;
+    left: 0;
+    right: 0;
+    top: calc(100% + 2px);
+    margin: 0;
+    padding: 0.15rem 0;
+    list-style: none;
+    max-height: calc(var(--dd-row) * 7);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    background: var(--color-sheet, #fff);
+    border: 1px solid var(--hair);
+    border-radius: 2px;
+    box-shadow: 0 10px 28px rgba(40, 28, 18, 0.14);
+  }
+  .product-size-order__opt {
+    display: block;
+    width: 100%;
+    min-height: var(--dd-row, 2.05rem);
+    padding: 0.35rem 0.65rem;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  .product-size-order__opt:hover,
+  .product-size-order__opt:focus-visible {
+    background: color-mix(in srgb, var(--color-extract, #8b5a3c) 12%, transparent);
+    outline: none;
+  }
+  .product-size-order__opt--on {
+    font-weight: 600;
+    background: color-mix(in srgb, var(--color-extract, #8b5a3c) 18%, transparent);
+  }
+
+  /* Выбор H/D/W на плитке ЗВП/ЗВО */
+  .product-size-order--tile {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .product-size-order--tile .product-size-order__row {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, 1.1fr) minmax(5.5rem, 0.9fr) 3.6rem 1.4rem;
+    gap: 0.35rem;
+    align-items: center;
+  }
+  .product-size-order--tile .product-size-order__lab {
+    font-size: 0.78rem;
+    line-height: 1.2;
+  }
+  .product-size-order--tile .product-size-order__sel,
+  .product-size-order--tile .product-size-order__inp {
+    width: 100%;
+    min-width: 0;
+    font-size: 0.8rem;
+  }
+  .product-size-order--tile .product-size-order__mm {
+    font-size: 0.75rem;
+  }
+  .product-size-order--tile .product-size-order__menu {
+    /* на узкой плитке список не должен уезжать под соседние карточки целиком */
+    min-width: 6.5rem;
   }
   .home-catalog__cta {
     display: flex;
@@ -1874,12 +1979,99 @@
     }
   }
 
+  /* Десктоп: кромка/скорость справа; мобилка — в левой колонке */
+  .cfg-slot-mount--aside,
+  .cfg-slot-velocity--aside {
+    display: none;
+  }
+  @media (min-width: 1181px) {
+    .cfg-slot-mount--controls,
+    .cfg-slot-velocity--controls {
+      display: none;
+    }
+    .cfg-slot-mount--aside,
+    .cfg-slot-velocity--aside {
+      display: block;
+    }
+  }
+
+  /* Семейство + тип над тулбаром сцены; на десктопе — в одну линию */
+  .cfg-stage-pickers {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.55rem 1.1rem;
+    padding: 0.65rem 0.75rem 0.55rem;
+    background: var(--color-sheet);
+    border-bottom: 1px solid var(--hair);
+  }
+  .cfg-stage-pickers .cfg-group {
+    margin-bottom: 0;
+    flex: 0 1 auto;
+  }
+
   @media (max-width: 1180px) {
     .cfg-shell { grid-template-columns: 1fr; }
     .cfg-stage { order: -1; }
     .cfg-viewport {
       aspect-ratio: 4 / 3;
       max-height: 440px;
+    }
+    /* Компактные чипы/сегменты — 6 семейств и тулбар в одну строку */
+    .cfg-chip {
+      font-size: 0.6rem;
+      letter-spacing: 0.01em;
+      padding: 0.2rem 0.28rem;
+      min-height: 28px;
+    }
+    .cfg-chips {
+      gap: 0.2rem;
+    }
+    .cfg-seg button {
+      font-size: 0.58rem;
+      letter-spacing: 0.04em;
+      padding: 0.22rem 0.38rem;
+      min-height: 28px;
+    }
+    .cfg-stage-pickers {
+      flex-direction: column;
+      align-items: stretch;
+      padding: 0.4rem 0.5rem 0.35rem;
+      gap: 0.35rem;
+    }
+    /* Семейства: равная ширина, без переноса шестого чипа */
+    .cfg-stage-pickers .cfg-chips {
+      flex-wrap: nowrap;
+    }
+    .cfg-stage-pickers .cfg-chip {
+      flex: 1 1 0;
+      min-width: 0;
+      padding-inline: 0.15rem;
+      text-align: center;
+    }
+    .cfg-toolbar {
+      flex-wrap: nowrap;
+      gap: 0.25rem;
+      padding: 0.35rem 0.45rem;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    /* Заголовок модели на узком экране съедает место у сегментов */
+    .cfg-toolbar > .lbl {
+      display: none;
+    }
+    /* 3D / Чертёж + Реализм / Рентген / Разнос — одна строка */
+    .cfg-toolbar .cfg-seg {
+      flex: 0 1 auto;
+      min-width: 0;
+    }
+    .cfg-toolbar .cfg-seg button {
+      font-size: 0.55rem;
+      letter-spacing: 0.02em;
+      padding: 0.18rem 0.28rem;
+      min-height: 26px;
+      white-space: nowrap;
     }
   }
 
@@ -2072,7 +2264,93 @@
 
   .cfg-cta-block { margin-top: auto; padding-top: 0.8rem; }
 
-  .cfg-range { -webkit-appearance: none; appearance: none; width: 100%; height: 26px; background: transparent; cursor: pointer; flex: 1 1 auto; min-width: 0; }
+  .cfg-range-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    /* Риски выше трека и кнопок ± — меньше рассинхрон с курсором у минуса */
+    padding-top: 22px;
+  }
+  .cfg-range-ticks {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 2px;
+    height: 16px;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  .cfg-range-tick {
+    pointer-events: auto;
+    position: absolute;
+    top: 0;
+    /* зона попадания: на мыши узкая (не перекрывает соседа), на таче — шире */
+    width: 8px;
+    height: 14px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    transform: translateX(-50%);
+    cursor: pointer;
+  }
+  @media (pointer: coarse) {
+    .cfg-range-tick {
+      width: 18px;
+    }
+  }
+  .cfg-range-tick::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 1px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color-steel-500);
+    transform: translateX(-50%);
+    transition: background 0.15s var(--ease-out), transform 0.15s var(--ease-out);
+  }
+  .cfg-range-tick:hover::after,
+  .cfg-range-tick:focus-visible::after {
+    background: var(--color-extract);
+    transform: translateX(-50%) scale(1.15);
+  }
+  .cfg-range-tick--on::after {
+    background: var(--color-extract);
+  }
+
+  /* W / D: линейка (чёрточки); H остаётся точками */
+  .cfg-range-ticks--rule .cfg-range-tick {
+    width: 9px;
+    height: 14px;
+  }
+  @media (pointer: coarse) {
+    .cfg-range-ticks--rule .cfg-range-tick {
+      width: 18px;
+    }
+  }
+  .cfg-range-ticks--rule .cfg-range-tick::after {
+    top: 2px;
+    width: 1px;
+    height: 9px;
+    border-radius: 0;
+    background: var(--color-steel-500);
+  }
+  .cfg-range-ticks--rule .cfg-range-tick--major::after {
+    width: 2px;
+    height: 12px;
+    top: 0;
+    background: var(--color-steel-300);
+  }
+  .cfg-range-ticks--rule .cfg-range-tick:hover::after,
+  .cfg-range-ticks--rule .cfg-range-tick:focus-visible::after,
+  .cfg-range-ticks--rule .cfg-range-tick--on::after {
+    background: var(--color-extract);
+    transform: translateX(-50%);
+  }
+  .cfg-range { -webkit-appearance: none; appearance: none; width: 100%; height: 26px; background: transparent; cursor: pointer; display: block; }
   .cfg-range::-webkit-slider-runnable-track { height: 2px; background: var(--color-steel-600); }
   .cfg-range::-moz-range-track { height: 2px; background: var(--color-steel-600); }
   .cfg-range::-webkit-slider-thumb {
@@ -2081,6 +2359,10 @@
   }
   .cfg-range::-moz-range-thumb { width: 12px; height: 22px; background: var(--color-extract); border: 0; border-radius: 2px; }
 
+  .cfg-opt-row {
+    display: flex; align-items: stretch; gap: 0.4rem; margin-bottom: 0.35rem;
+  }
+  .cfg-opt-row .cfg-opt { flex: 1 1 auto; margin: 0; }
   .cfg-opt {
     display: flex; gap: 0.55rem; align-items: center; font-size: 0.85rem; color: var(--color-steel-200);
     cursor: pointer; border: 1px solid var(--color-steel-700); padding: 0.42rem 0.6rem; min-height: 38px;
@@ -2089,6 +2371,23 @@
   }
   .cfg-opt:hover { border-color: var(--color-steel-500); }
   .cfg-opt input { accent-color: var(--color-extract); }
+  /* Счётчик штук у светильников — рядом с галкой */
+  .cfg-opt-qty {
+    display: inline-flex; align-items: center; gap: 0;
+    border: 1px solid var(--color-steel-700); border-radius: var(--radius-sm);
+    overflow: hidden; flex: 0 0 auto; min-height: 38px;
+  }
+  .cfg-opt-qty__btn {
+    width: 2rem; min-height: 38px; border: 0; background: transparent;
+    color: var(--color-steel-200); cursor: pointer; font-size: 1rem; line-height: 1;
+  }
+  .cfg-opt-qty__btn:hover:not(:disabled) { color: var(--color-extract); background: rgba(184, 92, 56, 0.1); }
+  .cfg-opt-qty__btn:disabled { opacity: 0.35; cursor: default; }
+  .cfg-opt-qty__val {
+    min-width: 1.6rem; text-align: center; font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums; font-size: 0.85rem; color: var(--color-steel-100);
+    border-inline: 1px solid var(--color-steel-700); padding: 0 0.25rem;
+  }
 
   .cfg-price {
     font-family: var(--font-mono); font-size: 1.8rem; line-height: 1;
@@ -2258,6 +2557,10 @@
   /* На сенсорных экранах цели нажатия не меньше 44 px */
   @media (pointer: coarse) {
     .cfg-chip, .cfg-seg button, .export-row button, .cfg-dl button { min-height: 44px; }
+    /* Сцена: плотнее, иначе 6 семейств и тулбар ломаются на две строки */
+    .cfg-stage .cfg-chip { min-height: 32px; }
+    .cfg-stage .cfg-seg button { min-height: 28px; }
+    .cfg-toolbar .cfg-seg button { min-height: 26px; }
     .cfg-range { height: 44px; }
     .tile-cta { padding-top: 1rem; padding-bottom: 0.4rem; }
     header a, footer a { min-height: 32px; display: inline-flex; align-items: center; }

@@ -25,12 +25,20 @@ interface Props {
   dims: Dims;
   material?: '430' | '304';
   options?: string[];
+  /** Число точечных светильников при выбранной опции. */
+  lampQty?: number;
   kinds?: ExportKind[];
   className?: string;
 }
 
 export function ExportButtons({
-  slug, dims, material, options = [], kinds = ['pdf', 'svg', 'quote', 'dxf', 'ifc'], className = 'cfg-dl',
+  slug,
+  dims,
+  material,
+  options = [],
+  lampQty,
+  kinds = ['pdf', 'svg', 'quote', 'dxf', 'ifc'],
+  className = 'cfg-dl',
 }: Props) {
   const [busy, setBusy] = useState<ExportKind | null>(null);
   const [error, setError] = useState('');
@@ -49,6 +57,7 @@ export function ExportButtons({
           dims,
           ...(material ? { material } : {}),
           options,
+          ...(typeof lampQty === 'number' ? { lampQty } : {}),
         }),
       });
       if (!res.ok) {

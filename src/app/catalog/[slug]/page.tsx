@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   families, products, familyBySlug, familyByCode, productBySlug, productsOf, traitsOf, shortName, schemeOf,
-  soleProductOf, supportsParametricDrawing, type Product,
+  soleProductOf, supportsParametricDrawing, productPriceAt, type Product,
 } from '@/lib/catalog';
 import {
   calculate,
@@ -16,7 +16,9 @@ import {
   sizeOrderCaption,
   sizeSpaced,
 } from '@/lib/calc';
+import { isMatrixArticle } from '@/lib/prices';
 import { HoodDiagram } from '@/components/hood-diagram';
+import { ProductSizeOrder } from '@/components/product-size-order';
 
 /** Линейки коробчатой формы, к которым подходит схема с выносками.
  *  «Пирамида» имеет другую геометрию, гидрофильтр и щит — не зонты. */
@@ -52,8 +54,22 @@ const sizesWord = (n: number) =>
 /** Описание из данных изделия: у типоразмеров одной линейки тексты в выгрузке совпадают. */
 function productDescription(p: Product): string {
   if (!p.base) return (p.short || p.description).slice(0, 300);
+  const baseSell = productPriceAt(p.article, p.base, p.base);
+  if (isMatrixArticle(p.article)) {
+    return [
+      `${p.name}: габарит H/D/W ${sizeLabelMm(p.base)}`,
+      baseSell
+        ? `цена типоразмера от ${rub(p.price ?? baseSell)}`
+        : p.price
+          ? `цена от ${rub(p.price)}`
+          : 'цена после расчёта',
+    ].join(', ') + `. Нержавеющая сталь ${p.materials.join(' / ')}, изготовление по размерам объекта.`;
+  }
   const traits = traitsOf(p.family);
-  const c = calculate(p.base, traits, p.base, p.price, defaultMaterialGrade(traits.hydro), { typeLabel: p.type });
+  const c = calculate(p.base, traits, p.base, p.price, defaultMaterialGrade(traits.hydro), {
+    typeLabel: p.type,
+    article: p.article,
+  });
   return [
     `${p.name}: габарит H/D/W ${sizeLabelMm(p.base)}`,
     `расчётный расход ${ru(c.airflow)} м³/ч, вытяжка ${c.ducts.count} × Ø${c.ducts.diameter}` +
@@ -136,45 +152,52 @@ function FamilyView({ slug }: { slug: string }) {
 
         <div className="tiles" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
           {items.map((p) => {
-            const c = p.base
-              ? calculate(p.base, traits, p.base, p.price, undefined, { typeLabel: p.type })
-              : null;
+            const matrix = isMatrixArticle(p.article);
+            /* ЗВП/ЗВО — выбор размера на плитке; остальные зонты — только габарит. */
+            const showSize = !!p.base && !matrix;
             return (
               <article key={p.id} className="tile">
                 <Link href={`/catalog/${p.slug}`} className="no-underline">
                   <span className="lbl">{shortName(p)}</span>
                   <h3>{p.name.replace(/\s*\([^)]*\)\s*$/, '')}</h3>
                 </Link>
-                <dl className="mt-1 flex flex-col gap-1.5 text-sm">
-                  <Row k={sizeOrderCaption()} v={p.base ? sizeLabelMm(p.base) : '—'} />
-                  {c && <Row k="Расход, расчёт" v={`${ru(c.airflow)} м³/ч`} />}
-                  {c && <Row k="Вытяжка" v={`${c.ducts.count} × Ø${c.ducts.diameter}`} />}
-                  {c?.supplyDucts && (
-                    <Row k="Приток" v={`${c.supplyDucts.count} × Ø${c.supplyDucts.diameter}`} />
-                  )}
-                  {c?.supplyGrilles != null && (
-                    <Row k="Решётки притока" v={`${c.supplyGrilles} шт`} />
-                  )}
-                </dl>
-                <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t pt-3" style={{ borderColor: 'var(--hair)' }}>
-                  <span className="num text-xl">{p.price ? rub(p.price) : 'после расчёта'}</span>
-                  {p.base ? (
-                    <Link
-                      href={
-                        p.price
-                          ? `/contacts?mode=order&slug=${encodeURIComponent(p.slug)}`
-                          : `/contacts?mode=quote&slug=${encodeURIComponent(p.slug)}`
-                      }
-                      className="btn"
-                    >
-                      {p.price ? 'Заказать' : 'Запросить расчёт'}
-                    </Link>
-                  ) : (
-                    <Link href={`/catalog/${p.slug}`} className="btn btn-ghost">
-                      Подробнее
-                    </Link>
-                  )}
-                </div>
+                {showSize && (
+                  <dl className="mt-1 flex flex-col gap-1.5 text-sm">
+                    <Row k={sizeOrderCaption()} v={sizeLabelMm(p.base!)} />
+                  </dl>
+                )}
+                {matrix && p.base ? (
+                  <div className="mt-2 flex flex-1 flex-col">
+                    <ProductSizeOrder
+                      slug={p.slug}
+                      article={p.article}
+                      initial={p.base}
+                      layout="tile"
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t pt-3" style={{ borderColor: 'var(--hair)' }}>
+                    <span className="num text-xl">
+                      {p.price ? rub(p.price) : 'после расчёта'}
+                    </span>
+                    {p.base ? (
+                      <Link
+                        href={
+                          p.price
+                            ? `/contacts?mode=order&slug=${encodeURIComponent(p.slug)}`
+                            : `/contacts?mode=quote&slug=${encodeURIComponent(p.slug)}`
+                        }
+                        className="btn"
+                      >
+                        {p.price ? 'Заказать' : 'Запросить расчёт'}
+                      </Link>
+                    ) : (
+                      <Link href={`/catalog/${p.slug}`} className="btn btn-ghost">
+                        Подробнее
+                      </Link>
+                    )}
+                  </div>
+                )}
               </article>
             );
           })}
@@ -235,16 +258,24 @@ function ProductView({ slug }: { slug: string }) {
   const traits = traitsOf(p.family);
   const family = familyByCode(p.family);
   const material = defaultMaterialGrade(traits.hydro);
+  const matrix = isMatrixArticle(p.article);
   const c = p.base
-    ? calculate(p.base, traits, p.base, p.price, material, { typeLabel: p.type })
+    ? calculate(p.base, traits, p.base, p.price, material, {
+        typeLabel: p.type,
+        article: p.article,
+      })
     : null;
   const related = productsOf(p.family).filter((x) => x.id !== p.id).slice(0, 3);
   /** У однопозиционной линейки её страница канонизирована сюда — в крошках её не показываем. */
   const familyCrumb = family && !soleProductOf(family.code) ? family : null;
   const url = absUrl(`/catalog/${p.slug}`);
+  /** Offer: для матрицы — цена каталожного base, иначе минимум/legacy. */
+  const offerPrice = p.base
+    ? productPriceAt(p.article, p.base, p.base) ?? (matrix ? null : p.price)
+    : p.price;
 
   // Без цены Offer не выводим: сумму не выдумываем
-  const productJsonLd = p.price
+  const productJsonLd = offerPrice
     ? {
         '@context': 'https://schema.org',
         '@type': 'Product',
@@ -258,11 +289,13 @@ function ProductView({ slug }: { slug: string }) {
         manufacturer: { '@id': ORG_ID },
         offers: {
           '@type': 'Offer',
-          price: p.price,
+          price: offerPrice,
           priceCurrency: 'RUB',
           // стандартный типоразмер изготавливается под заказ, не со склада
           availability: 'https://schema.org/MadeToOrder',
-          description: 'цена стандартного типоразмера',
+          description: matrix
+            ? `цена типоразмера ${p.base ? sizeLabelMm(p.base) : ''}`.trim()
+            : 'цена стандартного типоразмера',
           url,
           seller: { '@id': ORG_ID },
         },
@@ -305,43 +338,55 @@ function ProductView({ slug }: { slug: string }) {
               </ul>
             )}
 
-            <div className="mt-8 flex flex-wrap items-baseline gap-4">
-              <span className="num text-4xl">{p.price ? rub(p.price) : 'после расчёта'}</span>
-              {p.price && <span className="badge">цена для стандартного типоразмера</span>}
-              {!p.price && <span className="badge badge-warn">после расчёта</span>}
-            </div>
-            <div className="mt-6 flex flex-wrap gap-3">
-              {p.base && (
-                <Link
-                  href={
-                    p.price
-                      ? `/contacts?mode=order&slug=${encodeURIComponent(p.slug)}`
-                      : `/contacts?mode=quote&slug=${encodeURIComponent(p.slug)}`
-                  }
-                  className="btn"
-                >
-                  {p.price ? 'Заказать' : 'Запросить расчёт'}
-                </Link>
-              )}
-              {CONFIGURABLE.includes(p.family) ? (
-                <>
-                  <Link
-                    href={`/configurator?slug=${encodeURIComponent(p.slug)}${
-                      p.base ? `&h=${p.base.h}&w=${p.base.w}&d=${p.base.d}` : ''
-                    }`}
-                    className={p.base ? 'btn btn-ghost' : 'btn'}
-                  >
-                    Открыть в конфигураторе
-                  </Link>
-                  {!p.base && <Link href="/contacts" className="btn btn-ghost">Запросить расчёт</Link>}
-                </>
-              ) : (
-                <>
-                  {!p.base && <Link href="/contacts" className="btn">Запросить расчёт</Link>}
-                  <Link href="/normy-mchs" className="btn btn-ghost">Требования МЧС</Link>
-                </>
-              )}
-            </div>
+            {matrix && p.base ? (
+              <ProductSizeOrder
+                slug={p.slug}
+                article={p.article}
+                initial={p.base}
+                configurable={CONFIGURABLE.includes(p.family)}
+                layout="page"
+              />
+            ) : (
+              <>
+                <div className="mt-8 flex flex-wrap items-baseline gap-4">
+                  <span className="num text-4xl">{p.price ? rub(p.price) : 'после расчёта'}</span>
+                  {p.price && <span className="badge">цена для стандартного типоразмера</span>}
+                  {!p.price && <span className="badge badge-warn">после расчёта</span>}
+                </div>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  {p.base && (
+                    <Link
+                      href={
+                        p.price
+                          ? `/contacts?mode=order&slug=${encodeURIComponent(p.slug)}`
+                          : `/contacts?mode=quote&slug=${encodeURIComponent(p.slug)}`
+                      }
+                      className="btn"
+                    >
+                      {p.price ? 'Заказать' : 'Запросить расчёт'}
+                    </Link>
+                  )}
+                  {CONFIGURABLE.includes(p.family) ? (
+                    <>
+                      <Link
+                        href={`/configurator?slug=${encodeURIComponent(p.slug)}${
+                          p.base ? `&h=${p.base.h}&w=${p.base.w}&d=${p.base.d}` : ''
+                        }`}
+                        className={p.base ? 'btn btn-ghost' : 'btn'}
+                      >
+                        Открыть в конфигураторе
+                      </Link>
+                      {!p.base && <Link href="/contacts" className="btn btn-ghost">Запросить расчёт</Link>}
+                    </>
+                  ) : (
+                    <>
+                      {!p.base && <Link href="/contacts" className="btn">Запросить расчёт</Link>}
+                      <Link href="/normy-mchs" className="btn btn-ghost">Требования МЧС</Link>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex flex-col gap-4">
@@ -391,7 +436,7 @@ function ProductView({ slug }: { slug: string }) {
               </table>
             </div>
 
-            {c && (
+            {c && !matrix && (
               <div className="scroll-x border" style={{ borderColor: 'var(--hair)', background: 'var(--color-steel-900)' }}>
                 <table className="spec">
                   <tbody>
@@ -412,7 +457,7 @@ function ProductView({ slug }: { slug: string }) {
                 </table>
               </div>
             )}
-            {c && (
+            {c && !matrix && (
               <p className="lbl">Синим — расчётные величины конфигуратора, методика сверяется с производством.</p>
             )}
           </div>
@@ -523,7 +568,11 @@ function ProductView({ slug }: { slug: string }) {
                   <span className="lbl">{shortName(r)}</span>
                   <h3>{r.base ? sizeLabelMm(r.base) : r.name}</h3>
                   <span className="num mt-auto border-t pt-3" style={{ borderColor: 'var(--hair)' }}>
-                    {r.price ? rub(r.price) : 'после расчёта'}
+                    {r.price
+                      ? isMatrixArticle(r.article)
+                        ? `от ${rub(r.price)}`
+                        : rub(r.price)
+                      : 'после расчёта'}
                   </span>
                 </Link>
               ))}

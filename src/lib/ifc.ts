@@ -73,6 +73,7 @@ export interface IfcInput {
   designation: string;
   material: '430' | '304';
   lamps?: boolean;
+  lampQty?: number;
   typeLabel?: string | null;
   options?: string[];
 }
@@ -82,6 +83,7 @@ export function buildIfc(input: IfcInput): string {
   const withCollar = hasCollarOption(input.options);
   const layout = buildLayout(dims, traits, calc.ducts, {
     lamps: input.lamps,
+    lampQty: input.lampQty,
     typeLabel: input.typeLabel,
     includeSpigots: withCollar,
   });

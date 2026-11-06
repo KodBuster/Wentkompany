@@ -17,7 +17,11 @@
  * Надбавки опций — data/prices.json → options (через prices.ts).
  */
 
-import { optionSurchargeRub } from './prices.ts';
+import {
+  displayPriceForDims,
+  isMatrixArticle,
+  optionSurchargeRub,
+} from './prices.ts';
 
 /** К ближайшей сотне ₽ (дубль prices.roundPriceRub без цикличного импорта). */
 export function roundPriceRub(value: number): number {
@@ -88,9 +92,20 @@ const FRONT_BOARD_H = 100;
 
 /** Опция присоединительной врезки — патрубки на изделии. */
 export const OPTION_COLLAR = 'Врезка присоединительная';
+/** Точечные светильники — надбавка в прайсе за штуку. */
+export const OPTION_LAMPS = 'Точечные светодиодные светильники';
+
+export const LAMP_QTY_MIN = 1;
+export const LAMP_QTY_MAX = 12;
 
 export function hasCollarOption(options?: readonly string[] | null): boolean {
   return !!options?.includes(OPTION_COLLAR);
+}
+
+/** Число светильников в пределах разумного для короба. */
+export function clampLampQty(n: number): number {
+  if (!Number.isFinite(n)) return LAMP_QTY_MIN;
+  return Math.min(LAMP_QTY_MAX, Math.max(LAMP_QTY_MIN, Math.round(n)));
 }
 
 export interface AirflowOpts {
@@ -98,6 +113,13 @@ export interface AirflowOpts {
   typeLabel?: string | null;
   /** Выбранные опции — надбавки из data/prices.json → options. */
   options?: string[];
+  /** Число точечных светильников (если опция выбрана); по умолчанию 1. */
+  lampQty?: number;
+  /**
+   * Артикул изделия: для ЗВП/ЗВО цена берётся из матрицы H/D/W,
+   * а не только при совпадении с каталожным base.
+   */
+  article?: string | null;
 }
 
 /** Ряд диаметров врезок из таблицы производства, мм (вытяжка + приток). */
@@ -349,9 +371,11 @@ export interface PriceResult {
 }
 
 /**
- * Цена изделия только для стандартного типоразмера (прайс).
- * Нестандартный габарит → null (на витрине «запросить цену», без оценки).
- * Надбавка AISI 304 — только апгрейд сухого зонта на стандарте (у гидро 304 уже в прайсе).
+ * Цена изделия по прайсу.
+ * ЗВП/ЗВО: точное совпадение H/D/W в матрице (+20%); иначе null.
+ * Legacy (ПИР/ГФ/ЗВПГ/ЗВОГ): только каталожный base + basePrice (−10%/+20% уже в basePrice).
+ * ЗПВП/ЗПВО: всегда null (цена по запросу).
+ * Надбавка AISI 304 — апгрейд сухого зонта на прайсовой ячейке (у гидро 304 уже в прайсе).
  */
 export function price(
   dims: Dims,
@@ -359,12 +383,28 @@ export function price(
   basePrice: number | null,
   material: '430' | '304',
   hydro = false,
+  article?: string | null,
 ): PriceResult | null {
+  const upgradedTo304 = material === '304' && !hydro;
+
+  if (article && isMatrixArticle(article)) {
+    const matrixSell = displayPriceForDims(article, dims);
+    if (matrixSell == null) return null;
+    let value = matrixSell;
+    if (upgradedTo304) value *= AISI304_FACTOR;
+    return {
+      value: roundPriceRub(value),
+      estimate: upgradedTo304,
+      note: upgradedTo304
+        ? 'Надбавка за AISI 304 к цене типоразмера из матрицы. Точную сумму подтверждает производство.'
+        : 'Цена типоразмера из матрицы прайса.',
+    };
+  }
+
   if (!basePrice || !base) return null;
   const isBase = dims.h === base.h && dims.w === base.w && dims.d === base.d;
   if (!isBase) return null;
   let value = basePrice;
-  const upgradedTo304 = material === '304' && !hydro;
   if (upgradedTo304) value *= AISI304_FACTOR;
   return {
     /* После формулы / надбавки 304 — к ближайшей сотне ₽ */
@@ -416,17 +456,29 @@ export function calculate(
   if (ducts.velocity > 9) {
     warnings.push('Скорость в вытяжном патрубке выше 9 м/с — сверьте с сетью объекта.');
   }
-  if (base && (dims.w !== base.w || dims.d !== base.d || dims.h !== base.h)) {
+  if (opts?.article && isMatrixArticle(opts.article)) {
+    if (displayPriceForDims(opts.article, dims) == null) {
+      warnings.push('Нестандартный габарит: срок изготовления может увеличиться.');
+    }
+  } else if (base && (dims.w !== base.w || dims.d !== base.d || dims.h !== base.h)) {
     warnings.push('Нестандартный габарит: срок изготовления может увеличиться.');
   }
   if (traits.hydro) {
     warnings.push('п. 5.30 СП 7.13130.2013 — нужен щит автоматики и питание по 1-й категории надёжности.');
   }
 
-  const basePriceResult = price(dims, base, basePrice, grade, traits.hydro);
-  /* Врезка в прайсе — за штуку; множитель = число вытяжных патрубков из сетки. */
+  const basePriceResult = price(
+    dims,
+    base,
+    basePrice,
+    grade,
+    traits.hydro,
+    opts?.article,
+  );
+  /* Врезка и светильники — за штуку; проушины/кран — за позицию (qty=1). */
   const optionsExtra = optionSurchargeRub(opts?.options, {
     [OPTION_COLLAR]: ducts.count,
+    [OPTION_LAMPS]: clampLampQty(opts?.lampQty ?? LAMP_QTY_MIN),
   });
   const priced =
     basePriceResult && optionsExtra > 0

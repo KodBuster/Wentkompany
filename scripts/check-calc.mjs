@@ -14,11 +14,17 @@ import {
   steelArea,
   roundPriceRub,
 } from '../src/lib/calc.ts';
+import {
+  displayPriceForDims,
+  isMatrixArticle,
+  sellPriceMatrix,
+} from '../src/lib/prices.ts';
 import { buildLayout, wallType2Chamfer, islandType2Chamfer } from '../src/lib/geometry.ts';
 import { buildSheet, toSheet, SCALE_SERIES, SHEET_FIELDS, chooseScale } from '../src/lib/drawing.ts';
 import { buildDxf, translit } from '../src/lib/dxf.ts';
 
 const catalog = JSON.parse(readFileSync(new URL('../src/data/catalog.json', import.meta.url), 'utf8'));
+const pricesFile = JSON.parse(readFileSync(new URL('../data/prices.json', import.meta.url), 'utf8'));
 const traitsOf = (code) => {
   const f = catalog.families.find((x) => x.code === code);
   return { island: !!f.island, supply: !!f.supply, hydro: !!f.hydro };
@@ -30,7 +36,10 @@ const rows = [];
 for (const p of catalog.products) {
   if (!p.base) continue;
   const traits = traitsOf(p.family);
-  const c = calculate(p.base, traits, p.base, p.price, undefined, { typeLabel: p.type });
+  const c = calculate(p.base, traits, p.base, p.price, undefined, {
+    typeLabel: p.type,
+    article: p.article,
+  });
 
   assert.ok(c.airflow > 0, `${p.article}: расход должен быть положительным`);
   assert.ok(
@@ -42,7 +51,18 @@ for (const p of catalog.products) {
     `${p.article}: Ø${c.ducts.diameter} вне таблицы производства`,
   );
   assert.ok(c.mass > 0 && c.mass < 500, `${p.article}: масса вне разумного диапазона`);
-  if (p.price) {
+
+  if (isMatrixArticle(p.article)) {
+    const expected = displayPriceForDims(p.article, p.base);
+    assert.ok(
+      expected != null,
+      `${p.article}: каталожный base ${p.base.h}/${p.base.d}/${p.base.w} должен быть в матрице`,
+    );
+    assert.equal(c.price?.value, expected, `${p.article}: цена из матрицы`);
+    assert.equal(c.price?.estimate, false, `${p.article}: матрица без оценки`);
+  } else if (p.article.startsWith('ЗПВП') || p.article.startsWith('ЗПВО')) {
+    assert.equal(c.price, null, `${p.article}: приток — цена по запросу`);
+  } else if (p.price) {
     /* calculate округляет до сотни; в catalog.json могут лежать «сырые» цифры */
     assert.equal(
       c.price.value,
@@ -59,21 +79,57 @@ for (const p of catalog.products) {
     `${c.ducts.count}×Ø${c.ducts.diameter}`.padStart(8),
     `${c.ducts.velocity.toFixed(1)} м/с`.padStart(9),
     `${Math.round(c.mass)} кг`.padStart(7),
-    p.price ? `${p.price} ₽` : '—',
+    c.price ? `${c.price.value} ₽` : '—',
   ].join('  '));
 }
 
-/* вне эталона цена на витрине не считается — только заявка */
+/* Матрица ЗВП-1 350/600/600: 7774 × 1.2 → 9300 */
+{
+  const src = pricesFile.matrix['ЗВП-1']['350|600|600'];
+  assert.equal(src, 7774, 'исходник ЗВП-1 350/600/600');
+  assert.equal(sellPriceMatrix(src, pricesFile.factors), 9300, 'витрина матрицы +20%');
+  const hit = calculate(
+    { h: 350, w: 600, d: 600 },
+    traitsOf('ЗВП'),
+    { h: 350, w: 600, d: 600 },
+    null,
+    undefined,
+    { article: 'ЗВП-1', typeLabel: 'ТИП 1' },
+  );
+  assert.equal(hit.price?.value, 9300, 'calculate: матричный hit');
+  const miss = calculate(
+    { h: 350, w: 601, d: 600 },
+    traitsOf('ЗВП'),
+    { h: 350, w: 600, d: 600 },
+    null,
+    undefined,
+    { article: 'ЗВП-1', typeLabel: 'ТИП 1' },
+  );
+  assert.equal(miss.price, null, 'calculate: вне матрицы — без цены');
+}
+
+/* ЗПВО без матрицы — цена по запросу даже на «эталоне» */
 const base = { h: 350, w: 1200, d: 600 };
 const traits = traitsOf('ЗПВО');
-const small = calculate({ h: 350, w: 800, d: 600 }, traits, base, 16000);
-const large = calculate({ h: 350, w: 2400, d: 900 }, traits, base, 16000);
-const exact = calculate(base, traits, base, 16000);
-assert.equal(small.price, null, 'меньший нестандарт — без цены');
-assert.equal(large.price, null, 'больший нестандарт — без цены');
-assert.equal(exact.price?.value, 16000, 'эталон отдаёт прайс');
-assert.equal(exact.price?.estimate, false, 'эталон без пометки оценки');
+const small = calculate({ h: 350, w: 800, d: 600 }, traits, base, 16000, undefined, {
+  article: 'ЗПВО-1',
+});
+const large = calculate({ h: 350, w: 2400, d: 900 }, traits, base, 16000, undefined, {
+  article: 'ЗПВО-1',
+});
+const exact = calculate(base, traits, base, 16000, undefined, { article: 'ЗПВО-1' });
+assert.equal(small.price, null, 'ЗПВО меньший — без цены');
+assert.equal(large.price, null, 'ЗПВО больший — без цены');
+assert.equal(exact.price, null, 'ЗПВО эталон — тоже по запросу');
 assert.ok(steelArea(base) > 0);
+
+/* Legacy без article: basePrice только на совпадении с base */
+{
+  const legacyExact = calculate(base, traits, base, 16000);
+  const legacyOff = calculate({ h: 350, w: 800, d: 600 }, traits, base, 16000);
+  assert.equal(legacyExact.price?.value, 16000, 'legacy без article: эталон отдаёт basePrice');
+  assert.equal(legacyOff.price, null, 'legacy без article: вне base — без цены');
+}
 
 /* подбор врезок: таблица производства */
 const wallTraits = { island: false, supply: false, hydro: false };
