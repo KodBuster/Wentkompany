@@ -121,7 +121,7 @@ function SizeDropdown({
 }
 
 /**
- * Выбор H/D/W: список + поле ввода, цена при точном совпадении с матрицей.
+ * Выбор H/D/W из прайса (только списки), цена при точном совпадении с матрицей.
  * layout=tile — компактно на плитке главной; page — блок на странице изделия.
  */
 export function ProductSizeOrder({
@@ -140,11 +140,6 @@ export function ProductSizeOrder({
   const start = useMemo(() => resolveInitial(article, initial), [article, initial]);
   const axes = useMemo(() => matrixAxisValues(article), [article]);
   const [dims, setDims] = useState<Dims>(start);
-  const [draft, setDraft] = useState<Record<Axis, string>>({
-    h: String(start.h),
-    d: String(start.d),
-    w: String(start.w),
-  });
   const [openAxis, setOpenAxis] = useState<Axis | null>(null);
 
   const price = displayPriceForDims(article, dims);
@@ -155,20 +150,7 @@ export function ProductSizeOrder({
     w: matrixAllowedValues(article, { h: dims.h, d: dims.d }, 'w'),
   };
 
-  function commitAxis(axis: Axis, raw: string) {
-    const cleaned = raw.replace(/\s/g, '').replace(/мм/gi, '').replace(',', '.');
-    const n = Number(cleaned);
-    if (!Number.isFinite(n) || n <= 0) {
-      setDraft((s) => ({ ...s, [axis]: String(dims[axis]) }));
-      return;
-    }
-    const next = Math.round(n);
-    setDraft((s) => ({ ...s, [axis]: String(next) }));
-    setDims((s) => ({ ...s, [axis]: next }));
-  }
-
   function pickAxis(axis: Axis, value: number) {
-    setDraft((s) => ({ ...s, [axis]: String(value) }));
     setDims((s) => ({ ...s, [axis]: value }));
   }
 
@@ -221,25 +203,6 @@ export function ProductSizeOrder({
                 onOpenChange={(next) => setOpenAxis(next ? axis : null)}
                 onChange={(v) => pickAxis(axis, v)}
               />
-              <input
-                type="text"
-                inputMode="numeric"
-                className="border bg-transparent px-2 py-1.5 num product-size-order__inp"
-                style={{ borderColor: 'var(--hair)' }}
-                value={draft[axis]}
-                onChange={(e) => setDraft((s) => ({ ...s, [axis]: e.target.value }))}
-                onBlur={() => commitAxis(axis, draft[axis])}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    commitAxis(axis, draft[axis]);
-                  }
-                }}
-                aria-label={`${AXIS_LABEL[axis]}, ввод мм`}
-              />
-              <span className="muted product-size-order__mm" aria-hidden>
-                мм
-              </span>
             </div>
           );
         })}

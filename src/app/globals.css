@@ -1480,7 +1480,7 @@
   }
   .product-size-order--tile .product-size-order__row {
     display: grid;
-    grid-template-columns: minmax(7.5rem, 1.1fr) minmax(5.5rem, 0.9fr) 3.6rem 1.4rem;
+    grid-template-columns: minmax(7.5rem, 1.1fr) minmax(6rem, 1fr);
     gap: 0.35rem;
     align-items: center;
   }
@@ -1488,14 +1488,10 @@
     font-size: 0.78rem;
     line-height: 1.2;
   }
-  .product-size-order--tile .product-size-order__sel,
-  .product-size-order--tile .product-size-order__inp {
+  .product-size-order--tile .product-size-order__sel {
     width: 100%;
     min-width: 0;
     font-size: 0.8rem;
-  }
-  .product-size-order--tile .product-size-order__mm {
-    font-size: 0.75rem;
   }
   .product-size-order--tile .product-size-order__menu {
     /* на узкой плитке список не должен уезжать под соседние карточки целиком */
